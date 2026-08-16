@@ -15,24 +15,6 @@ export interface BookingEntryDto {
   website_hp?: string;
 }
 
-export interface CreateOwnerRequestDto {
-  full_name: string;
-  phone_number: string;
-  whatsapp_number: string;
-  email?: string | null;
-  citizenship_or_id_no: string;
-  vehicle_type_id: number;
-  make_model: string;
-  license_plate: string;
-  seating_capacity: number;
-  manufacture_year?: number | null;
-  color?: string | null;
-  citizenship_doc_id?: string | null;
-  bluebook_doc_id?: string | null;
-  license_doc_id?: string | null;
-  website_hp?: string;
-}
-
 export interface PublicStatsDto {
   fleet_count: number;
   completed_trips: number;
@@ -41,14 +23,20 @@ export interface PublicStatsDto {
   average_rating: number;
 }
 
-export interface NotificationDto {
-  notificationId: number;
-  title: string;
-  message: string;
-  isRead: boolean;
-  relatedEntityId?: number | null;
-  notificationType?: string | null;
-  createdAt: string;
+export interface PublicReviewDto {
+  customer_name: string;
+  rating: number;
+  comment: string;
+  trip_title?: string | null;
+  created_at?: string;
+}
+
+export interface CreateReviewDto {
+  customer_name: string;
+  rating: number;
+  comment: string;
+  trip_title?: string | null;
+  website_hp?: string;
 }
 
 export interface ApiMessageResponse {

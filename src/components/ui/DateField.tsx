@@ -4,7 +4,9 @@ import DateTimePicker, {
 import { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import type { ThemeColors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeProvider';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import { radius, spacing } from '../../theme/spacing';
 import { formatDisplayDate, startOfToday } from '../../utils/dates';
 
@@ -23,6 +25,8 @@ export function DateField({
   error,
   minimumDate = startOfToday(),
 }: DateFieldProps) {
+  const { isDark } = useTheme();
+  const styles = useThemedStyles(createStyles);
   const [open, setOpen] = useState(false);
   const selected = value ?? minimumDate;
 
@@ -74,7 +78,7 @@ export function DateField({
                 value={selected}
                 mode="date"
                 display="spinner"
-                themeVariant="dark"
+                themeVariant={isDark ? 'dark' : 'light'}
                 minimumDate={minimumDate}
                 onChange={handleChange}
               />
@@ -86,59 +90,61 @@ export function DateField({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    minHeight: 48,
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-  },
-  inputError: {
-    borderColor: colors.error,
-  },
-  value: {
-    color: colors.text,
-    fontSize: 15,
-  },
-  placeholder: {
-    color: colors.subtle,
-    fontSize: 15,
-  },
-  error: {
-    color: colors.error,
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.overlay,
-  },
-  modalCard: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    paddingBottom: spacing.xl,
-  },
-  modalHeader: {
-    alignItems: 'flex-end',
-    padding: spacing.md,
-  },
-  done: {
-    color: colors.highlight,
-    fontWeight: '700',
-    fontSize: 16,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    wrap: {
+      marginBottom: spacing.md,
+    },
+    label: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      marginBottom: spacing.xs,
+    },
+    input: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      minHeight: 48,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.md,
+    },
+    inputError: {
+      borderColor: colors.error,
+    },
+    value: {
+      color: colors.text,
+      fontSize: 15,
+    },
+    placeholder: {
+      color: colors.subtle,
+      fontSize: 15,
+    },
+    error: {
+      color: colors.error,
+      fontSize: 12,
+      marginTop: spacing.xs,
+    },
+    modalBackdrop: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: colors.overlay,
+    },
+    modalCard: {
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: radius.lg,
+      borderTopRightRadius: radius.lg,
+      paddingBottom: spacing.xl,
+    },
+    modalHeader: {
+      alignItems: 'flex-end',
+      padding: spacing.md,
+    },
+    done: {
+      color: colors.accent,
+      fontWeight: '700',
+      fontSize: 16,
+    },
+  });
+}

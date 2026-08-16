@@ -1,7 +1,12 @@
 export const typography = {
+  display: {
+    fontSize: 30,
+    fontWeight: '800' as const,
+    lineHeight: 36,
+  },
   title: {
     fontSize: 24,
-    fontWeight: '700' as const,
+    fontWeight: '800' as const,
     lineHeight: 30,
   },
   subtitle: {
@@ -20,8 +25,9 @@ export const typography = {
     lineHeight: 18,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '600' as const,
-    lineHeight: 18,
+    fontSize: 12,
+    fontWeight: '700' as const,
+    lineHeight: 16,
+    letterSpacing: 0.8,
   },
 };

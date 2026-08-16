@@ -1,6 +1,8 @@
 import { StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import type { ThemeColors } from '../../theme/colors';
+import { useTheme } from '../../theme/ThemeProvider';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import { radius, spacing } from '../../theme/spacing';
 
 type TextFieldProps = {
@@ -28,6 +30,8 @@ export function TextField({
   multiline = false,
   maxLength,
 }: TextFieldProps) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -48,37 +52,39 @@ export function TextField({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    color: colors.text,
-    paddingHorizontal: spacing.md,
-    minHeight: 48,
-    fontSize: 15,
-  },
-  multiline: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-    paddingTop: spacing.md,
-  },
-  inputError: {
-    borderColor: colors.error,
-  },
-  error: {
-    color: colors.error,
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    wrap: {
+      marginBottom: spacing.md,
+    },
+    label: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      marginBottom: spacing.xs,
+    },
+    input: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      color: colors.text,
+      paddingHorizontal: spacing.md,
+      minHeight: 48,
+      fontSize: 15,
+    },
+    multiline: {
+      minHeight: 96,
+      textAlignVertical: 'top',
+      paddingTop: spacing.md,
+    },
+    inputError: {
+      borderColor: colors.error,
+    },
+    error: {
+      color: colors.error,
+      fontSize: 12,
+      marginTop: spacing.xs,
+    },
+  });
+}

@@ -1,0 +1,54 @@
+import { StyleSheet, Text, View } from 'react-native';
+
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
+import { spacing } from '../../theme/spacing';
+import type { PublicReviewDto } from '../../types/api';
+import { Card } from './Card';
+
+export function ReviewCard({ review }: { review: PublicReviewDto }) {
+  const styles = useThemedStyles(createStyles);
+  return (
+    <Card style={styles.card}>
+      <View style={styles.top}>
+        <Text style={styles.name}>{review.customer_name}</Text>
+        <Text style={styles.stars}>{'★'.repeat(Math.max(1, Math.min(5, review.rating)))}</Text>
+      </View>
+      {review.trip_title ? <Text style={styles.trip}>{review.trip_title}</Text> : null}
+      <Text style={styles.comment}>{review.comment}</Text>
+    </Card>
+  );
+}
+
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    card: {
+      marginBottom: spacing.md,
+    },
+    top: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    name: {
+      color: colors.text,
+      fontWeight: '800',
+      flex: 1,
+    },
+    stars: {
+      color: colors.highlight,
+      fontWeight: '800',
+    },
+    trip: {
+      color: colors.accent,
+      marginTop: 4,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    comment: {
+      color: colors.muted,
+      marginTop: spacing.sm,
+      lineHeight: 21,
+    },
+  });
+}

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import { radius, spacing } from '../../theme/spacing';
 
 type Option<T extends string> = {
@@ -21,6 +22,7 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
 }: SegmentedControlProps<T>) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -44,41 +46,43 @@ export function SegmentedControl<T extends string>({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
-  },
-  row: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 4,
-    gap: 4,
-  },
-  segment: {
-    flex: 1,
-    minHeight: 40,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  segmentSelected: {
-    backgroundColor: colors.highlight,
-  },
-  segmentLabel: {
-    color: colors.muted,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  segmentLabelSelected: {
-    color: colors.background,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    wrap: {
+      marginBottom: spacing.md,
+    },
+    label: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      marginBottom: spacing.xs,
+    },
+    row: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 4,
+      gap: 4,
+    },
+    segment: {
+      flex: 1,
+      minHeight: 40,
+      borderRadius: radius.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    segmentSelected: {
+      backgroundColor: colors.navy,
+    },
+    segmentLabel: {
+      color: colors.muted,
+      fontWeight: '700',
+      fontSize: 13,
+    },
+    segmentLabelSelected: {
+      color: colors.onNavy,
+    },
+  });
+}

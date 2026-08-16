@@ -1,12 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 
 import { submitBooking } from '../api/bookings';
 import { HoneypotField } from '../components/honeypot/HoneypotField';
 import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 import { DateField } from '../components/ui/DateField';
 import { PickerSheet } from '../components/ui/PickerSheet';
 import { Screen } from '../components/ui/Screen';
+import { SectionHeader } from '../components/ui/SectionHeader';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
 import { Stepper } from '../components/ui/Stepper';
 import { SuccessModal } from '../components/ui/SuccessModal';
@@ -14,7 +18,9 @@ import { TextField } from '../components/ui/TextField';
 import { CONTACT_INFO } from '../constants/contact';
 import { LIMITS, NEPAL_PHONE_ERROR } from '../constants/validation';
 import { VEHICLE_TYPES } from '../constants/vehicles';
-import { colors } from '../theme/colors';
+import type { BookParams, RootTabParamList } from '../navigation/types';
+import type { ThemeColors } from '../theme/colors';
+import { useThemedStyles } from '../theme/useThemedStyles';
 import { spacing } from '../theme/spacing';
 import type { TripType } from '../types/api';
 import { isSameOrAfterDay, startOfToday, toLocalDateOnly } from '../utils/dates';
@@ -38,6 +44,8 @@ const emptyForm = {
 };
 
 export function BookingScreen() {
+  const styles = useThemedStyles(createStyles);
+  const route = useRoute<RouteProp<RootTabParamList, 'Book'>>();
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<BookingErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +53,19 @@ export function BookingScreen() {
   const [successVisible, setSuccessVisible] = useState(false);
 
   const minReturn = useMemo(() => form.pickup_date ?? startOfToday(), [form.pickup_date]);
+
+  useEffect(() => {
+    const params = (route.params ?? {}) as BookParams;
+    setForm((current) => ({
+      ...current,
+      vehicle_type_id: params.vehicleTypeId ?? current.vehicle_type_id,
+      pickup_location: params.pickupLocation ?? current.pickup_location,
+      dropoff_location: params.dropoffLocation ?? current.dropoff_location,
+      trip_type: params.tripType ?? current.trip_type,
+      additional_details: params.additionalDetails ?? current.additional_details,
+      passenger_count: params.passengerCount ?? current.passenger_count,
+    }));
+  }, [route.params]);
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -88,8 +109,7 @@ export function BookingScreen() {
         pickup_location: form.pickup_location.trim(),
         dropoff_location: form.dropoff_location.trim(),
         pickup_date: toLocalDateOnly(form.pickup_date) ?? '',
-        return_date:
-          form.trip_type === 'Round Trip' ? toLocalDateOnly(form.return_date) : null,
+        return_date: form.trip_type === 'Round Trip' ? toLocalDateOnly(form.return_date) : null,
         passenger_count: form.passenger_count,
         trip_type: form.trip_type,
         vehicle_type_id: form.vehicle_type_id,
@@ -108,102 +128,121 @@ export function BookingScreen() {
 
   return (
     <Screen>
-      <Text style={styles.title}>Book a trip</Text>
-      <Text style={styles.subtitle}>{CONTACT_INFO.tagline}</Text>
+      <View style={styles.headerRow}>
+        <View style={styles.headerCopy}>
+          <SectionHeader
+            tag="ONLINE RESERVATION"
+            title="Book your vehicle & driver"
+            subtitle={`${CONTACT_INFO.tagline}. Dispatch confirms by phone or WhatsApp.`}
+          />
+        </View>
+        <ThemeToggle variant="onSurface" />
+      </View>
 
       <HoneypotField />
 
-      <TextField
-        label="Full name *"
-        value={form.full_name}
-        onChangeText={(value) => update('full_name', value)}
-        error={errors.full_name}
-        maxLength={LIMITS.bookingName}
-        autoCapitalize="words"
-      />
-      <TextField
-        label="Nepal phone number *"
-        value={form.phone_number}
-        onChangeText={(value) => update('phone_number', value)}
-        error={errors.phone_number}
-        keyboardType="phone-pad"
-        maxLength={LIMITS.phone}
-      />
-      <TextField
-        label="Email"
-        value={form.email}
-        onChangeText={(value) => update('email', value)}
-        error={errors.email}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        maxLength={LIMITS.bookingEmail}
-      />
-      <PickerSheet
-        label="Vehicle type *"
-        value={form.vehicle_type_id}
-        options={VEHICLE_TYPES}
-        onChange={(id) => update('vehicle_type_id', id)}
-        error={errors.vehicle_type_id}
-      />
-      <TextField
-        label="Pickup location *"
-        value={form.pickup_location}
-        onChangeText={(value) => update('pickup_location', value)}
-        error={errors.pickup_location}
-        maxLength={LIMITS.location}
-      />
-      <TextField
-        label="Dropoff location *"
-        value={form.dropoff_location}
-        onChangeText={(value) => update('dropoff_location', value)}
-        error={errors.dropoff_location}
-        maxLength={LIMITS.location}
-      />
-      <DateField
-        label="Pickup date *"
-        value={form.pickup_date}
-        onChange={(value) => update('pickup_date', value)}
-        error={errors.pickup_date}
-      />
-      <SegmentedControl
-        label="Trip type *"
-        value={form.trip_type}
-        options={[
-          { label: 'One Way', value: 'One Way' },
-          { label: 'Round Trip', value: 'Round Trip' },
-        ]}
-        onChange={(value) => {
-          setForm((current) => ({
-            ...current,
-            trip_type: value,
-            return_date: value === 'One Way' ? null : current.return_date,
-          }));
-          setErrors((current) => ({ ...current, trip_type: undefined, return_date: undefined }));
-        }}
-      />
-      {form.trip_type === 'Round Trip' ? (
-        <DateField
-          label="Return date *"
-          value={form.return_date}
-          onChange={(value) => update('return_date', value)}
-          error={errors.return_date}
-          minimumDate={minReturn}
+      <Card style={styles.block}>
+        <Text style={styles.blockTitle}>Your details</Text>
+        <TextField
+          label="Full name *"
+          value={form.full_name}
+          onChangeText={(value) => update('full_name', value)}
+          error={errors.full_name}
+          maxLength={LIMITS.bookingName}
+          autoCapitalize="words"
         />
-      ) : null}
-      <Stepper
-        label="Passengers *"
-        value={form.passenger_count}
-        min={LIMITS.passengersMin}
-        max={LIMITS.passengersMax}
-        onChange={(value) => update('passenger_count', value)}
-      />
-      <TextField
-        label="Additional details"
-        value={form.additional_details}
-        onChangeText={(value) => update('additional_details', value)}
-        multiline
-        maxLength={LIMITS.additionalDetails}
-      />
+        <TextField
+          label="Nepal phone number *"
+          value={form.phone_number}
+          onChangeText={(value) => update('phone_number', value)}
+          error={errors.phone_number}
+          keyboardType="phone-pad"
+          maxLength={LIMITS.phone}
+        />
+        <TextField
+          label="Email"
+          value={form.email}
+          onChangeText={(value) => update('email', value)}
+          error={errors.email}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          maxLength={LIMITS.bookingEmail}
+        />
+      </Card>
+
+      <Card style={styles.block}>
+        <Text style={styles.blockTitle}>Trip details</Text>
+        <TextField
+          label="Pickup location *"
+          value={form.pickup_location}
+          onChangeText={(value) => update('pickup_location', value)}
+          error={errors.pickup_location}
+          maxLength={LIMITS.location}
+        />
+        <TextField
+          label="Dropoff location *"
+          value={form.dropoff_location}
+          onChangeText={(value) => update('dropoff_location', value)}
+          error={errors.dropoff_location}
+          maxLength={LIMITS.location}
+        />
+        <DateField
+          label="Pickup date *"
+          value={form.pickup_date}
+          onChange={(value) => update('pickup_date', value)}
+          error={errors.pickup_date}
+        />
+        <SegmentedControl
+          label="Trip type *"
+          value={form.trip_type}
+          options={[
+            { label: 'One Way', value: 'One Way' },
+            { label: 'Round Trip', value: 'Round Trip' },
+          ]}
+          onChange={(value) => {
+            setForm((current) => ({
+              ...current,
+              trip_type: value,
+              return_date: value === 'One Way' ? null : current.return_date,
+            }));
+            setErrors((current) => ({ ...current, trip_type: undefined, return_date: undefined }));
+          }}
+        />
+        {form.trip_type === 'Round Trip' ? (
+          <DateField
+            label="Return date *"
+            value={form.return_date}
+            onChange={(value) => update('return_date', value)}
+            error={errors.return_date}
+            minimumDate={minReturn}
+          />
+        ) : null}
+        <Stepper
+          label="Passengers *"
+          value={form.passenger_count}
+          min={LIMITS.passengersMin}
+          max={LIMITS.passengersMax}
+          onChange={(value) => update('passenger_count', value)}
+        />
+      </Card>
+
+      <Card style={styles.block}>
+        <Text style={styles.blockTitle}>Vehicle</Text>
+        <PickerSheet
+          label="Vehicle type *"
+          value={form.vehicle_type_id}
+          options={VEHICLE_TYPES}
+          onChange={(id) => update('vehicle_type_id', id)}
+          error={errors.vehicle_type_id}
+        />
+        <TextField
+          label="Additional details"
+          value={form.additional_details}
+          onChangeText={(value) => update('additional_details', value)}
+          multiline
+          maxLength={LIMITS.additionalDetails}
+        />
+      </Card>
 
       {formError ? <Text style={styles.formError}>{formError}</Text> : null}
 
@@ -221,23 +260,31 @@ export function BookingScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  title: {
-    color: colors.text,
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  subtitle: {
-    color: colors.muted,
-    marginBottom: spacing.lg,
-    fontSize: 14,
-  },
-  formError: {
-    color: colors.error,
-    marginBottom: spacing.md,
-  },
-  submit: {
-    marginTop: spacing.sm,
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    headerRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+    },
+    headerCopy: {
+      flex: 1,
+    },
+    block: {
+      marginBottom: spacing.lg,
+    },
+    blockTitle: {
+      color: colors.text,
+      fontWeight: '800',
+      fontSize: 16,
+      marginBottom: spacing.md,
+    },
+    formError: {
+      color: colors.error,
+      marginBottom: spacing.md,
+    },
+    submit: {
+      marginTop: spacing.sm,
+    },
+  });
+}

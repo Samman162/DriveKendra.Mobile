@@ -1,6 +1,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors } from '../../theme/colors';
+import type { ThemeColors } from '../../theme/colors';
+import { useThemedStyles } from '../../theme/useThemedStyles';
 import { radius, spacing } from '../../theme/spacing';
 
 export type PickerOption = {
@@ -25,6 +26,7 @@ export function PickerSheet({
   error,
   placeholder = 'Select an option',
 }: PickerSheetProps) {
+  const styles = useThemedStyles(createStyles);
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>{label}</Text>
@@ -61,6 +63,7 @@ export function ConfirmSheet({
   message: string;
   onClose: () => void;
 }) {
+  const styles = useThemedStyles(createStyles);
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.backdrop}>
@@ -76,87 +79,89 @@ export function ConfirmSheet({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginBottom: spacing.md,
-  },
-  label: {
-    color: colors.muted,
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  chip: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  chipActive: {
-    backgroundColor: colors.highlight,
-    borderColor: colors.highlight,
-  },
-  chipLabel: {
-    color: colors.muted,
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  chipLabelActive: {
-    color: colors.background,
-  },
-  error: {
-    color: colors.error,
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-  hint: {
-    color: colors.subtle,
-    fontSize: 12,
-    marginTop: spacing.xs,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.xl,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: spacing.sm,
-  },
-  message: {
-    color: colors.muted,
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: spacing.lg,
-  },
-  ok: {
-    backgroundColor: colors.accent,
-    borderRadius: radius.md,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  okLabel: {
-    color: colors.background,
-    fontWeight: '700',
-  },
-});
+function createStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    wrap: {
+      marginBottom: spacing.md,
+    },
+    label: {
+      color: colors.muted,
+      fontSize: 13,
+      fontWeight: '600',
+      marginBottom: spacing.sm,
+    },
+    chips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    chip: {
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+    },
+    chipActive: {
+      backgroundColor: colors.navy,
+      borderColor: colors.navy,
+    },
+    chipLabel: {
+      color: colors.muted,
+      fontWeight: '600',
+      fontSize: 13,
+    },
+    chipLabelActive: {
+      color: colors.onNavy,
+    },
+    error: {
+      color: colors.error,
+      fontSize: 12,
+      marginTop: spacing.xs,
+    },
+    hint: {
+      color: colors.subtle,
+      fontSize: 12,
+      marginTop: spacing.xs,
+    },
+    backdrop: {
+      flex: 1,
+      backgroundColor: colors.overlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: spacing.xl,
+    },
+    card: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.xl,
+    },
+    title: {
+      color: colors.text,
+      fontSize: 20,
+      fontWeight: '700',
+      marginBottom: spacing.sm,
+    },
+    message: {
+      color: colors.muted,
+      fontSize: 15,
+      lineHeight: 22,
+      marginBottom: spacing.lg,
+    },
+    ok: {
+      backgroundColor: colors.accent,
+      borderRadius: radius.md,
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    okLabel: {
+      color: colors.onAccent,
+      fontWeight: '700',
+    },
+  });
+}

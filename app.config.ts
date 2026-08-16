@@ -11,8 +11,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   version: '1.0.0',
   orientation: 'portrait',
   icon: './assets/icon.png',
-  userInterfaceStyle: 'dark',
-  backgroundColor: '#0F172A',
+  userInterfaceStyle: 'automatic',
+  backgroundColor: '#F1F5F9',
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.drivekendra.app',
@@ -49,6 +49,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiUrl: process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API,
     hubUrl: process.env.EXPO_PUBLIC_SIGNALR_URL || DEFAULT_HUB,
     tusUrl: process.env.EXPO_PUBLIC_TUS_URL || DEFAULT_TUS,
-    adminApiKey: process.env.EXPO_PUBLIC_ADMIN_API_KEY || '',
   },
 });

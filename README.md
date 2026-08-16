@@ -6,10 +6,10 @@ This repository is the mobile client only. The website, admin dashboard, and ASP
 
 ## Features
 
+- Home, fleet, official rates, airport, wedding, and tour packages (customer website companion)
 - Book a trip (`POST /api/PublicBookings`)
-- Partner / driver onboarding with tus document uploads (`/files` + `POST /api/PublicOwners`)
 - Live fleet stats (`GET /api/publicstats`)
-- SignalR alerts (`/hubs/notifications`)
+- Traveler reviews (`GET` / `POST /api/PublicReviews`)
 - Call / WhatsApp / email deep links
 
 ## Run locally
@@ -24,18 +24,13 @@ In the Expo terminal:
 
 - Press **`s`** to use Expo Go, then scan the QR code on your phone
 - Press **`a`** for an Android emulator
-- Press **`w`** for a browser layout preview (live API/SignalR are CORS-limited on localhost)
+- Press **`w`** for a browser layout preview (live API calls are CORS-limited on localhost)
 
 ## Environment
 
 | Variable | Default |
 |---|---|
 | `EXPO_PUBLIC_API_BASE_URL` | `https://carrental-api-x74e.onrender.com/api` |
-| `EXPO_PUBLIC_SIGNALR_URL` | `https://carrental-api-x74e.onrender.com/hubs/notifications` |
-| `EXPO_PUBLIC_TUS_URL` | `https://carrental-api-x74e.onrender.com/files` |
-| `EXPO_PUBLIC_ADMIN_API_KEY` | empty |
-
-`EXPO_PUBLIC_ADMIN_API_KEY` is only used for `GET /api/Notifications/recent`. Do not commit a production key.
 
 ## Typecheck
 
