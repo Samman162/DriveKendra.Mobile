@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { FleetVehicle } from '../../content/vehicles';
 import type { ThemeColors } from '../../theme/colors';
@@ -6,6 +6,7 @@ import { useThemedStyles } from '../../theme/useThemedStyles';
 import { radius, spacing } from '../../theme/spacing';
 import { Button } from './Button';
 import { Card } from './Card';
+import { RemoteImage } from './RemoteImage';
 
 export function VehicleCard({
   vehicle,
@@ -18,7 +19,7 @@ export function VehicleCard({
   return (
     <Card padded={false} style={styles.card}>
       <View>
-        <Image source={{ uri: vehicle.image }} style={styles.image} />
+        <RemoteImage uri={vehicle.image} fallback={vehicle.name} style={styles.image} />
         <View style={styles.tag}>
           <Text style={styles.tagText}>{vehicle.tag}</Text>
         </View>
@@ -68,7 +69,7 @@ export function VehicleStripCard({
   return (
     <Pressable onPress={onPress} style={styles.stripWrap}>
       <Card padded={false} style={styles.strip}>
-        <Image source={{ uri: vehicle.image }} style={styles.stripImage} />
+        <RemoteImage uri={vehicle.image} fallback={vehicle.name} style={styles.stripImage} />
         <View style={styles.stripBody}>
           <Text style={styles.stripTag}>{vehicle.tag}</Text>
           <Text style={styles.stripName} numberOfLines={2}>

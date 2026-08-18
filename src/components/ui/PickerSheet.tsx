@@ -1,4 +1,4 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
@@ -52,33 +52,6 @@ export function PickerSheet({
   );
 }
 
-export function ConfirmSheet({
-  visible,
-  title,
-  message,
-  onClose,
-}: {
-  visible: boolean;
-  title: string;
-  message: string;
-  onClose: () => void;
-}) {
-  const styles = useThemedStyles(createStyles);
-  return (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
-          <Pressable onPress={onClose} style={styles.ok}>
-            <Text style={styles.okLabel}>OK</Text>
-          </Pressable>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     wrap: {
@@ -124,44 +97,6 @@ function createStyles(colors: ThemeColors) {
       color: colors.subtle,
       fontSize: 12,
       marginTop: spacing.xs,
-    },
-    backdrop: {
-      flex: 1,
-      backgroundColor: colors.overlay,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: spacing.xl,
-    },
-    card: {
-      width: '100%',
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: spacing.xl,
-    },
-    title: {
-      color: colors.text,
-      fontSize: 20,
-      fontWeight: '700',
-      marginBottom: spacing.sm,
-    },
-    message: {
-      color: colors.muted,
-      fontSize: 15,
-      lineHeight: 22,
-      marginBottom: spacing.lg,
-    },
-    ok: {
-      backgroundColor: colors.accent,
-      borderRadius: radius.md,
-      minHeight: 44,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    okLabel: {
-      color: colors.onAccent,
-      fontWeight: '700',
     },
   });
 }

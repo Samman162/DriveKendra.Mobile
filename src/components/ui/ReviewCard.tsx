@@ -4,6 +4,7 @@ import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { spacing } from '../../theme/spacing';
 import type { PublicReviewDto } from '../../types/api';
+import { relativeTime } from '../../utils/dates';
 import { Card } from './Card';
 
 export function ReviewCard({ review }: { review: PublicReviewDto }) {
@@ -15,6 +16,7 @@ export function ReviewCard({ review }: { review: PublicReviewDto }) {
         <Text style={styles.stars}>{'★'.repeat(Math.max(1, Math.min(5, review.rating)))}</Text>
       </View>
       {review.trip_title ? <Text style={styles.trip}>{review.trip_title}</Text> : null}
+      {review.created_at ? <Text style={styles.when}>{relativeTime(review.created_at)}</Text> : null}
       <Text style={styles.comment}>{review.comment}</Text>
     </Card>
   );
@@ -44,6 +46,11 @@ function createStyles(colors: ThemeColors) {
       marginTop: 4,
       fontSize: 12,
       fontWeight: '700',
+    },
+    when: {
+      color: colors.subtle,
+      marginTop: 2,
+      fontSize: 12,
     },
     comment: {
       color: colors.muted,

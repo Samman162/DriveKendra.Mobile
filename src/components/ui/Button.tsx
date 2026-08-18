@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text } from 'react-native';
 
 import type { ThemeColors } from '../../theme/colors';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -59,23 +58,6 @@ export function Button({
   );
 }
 
-export function IconButton({
-  children,
-  onPress,
-  label,
-}: {
-  children: ReactNode;
-  onPress: () => void;
-  label: string;
-}) {
-  const styles = useThemedStyles(createStyles);
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.iconBtn}>
-      <View>{children}</View>
-    </Pressable>
-  );
-}
-
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     base: {
@@ -118,14 +100,6 @@ function createStyles(colors: ThemeColors) {
     },
     ghostLabel: {
       color: colors.accent,
-    },
-    iconBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'rgba(255,255,255,0.12)',
     },
   });
 }

@@ -3,6 +3,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { TripType } from '../types/api';
 
 export type BookParams = {
+  intentId?: number;
   vehicleTypeId?: number;
   pickupLocation?: string;
   dropoffLocation?: string;

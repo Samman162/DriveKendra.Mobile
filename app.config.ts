@@ -1,8 +1,6 @@
 import type { ExpoConfig, ConfigContext } from 'expo/config';
 
-const DEFAULT_API = 'https://carrental-api-x74e.onrender.com/api';
-const DEFAULT_HUB = 'https://carrental-api-x74e.onrender.com/hubs/notifications';
-const DEFAULT_TUS = 'https://carrental-api-x74e.onrender.com/files';
+const DEFAULT_API = 'http://localhost:8787/api';
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -33,8 +31,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-status-bar',
     '@react-native-community/datetimepicker',
-    'expo-document-picker',
-    'expo-file-system',
     'expo-dev-client',
     [
       'expo-splash-screen',
@@ -47,7 +43,5 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   extra: {
     apiUrl: process.env.EXPO_PUBLIC_API_BASE_URL || DEFAULT_API,
-    hubUrl: process.env.EXPO_PUBLIC_SIGNALR_URL || DEFAULT_HUB,
-    tusUrl: process.env.EXPO_PUBLIC_TUS_URL || DEFAULT_TUS,
   },
 });

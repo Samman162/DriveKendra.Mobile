@@ -15,6 +15,7 @@ import { SuccessModal } from '../components/ui/SuccessModal';
 import { TextField } from '../components/ui/TextField';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { CONTACT_INFO } from '../constants/contact';
+import { LIMITS } from '../constants/validation';
 import { HOME_FAQS } from '../content/faqs';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
@@ -98,7 +99,13 @@ export function ContactScreen() {
 
       <SectionHeader tag="WRITE A REVIEW" title="Share your trip" subtitle="Reviews appear after our team approves them." />
       <HoneypotField />
-      <TextField label="Your name *" value={name} onChangeText={setName} autoCapitalize="words" />
+      <TextField
+        label="Your name *"
+        value={name}
+        onChangeText={setName}
+        autoCapitalize="words"
+        maxLength={LIMITS.reviewName}
+      />
       <Text style={styles.label}>Rating *</Text>
       <View style={styles.stars}>
         {[1, 2, 3, 4, 5].map((value) => (
@@ -107,8 +114,20 @@ export function ContactScreen() {
           </Pressable>
         ))}
       </View>
-      <TextField label="Trip title" value={trip} onChangeText={setTrip} placeholder="Manakamana, TIA pickup…" />
-      <TextField label="Your review *" value={comment} onChangeText={setComment} multiline />
+      <TextField
+        label="Trip title"
+        value={trip}
+        onChangeText={setTrip}
+        placeholder="Manakamana, TIA pickup…"
+        maxLength={LIMITS.reviewTrip}
+      />
+      <TextField
+        label="Your review *"
+        value={comment}
+        onChangeText={setComment}
+        multiline
+        maxLength={LIMITS.reviewComment}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <Button label="Submit review" onPress={onSubmit} loading={submitting} />
 

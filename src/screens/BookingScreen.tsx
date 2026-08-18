@@ -25,7 +25,7 @@ import { spacing } from '../theme/spacing';
 import type { TripType } from '../types/api';
 import { isSameOrAfterDay, startOfToday, toLocalDateOnly } from '../utils/dates';
 import { emptyToNull, extractErrorMessage } from '../utils/errors';
-import { isValidNepalPhone } from '../utils/phone';
+import { isValidNepalPhone, normalizeNepalPhone } from '../utils/phone';
 
 type BookingErrors = Partial<Record<string, string>>;
 
@@ -56,16 +56,21 @@ export function BookingScreen() {
 
   useEffect(() => {
     const params = (route.params ?? {}) as BookParams;
+    if (!params.intentId) {
+      return;
+    }
+
     setForm((current) => ({
       ...current,
-      vehicle_type_id: params.vehicleTypeId ?? current.vehicle_type_id,
-      pickup_location: params.pickupLocation ?? current.pickup_location,
-      dropoff_location: params.dropoffLocation ?? current.dropoff_location,
-      trip_type: params.tripType ?? current.trip_type,
-      additional_details: params.additionalDetails ?? current.additional_details,
-      passenger_count: params.passengerCount ?? current.passenger_count,
+      vehicle_type_id: params.vehicleTypeId ?? null,
+      pickup_location: params.pickupLocation ?? '',
+      dropoff_location: params.dropoffLocation ?? '',
+      trip_type: params.tripType ?? 'One Way',
+      additional_details: params.additionalDetails ?? '',
+      passenger_count: params.passengerCount ?? 1,
+      return_date: params.tripType === 'Round Trip' ? current.return_date : null,
     }));
-  }, [route.params]);
+  }, [route.params?.intentId]);
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -104,7 +109,7 @@ export function BookingScreen() {
     try {
       await submitBooking({
         full_name: form.full_name.trim(),
-        phone_number: form.phone_number.trim(),
+        phone_number: normalizeNepalPhone(form.phone_number),
         email: emptyToNull(form.email),
         pickup_location: form.pickup_location.trim(),
         dropoff_location: form.dropoff_location.trim(),

@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Car, Compass, Map, PhoneCall, Sparkles } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { AirportScreen } from '../screens/AirportScreen';
@@ -64,6 +65,8 @@ function ToursStackNavigator() {
 
 export function AppNavigator() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 56 + Math.max(insets.bottom, 8);
   return (
     <Tab.Navigator
       screenOptions={{
@@ -71,8 +74,9 @@ export function AppNavigator() {
         tabBarStyle: {
           backgroundColor: colors.tabBar,
           borderTopColor: colors.navySoft,
-          height: 64,
+          height: tabBarHeight,
           paddingTop: 6,
+          paddingBottom: Math.max(insets.bottom, 8),
         },
         tabBarActiveTintColor: colors.highlight,
         tabBarInactiveTintColor: colors.tabInactive,

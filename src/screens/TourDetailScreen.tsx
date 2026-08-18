@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
 
 import { Card } from '../components/ui/Card';
+import { RemoteImage } from '../components/ui/RemoteImage';
 import { FaqList } from '../components/ui/FaqList';
 import { QuoteCard } from '../components/ui/QuoteCard';
 import { Screen } from '../components/ui/Screen';
@@ -84,7 +85,7 @@ export function TourDetailScreen() {
 
   return (
     <Screen padded={false}>
-      <Image source={{ uri: tour.image }} style={styles.hero} />
+      <RemoteImage uri={tour.image} fallback={tour.title} style={styles.hero} />
       <View style={styles.body}>
         <Text style={styles.badge}>{tour.badge}</Text>
         <Text style={styles.title}>{tour.title}</Text>
@@ -122,7 +123,7 @@ export function TourDetailScreen() {
           <>
             <SectionHeader
               tag="PER PERSON"
-              title={route.params.tourId === 'muktinath' ? '4-day package rates' : '2-day snow package'}
+              title={tour.duration}
             />
             <View style={styles.chips}>
               {(['scorpio', 'ev_van'] as const).map((item) => (

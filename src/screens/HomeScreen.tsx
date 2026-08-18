@@ -76,7 +76,9 @@ export function HomeScreen() {
       setReviews(nextReviews.slice(0, 4));
       setError('');
     } catch (err) {
-      setError(extractErrorMessage(err, 'Could not load live fleet data.'));
+      setError(
+        extractErrorMessage(err, 'Could not reach the booking desk. The server may be starting — try again.'),
+      );
     } finally {
       setRefreshing(false);
     }
@@ -135,7 +137,14 @@ export function HomeScreen() {
             label={`${stats.review_count} reviews`}
           />
         </View>
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {error ? (
+          <View style={styles.errorBlock}>
+            <Text style={styles.error}>{error}</Text>
+            <Pressable onPress={() => void load()} style={styles.retry}>
+              <Text style={styles.retryText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.section}>
@@ -292,7 +301,25 @@ function createStyles(colors: ThemeColors) {
   },
   error: {
     color: '#FCA5A5',
+    flex: 1,
+  },
+  errorBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
     marginTop: spacing.md,
+  },
+  retry: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  retryText: {
+    color: colors.highlight,
+    fontWeight: '800',
+    fontSize: 12,
   },
   section: {
     paddingHorizontal: spacing.lg,

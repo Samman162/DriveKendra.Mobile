@@ -1,10 +1,11 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { TourPackage } from '../../content/tours';
 import type { ThemeColors } from '../../theme/colors';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import { radius, spacing } from '../../theme/spacing';
 import { Card } from './Card';
+import { RemoteImage } from './RemoteImage';
 
 export function TourCard({
   tour,
@@ -18,7 +19,7 @@ export function TourCard({
     <Pressable onPress={onPress}>
       <Card padded={false} style={styles.card}>
         <View>
-          <Image source={{ uri: tour.image }} style={styles.image} />
+          <RemoteImage uri={tour.image} fallback={tour.title} style={styles.image} />
           <View style={styles.badge}>
             <Text style={styles.badgeText}>{tour.badge}</Text>
           </View>

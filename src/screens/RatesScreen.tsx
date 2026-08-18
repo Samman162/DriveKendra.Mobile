@@ -13,11 +13,14 @@ import { TextField } from '../components/ui/TextField';
 import { RATE_FAQS } from '../content/faqs';
 import {
   RATE_CATEGORIES,
+  RATE_COLUMNS,
   RENTAL_POLICIES,
   VEHICLE_CAPACITIES,
   filterRateCategories,
   formatNpr,
+  rateToVehicleType,
   tripPackageLink,
+  type RateColumn,
   type RateItem,
 } from '../content/rates';
 import { navigateToBook } from '../navigation/booking';
@@ -31,20 +34,28 @@ type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList>
 >;
 
-function RateRow({ item, onSelect }: { item: RateItem; onSelect: () => void }) {
+function RateRow({
+  item,
+  onSelectFare,
+}: {
+  item: RateItem;
+  onSelectFare: (column: RateColumn) => void;
+}) {
   const styles = useThemedStyles(createStyles);
   return (
-    <Pressable onPress={onSelect} style={styles.row}>
+    <View style={styles.row}>
       <Text style={styles.trip}>{item.trip}</Text>
       {item.km && item.km !== '-' ? <Text style={styles.km}>{item.km} km</Text> : null}
       <View style={styles.grid}>
-        <Text style={styles.cell}>Car {formatNpr(item.car)}</Text>
-        <Text style={styles.cell}>Van {formatNpr(item.van)}</Text>
-        <Text style={styles.cell}>Jeep {formatNpr(item.hiaceJeep)}</Text>
-        <Text style={styles.cell}>Coaster {formatNpr(item.coaster)}</Text>
-        <Text style={styles.cell}>Bus {formatNpr(item.bus)}</Text>
+        {RATE_COLUMNS.map((column) => (
+          <Pressable key={column.key} onPress={() => onSelectFare(column.key)} style={styles.cell}>
+            <Text style={styles.cellText}>
+              {column.label} {formatNpr(item[column.key])}
+            </Text>
+          </Pressable>
+        ))}
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -89,7 +100,7 @@ export function RatesScreen() {
                   <RateRow
                     key={item.trip}
                     item={item}
-                    onSelect={() => {
+                    onSelectFare={(column) => {
                       const link = tripPackageLink(item.trip);
                       if (link?.target === 'airport') {
                         navigation.navigate('Airport');
@@ -99,10 +110,13 @@ export function RatesScreen() {
                         navigation.navigate('Tours', { screen: 'TourDetail', params: { tourId: link.target } });
                         return;
                       }
+                      const fare = formatNpr(item[column]);
+                      const vehicleLabel = RATE_COLUMNS.find((itemColumn) => itemColumn.key === column)?.label;
                       navigateToBook(navigation, {
                         pickupLocation: 'Kathmandu',
                         dropoffLocation: item.trip,
-                        additionalDetails: `Rate chart: ${item.trip}`,
+                        vehicleTypeId: rateToVehicleType(column),
+                        additionalDetails: `Rate chart: ${item.trip} · ${vehicleLabel} · ${fare}`,
                       });
                     }}
                   />
@@ -187,13 +201,15 @@ function createStyles(colors: ThemeColors) {
     marginTop: spacing.sm,
   },
   cell: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '600',
     backgroundColor: colors.elevated,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    paddingVertical: 6,
+  },
+  cellText: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: '600',
   },
   policy: {
     marginBottom: spacing.md,

@@ -86,9 +86,19 @@ export function tripPackageLink(
   return null;
 }
 
-export function rateToVehicleType(column: 'car' | 'van' | 'hiaceJeep' | 'coaster' | 'bus'): 1 | 2 | 3 | 4 {
+export type RateColumn = 'car' | 'van' | 'hiaceJeep' | 'coaster' | 'bus';
+
+export const RATE_COLUMNS: { key: RateColumn; label: string }[] = [
+  { key: 'car', label: 'Car' },
+  { key: 'van', label: 'Van' },
+  { key: 'hiaceJeep', label: 'Jeep' },
+  { key: 'coaster', label: 'Coaster' },
+  { key: 'bus', label: 'Bus' },
+];
+
+export function rateToVehicleType(column: RateColumn): 1 | 2 | 3 | 4 {
   if (column === 'car') return 1;
   if (column === 'hiaceJeep') return 2;
-  if (column === 'van' || column === 'coaster') return 3;
+  if (column === 'van') return 3;
   return 4;
 }

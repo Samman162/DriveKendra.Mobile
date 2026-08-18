@@ -8,7 +8,7 @@ export function navigateToBook(
   params: BookParams,
 ) {
   const tab = navigation.getParent?.() ?? navigation;
-  tab.navigate('Book', params);
+  tab.navigate('Book', { ...params, intentId: Date.now() });
 }
 
 export function formatNprAmount(value: number): string {
