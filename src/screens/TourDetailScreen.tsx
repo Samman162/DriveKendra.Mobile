@@ -1,14 +1,29 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NavigationProp } from '@react-navigation/native';
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
+  Compass,
+  Fuel,
+  Info,
+  MapPin,
+  Shield,
+  Sparkles,
+  Users,
+} from 'lucide-react-native';
 
+import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { RemoteImage } from '../components/ui/RemoteImage';
 import { FaqList } from '../components/ui/FaqList';
-import { QuoteCard } from '../components/ui/QuoteCard';
+import { RemoteImage } from '../components/ui/RemoteImage';
 import { Screen } from '../components/ui/Screen';
 import { SectionHeader } from '../components/ui/SectionHeader';
+import { Stepper } from '../components/ui/Stepper';
 import {
   KALINCHOWK_EV_VAN,
   KALINCHOWK_FAQS,
@@ -24,8 +39,10 @@ import { TOUR_PACKAGES } from '../content/tours';
 import { formatNprAmount, navigateToBook } from '../navigation/booking';
 import type { RootTabParamList, ToursStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
+import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { radius, spacing } from '../theme/spacing';
+import { hapticFeedback } from '../utils/haptics';
 
 type ManakamanaMode = 'same_day' | 'overnight' | 'direct_temple';
 
@@ -36,6 +53,7 @@ function manakamanaPrice(option: ManakamanaOption, mode: ManakamanaMode): number
 }
 
 export function TourDetailScreen() {
+  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const navigation = useNavigation<NavigationProp<RootTabParamList>>();
   const route = useRoute<RouteProp<ToursStackParamList, 'TourDetail'>>();
@@ -47,11 +65,12 @@ export function TourDetailScreen() {
   const [pax, setPax] = useState(8);
 
   const option = MANAKAMANA_OPTIONS.find((item) => item.id === optionId) ?? MANAKAMANA_OPTIONS[2];
-  const paxRates = vehicle === 'scorpio'
-    ? route.params.tourId === 'kalinchowk'
-      ? KALINCHOWK_SCORPIO
-      : MUKTINATH_SCORPIO
-    : route.params.tourId === 'kalinchowk'
+  const paxRates =
+    vehicle === 'scorpio'
+      ? route.params.tourId === 'kalinchowk'
+        ? KALINCHOWK_SCORPIO
+        : MUKTINATH_SCORPIO
+      : route.params.tourId === 'kalinchowk'
       ? KALINCHOWK_EV_VAN
       : MUKTINATH_EV_VAN;
 
@@ -60,11 +79,11 @@ export function TourDetailScreen() {
   const quote = useMemo(() => {
     if (route.params.tourId === 'manakamana') {
       const price = manakamanaPrice(option, mode);
-      return price ? { amount: price, note: `${option.name} · ${mode.replace('_', ' ')}` } : null;
+      return price ? { amount: price, note: `${option.name} • ${mode.replace('_', ' ')}` } : null;
     }
     return {
       amount: selectedPax.perPersonRate * selectedPax.pax,
-      note: `${selectedPax.pax} pax · ${formatNprAmount(selectedPax.perPersonRate)} per person`,
+      note: `${selectedPax.pax} passengers • ${formatNprAmount(selectedPax.perPersonRate)} per person`,
     };
   }, [mode, option, route.params.tourId, selectedPax]);
 
@@ -80,190 +99,401 @@ export function TourDetailScreen() {
     route.params.tourId === 'manakamana'
       ? MANAKAMANA_FAQS
       : route.params.tourId === 'muktinath'
-        ? MUKTINATH_FAQS
-        : KALINCHOWK_FAQS;
+      ? MUKTINATH_FAQS
+      : KALINCHOWK_FAQS;
 
   return (
     <Screen padded={false}>
-      <RemoteImage uri={tour.image} fallback={tour.title} style={styles.hero} />
-      <View style={styles.body}>
-        <Text style={styles.badge}>{tour.badge}</Text>
-        <Text style={styles.title}>{tour.title}</Text>
-        <Text style={styles.route}>{tour.route}</Text>
-        <Text style={styles.copy}>{tour.subtitle}</Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {/* Hero Image with Overlay Badges */}
+        <View style={styles.heroWrap}>
+          <RemoteImage uri={tour.image} fallback={tour.title} style={styles.hero} />
+          <View style={styles.heroBadge}>
+            <Sparkles size={12} color={colors.onAccent} style={{ marginRight: 4 }} />
+            <Text style={styles.heroBadgeText}>{tour.badge}</Text>
+          </View>
+          <View style={styles.heroDuration}>
+            <Clock size={12} color={colors.onNavy} style={{ marginRight: 4 }} />
+            <Text style={styles.heroDurationText}>{tour.duration}</Text>
+          </View>
+        </View>
 
-        {route.params.tourId === 'manakamana' ? (
-          <>
-            <SectionHeader tag="ESTIMATE" title="Choose trip style" />
-            <View style={styles.chips}>
-              {(['same_day', 'overnight', 'direct_temple'] as const).map((item) => (
-                <Pressable key={item} onPress={() => setMode(item)} style={[styles.chip, mode === item && styles.chipActive]}>
-                  <Text style={[styles.chipText, mode === item && styles.chipTextActive]}>
-                    {item === 'same_day' ? 'Same day' : item === 'overnight' ? 'Overnight' : 'Direct temple'}
-                  </Text>
-                </Pressable>
-              ))}
+        <View style={styles.body}>
+          <View style={styles.routeRow}>
+            <MapPin size={14} color={colors.accent} />
+            <Text style={styles.routeText}>{tour.route}</Text>
+          </View>
+
+          <Text style={styles.title}>{tour.title}</Text>
+          <Text style={styles.subtitle}>{tour.subtitle}</Text>
+
+          {/* Quick Specs Chips */}
+          <View style={styles.specsRow}>
+            <View style={styles.specChip}>
+              <Fuel size={13} color={colors.accent} />
+              <Text style={styles.specText}>Fuel & Tolls Included</Text>
             </View>
-            {MANAKAMANA_OPTIONS.map((item) => {
-              const price = manakamanaPrice(item, mode);
-              if (price == null) return null;
-              const active = item.id === optionId;
-              return (
-                <Pressable key={item.id} onPress={() => setOptionId(item.id)}>
-                  <Card style={[styles.option, active && styles.optionActive]}>
-                    <Text style={styles.optionTitle}>{item.name}</Text>
-                    <Text style={styles.optionMeta}>{item.capacity}</Text>
-                    <Text style={styles.optionPrice}>{formatNprAmount(price)}</Text>
-                  </Card>
-                </Pressable>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            <SectionHeader
-              tag="PER PERSON"
-              title={tour.duration}
-            />
-            <View style={styles.chips}>
-              {(['scorpio', 'ev_van'] as const).map((item) => (
+            <View style={styles.specChip}>
+              <Shield size={13} color={colors.accent} />
+              <Text style={styles.specText}>Licensed Hill Driver</Text>
+            </View>
+          </View>
+
+          {/* Manakamana Mode Options */}
+          {route.params.tourId === 'manakamana' && (
+            <Card style={styles.configCard}>
+              <Text style={styles.sectionHeading}>Trip Duration</Text>
+              <View style={styles.buttonGroup}>
                 <Pressable
-                  key={item}
                   onPress={() => {
-                    setVehicle(item);
-                    setPax(item === 'scorpio' ? 8 : 12);
+                    hapticFeedback.selection();
+                    setMode('same_day');
                   }}
-                  style={[styles.chip, vehicle === item && styles.chipActive]}
+                  style={[styles.groupBtn, mode === 'same_day' && styles.groupBtnActive]}
                 >
-                  <Text style={[styles.chipText, vehicle === item && styles.chipTextActive]}>
-                    {item === 'scorpio' ? 'Scorpio 4x4' : 'EV Van'}
+                  <Text style={[styles.groupBtnText, mode === 'same_day' && styles.groupBtnTextActive]}>
+                    Same Day Return
                   </Text>
                 </Pressable>
-              ))}
-            </View>
-            <View style={styles.chips}>
-              {paxRates.map((item) => (
-                <Pressable key={item.pax} onPress={() => setPax(item.pax)} style={[styles.chip, pax === item.pax && styles.chipActive]}>
-                  <Text style={[styles.chipText, pax === item.pax && styles.chipTextActive]}>
-                    {item.pax} pax · {formatNprAmount(item.perPersonRate)}
+                <Pressable
+                  onPress={() => {
+                    hapticFeedback.selection();
+                    setMode('overnight');
+                  }}
+                  style={[styles.groupBtn, mode === 'overnight' && styles.groupBtnActive]}
+                >
+                  <Text style={[styles.groupBtnText, mode === 'overnight' && styles.groupBtnTextActive]}>
+                    Overnight Stay
                   </Text>
                 </Pressable>
-              ))}
+              </View>
+
+              <Text style={[styles.sectionHeading, { marginTop: spacing.md }]}>Vehicle Type</Text>
+              <View style={styles.vehiclePills}>
+                {MANAKAMANA_OPTIONS.map((opt) => {
+                  const isSelected = optionId === opt.id;
+                  return (
+                    <Pressable
+                      key={opt.id}
+                      onPress={() => {
+                        hapticFeedback.selection();
+                        setOptionId(opt.id);
+                      }}
+                      style={[styles.vehiclePill, isSelected && styles.vehiclePillActive]}
+                    >
+                      <Text style={[styles.vehiclePillText, isSelected && styles.vehiclePillTextActive]}>
+                        {opt.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </Card>
+          )}
+
+          {/* Muktinath / Kalinchowk Vehicle & Group Config */}
+          {route.params.tourId !== 'manakamana' && (
+            <Card style={styles.configCard}>
+              <Text style={styles.sectionHeading}>Choose Vehicle</Text>
+              <View style={styles.buttonGroup}>
+                <Pressable
+                  onPress={() => {
+                    hapticFeedback.selection();
+                    setVehicle('scorpio');
+                  }}
+                  style={[styles.groupBtn, vehicle === 'scorpio' && styles.groupBtnActive]}
+                >
+                  <Text style={[styles.groupBtnText, vehicle === 'scorpio' && styles.groupBtnTextActive]}>
+                    4x4 Scorpio SUV
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    hapticFeedback.selection();
+                    setVehicle('ev_van');
+                  }}
+                  style={[styles.groupBtn, vehicle === 'ev_van' && styles.groupBtnActive]}
+                >
+                  <Text style={[styles.groupBtnText, vehicle === 'ev_van' && styles.groupBtnTextActive]}>
+                    HiAce / EV Van
+                  </Text>
+                </Pressable>
+              </View>
+
+              <View style={{ marginTop: spacing.md }}>
+                <Stepper
+                  label="Number of Travelers"
+                  value={pax}
+                  min={1}
+                  max={vehicle === 'scorpio' ? 8 : 14}
+                  onChange={(val) => {
+                    hapticFeedback.selection();
+                    setPax(val);
+                  }}
+                />
+              </View>
+            </Card>
+          )}
+
+          {/* What's Included Card */}
+          <Card style={styles.inclusionsCard}>
+            <Text style={styles.sectionHeading}>Package Inclusions</Text>
+            <View style={styles.inclusionItem}>
+              <CheckCircle2 size={16} color={colors.success} />
+              <Text style={styles.inclusionText}>Chauffeur-driven 4WD / Van with hill driving expert</Text>
             </View>
-          </>
-        )}
+            <View style={styles.inclusionItem}>
+              <CheckCircle2 size={16} color={colors.success} />
+              <Text style={styles.inclusionText}>All fuel, highway tolls, parking fees, and driver allowances</Text>
+            </View>
+            <View style={styles.inclusionItem}>
+              <CheckCircle2 size={16} color={colors.success} />
+              <Text style={styles.inclusionText}>Door-to-door hotel / airport pickup & drop in Kathmandu</Text>
+            </View>
+          </Card>
 
-        {quote ? (
-          <QuoteCard
-            label={quote.note}
-            amount={formatNprAmount(quote.amount)}
-            note="Dispatch confirms the final itinerary by phone or WhatsApp."
-            onBook={() =>
-              navigateToBook(navigation, {
-                vehicleTypeId:
-                  route.params.tourId === 'manakamana'
-                    ? option.vehicleTypeId
-                    : vehicle === 'ev_van'
-                      ? 3
-                      : 2,
-                pickupLocation: tour.pickupLocation,
-                dropoffLocation: tour.dropoffLocation,
-                tripType: 'Round Trip',
-                passengerCount: route.params.tourId === 'manakamana' ? undefined : selectedPax.pax,
-                additionalDetails: `${tour.title}. ${quote.note}. Package ${formatNprAmount(quote.amount)}.`,
-              })
-            }
-          />
-        ) : null}
+          {/* Price Quote Summary & Action */}
+          {quote && (
+            <Card style={styles.quoteCard}>
+              <View style={styles.quoteRow}>
+                <View>
+                  <Text style={styles.quoteLabel}>Total Package Price</Text>
+                  <Text style={styles.quoteAmount}>{formatNprAmount(quote.amount)}</Text>
+                  <Text style={styles.quoteNote}>{quote.note}</Text>
+                </View>
+                <Button
+                  label="Book Tour"
+                  onPress={() => {
+                    navigateToBook(navigation, {
+                      tripType: 'Round Trip',
+                      additionalDetails: `Tour Package: ${tour.title} (${quote.note})`,
+                    });
+                  }}
+                  variant="primary"
+                />
+              </View>
+            </Card>
+          )}
 
-        <SectionHeader tag="FAQ" title="Package questions" />
-        <FaqList items={faqs} />
-      </View>
+          {/* FAQ Accordion */}
+          <View style={{ marginTop: spacing.lg, paddingBottom: 40 }}>
+            <SectionHeader tag="FAQ" title="Tour Guidelines" subtitle="Important notes regarding weather & altitude" />
+            <FaqList items={faqs} />
+          </View>
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-  hero: {
-    width: '100%',
-    height: 220,
-    backgroundColor: colors.navy,
-  },
-  body: {
-    padding: spacing.lg,
-    paddingBottom: 40,
-  },
-  badge: {
-    color: colors.accent,
-    fontWeight: '800',
-    fontSize: 12,
-  },
-  title: {
-    color: colors.text,
-    fontSize: 26,
-    fontWeight: '800',
-    marginTop: 6,
-  },
-  route: {
-    color: colors.muted,
-    marginTop: 4,
-    fontWeight: '700',
-  },
-  copy: {
-    color: colors.muted,
-    marginTop: spacing.md,
-    lineHeight: 22,
-    marginBottom: spacing.lg,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  chip: {
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  chipActive: {
-    backgroundColor: colors.navy,
-    borderColor: colors.navy,
-  },
-  chipText: {
-    color: colors.muted,
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  chipTextActive: {
-    color: colors.onNavy,
-  },
-  option: {
-    marginBottom: spacing.md,
-  },
-  optionActive: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
-  },
-  optionTitle: {
-    color: colors.text,
-    fontWeight: '800',
-  },
-  optionMeta: {
-    color: colors.muted,
-    marginTop: 4,
-  },
-  optionPrice: {
-    color: colors.text,
-    fontWeight: '800',
-    marginTop: 8,
-  },
-  missing: {
-    color: colors.muted,
-  },
+    scrollContent: {
+      paddingBottom: 40,
+    },
+    heroWrap: {
+      position: 'relative',
+    },
+    hero: {
+      width: '100%',
+      height: 230,
+      backgroundColor: colors.navySoft,
+    },
+    heroBadge: {
+      position: 'absolute',
+      left: spacing.md,
+      top: spacing.md,
+      backgroundColor: colors.accent,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    heroBadgeText: {
+      color: colors.onAccent,
+      fontSize: 11,
+      fontWeight: '800',
+    },
+    heroDuration: {
+      position: 'absolute',
+      right: spacing.md,
+      bottom: spacing.md,
+      backgroundColor: 'rgba(15,23,42,0.85)',
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 4,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    heroDurationText: {
+      color: colors.onNavy,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    body: {
+      padding: spacing.lg,
+    },
+    routeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginBottom: 4,
+    },
+    routeText: {
+      color: colors.accent,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    title: {
+      fontSize: 24,
+      fontWeight: '900',
+      color: colors.text,
+      marginBottom: 6,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: colors.muted,
+      lineHeight: 20,
+    },
+    specsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginVertical: spacing.md,
+    },
+    specChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    specText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    configCard: {
+      marginBottom: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    sectionHeading: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: spacing.sm,
+    },
+    buttonGroup: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    groupBtn: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    groupBtnActive: {
+      backgroundColor: colors.navy,
+      borderColor: colors.navy,
+    },
+    groupBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    groupBtnTextActive: {
+      color: colors.onNavy,
+    },
+    vehiclePills: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+    },
+    vehiclePill: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    vehiclePillActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    vehiclePillText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    vehiclePillTextActive: {
+      color: colors.onAccent,
+    },
+    inclusionsCard: {
+      marginBottom: spacing.md,
+      gap: spacing.sm,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    inclusionItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    inclusionText: {
+      fontSize: 13,
+      color: colors.muted,
+      fontWeight: '600',
+      flex: 1,
+    },
+    quoteCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      borderWidth: 1.5,
+      borderColor: colors.accent,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    quoteRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    quoteLabel: {
+      fontSize: 11,
+      color: colors.subtle,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+    },
+    quoteAmount: {
+      fontSize: 20,
+      fontWeight: '900',
+      color: colors.accent,
+    },
+    quoteNote: {
+      fontSize: 11,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    missing: {
+      color: colors.muted,
+      fontSize: 16,
+      textAlign: 'center',
+      padding: spacing.xl,
+    },
   });
 }

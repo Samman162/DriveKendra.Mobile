@@ -12,8 +12,16 @@ export type BookParams = {
   passengerCount?: number;
 };
 
+export type AuthParams = {
+  initialMode?: 'signin' | 'signup' | 'forgot';
+  redirectTo?: string;
+};
+
 export type HomeStackParamList = {
   HomeMain: undefined;
+  Auth: AuthParams | undefined;
+  Profile: undefined;
+  MyTrips: { bookingId?: string | number } | undefined;
 };
 
 export type ExploreStackParamList = {
@@ -22,11 +30,19 @@ export type ExploreStackParamList = {
   Rates: undefined;
   Airport: undefined;
   Wedding: undefined;
+  Auth: AuthParams | undefined;
 };
 
 export type ToursStackParamList = {
   ToursHome: undefined;
   TourDetail: { tourId: 'manakamana' | 'muktinath' | 'kalinchowk' };
+  Auth: AuthParams | undefined;
+};
+
+export type AccountStackParamList = {
+  AccountHome: undefined;
+  Auth: AuthParams | undefined;
+  MyTrips: { bookingId?: string | number } | undefined;
 };
 
 export type RootTabParamList = {
@@ -34,5 +50,7 @@ export type RootTabParamList = {
   Explore: NavigatorScreenParams<ExploreStackParamList> | undefined;
   Book: BookParams | undefined;
   Tours: NavigatorScreenParams<ToursStackParamList> | undefined;
+  Account: NavigatorScreenParams<AccountStackParamList> | undefined;
   Contact: undefined;
 };
+

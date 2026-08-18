@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { z } from 'zod';
+
 export const NEPAL_PHONE_DIGITS = /^(?:977)?(9[78]\d{8}|0[1-9]\d{7})$/;
 export const NEPAL_PHONE_ERROR = 'Enter a valid Nepal mobile (97/98) or landline number.';
 
@@ -10,33 +13,18 @@ export class HttpError extends Error {
   }
 }
 
-export function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {};
+export function computeRequestHash(data: unknown): string {
+  const serialized = typeof data === 'string' ? data : JSON.stringify(data || {});
+  return createHash('sha256').update(serialized).digest('hex');
 }
 
-export function readString(body: Record<string, unknown>, key: string): string {
-  const value = body[key];
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-export function readOptionalString(body: Record<string, unknown>, key: string): string | null {
-  const value = body[key];
-  if (value == null) return null;
-  const trimmed = String(value).trim();
-  return trimmed.length === 0 ? null : trimmed;
-}
-
-export function readNumber(body: Record<string, unknown>, key: string): number | null {
-  const value = body[key];
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
+export const idempotencyHeaderSchema = z
+  .string()
+  .trim()
+  .min(8, 'Idempotency key must be at least 8 characters.')
+  .max(128, 'Idempotency key max 128 characters.')
+  .optional()
+  .nullable();
 
 export function normalizeNepalPhone(value: string): string {
   return (value || '').replace(/\D/g, '');
@@ -46,11 +34,7 @@ export function isValidNepalPhone(value: string): boolean {
   return NEPAL_PHONE_DIGITS.test(normalizeNepalPhone(value));
 }
 
-export function isHoneypotTriggered(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-export function parseDateOnly(value: string | null): Date | null {
+export function parseDateOnly(value: string | null | undefined): Date | null {
   if (!value) return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   if (!match) {
@@ -63,6 +47,91 @@ export function parseDateOnly(value: string | null): Date | null {
 function startOfUtcDay(date: Date): number {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
+
+/**
+ * ZOD SCHEMAS FOR STRICT REQUEST VALIDATION
+ */
+
+// Honeypot validator: must be undefined or empty string
+const honeypotValidator = z
+  .string()
+  .optional()
+  .refine((val) => !val || val.trim().length === 0, {
+    message: 'Invalid submission.',
+  });
+
+// Nepal Phone Number Zod Validator
+export const nepalPhoneSchema = z
+  .string()
+  .min(1, 'Phone number is required.')
+  .transform(normalizeNepalPhone)
+  .refine(isValidNepalPhone, {
+    message: NEPAL_PHONE_ERROR,
+  });
+
+// Trip Booking Zod Schema
+export const bookingZodSchema = z
+  .object({
+    full_name: z.string().trim().min(1, 'Full name is required.').max(100, 'Full name is too long.'),
+    phone_number: nepalPhoneSchema,
+    email: z
+      .string()
+      .trim()
+      .email('Please enter a valid email address.')
+      .max(100, 'Email is too long.')
+      .optional()
+      .nullable()
+      .or(z.literal('')),
+    pickup_location: z.string().trim().min(1, 'Pickup location is required.').max(255),
+    dropoff_location: z.string().trim().min(1, 'Dropoff location is required.').max(255),
+    pickup_date: z.string().min(1, 'Pickup date is required.'),
+    return_date: z.string().optional().nullable().or(z.literal('')),
+    passenger_count: z.coerce.number().int().min(1, 'Passenger count must be at least 1.').max(50, 'Passenger count max 50.'),
+    trip_type: z.enum(['One Way', 'Round Trip', 'one way', 'round trip', 'One-Way', 'Round-Trip']),
+    vehicle_type_id: z.coerce.number().int().min(1, 'Select a valid vehicle type.').max(4, 'Select a valid vehicle type.'),
+    additional_details: z.string().max(2000, 'Additional details too long.').optional().nullable(),
+    website_hp: honeypotValidator,
+  })
+  .superRefine((data, ctx) => {
+    const pickup = parseDateOnly(data.pickup_date);
+    if (!pickup) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['pickup_date'],
+        message: 'Invalid pickup date.',
+      });
+      return;
+    }
+
+    const yesterdayUtc = startOfUtcDay(new Date()) - 24 * 60 * 60 * 1000;
+    if (startOfUtcDay(pickup) < yesterdayUtc) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['pickup_date'],
+        message: 'Pickup date must be today or a future date.',
+      });
+    }
+
+    const isRound = data.trip_type.toLowerCase().includes('round');
+    if (isRound) {
+      if (!data.return_date) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['return_date'],
+          message: 'Return date is required for a round trip.',
+        });
+      } else {
+        const ret = parseDateOnly(data.return_date);
+        if (!ret || startOfUtcDay(ret) < startOfUtcDay(pickup)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['return_date'],
+            message: 'Return date must be on or after the pickup date.',
+          });
+        }
+      }
+    }
+  });
 
 export type BookingInput = {
   full_name: string;
@@ -79,83 +148,40 @@ export type BookingInput = {
 };
 
 export function parseBooking(body: unknown): BookingInput {
-  const record = asRecord(body);
-  if (isHoneypotTriggered(record.website_hp)) {
-    throw new HttpError(400, 'Invalid submission.');
+  const result = bookingZodSchema.safeParse(body);
+  if (!result.success) {
+    const firstIssue = result.error.issues[0];
+    throw new HttpError(400, firstIssue?.message || 'Invalid booking submission.');
   }
 
-  const fullName = readString(record, 'full_name');
-  const phone = normalizeNepalPhone(readString(record, 'phone_number'));
-  const email = readOptionalString(record, 'email');
-  const pickupLocation = readString(record, 'pickup_location');
-  const dropoffLocation = readString(record, 'dropoff_location');
-  const additionalDetails = readOptionalString(record, 'additional_details');
-  const tripTypeRaw = readString(record, 'trip_type');
-  const passengerCount = readNumber(record, 'passenger_count') ?? 1;
-  const vehicleTypeId = readNumber(record, 'vehicle_type_id');
-  const pickupDate = parseDateOnly(readOptionalString(record, 'pickup_date'));
-  const returnDate = parseDateOnly(readOptionalString(record, 'return_date'));
-
-  if (!fullName || fullName.length > 100) {
-    throw new HttpError(400, 'Full name is required.');
-  }
-  if (!isValidNepalPhone(phone)) {
-    throw new HttpError(400, NEPAL_PHONE_ERROR);
-  }
-  if (email && (email.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
-    throw new HttpError(400, 'Please enter a valid email address.');
-  }
-  if (!pickupLocation || pickupLocation.length > 255) {
-    throw new HttpError(400, 'Pickup location is required.');
-  }
-  if (!dropoffLocation || dropoffLocation.length > 255) {
-    throw new HttpError(400, 'Dropoff location is required.');
-  }
-  if (!pickupDate) {
-    throw new HttpError(400, 'Pickup date is required.');
-  }
-
-  const yesterdayUtc = startOfUtcDay(new Date()) - 24 * 60 * 60 * 1000;
-  if (startOfUtcDay(pickupDate) < yesterdayUtc) {
-    throw new HttpError(400, 'Pickup date must be today or a future date.');
-  }
-
-  const tripType = tripTypeRaw.toLowerCase().replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
-  const isRound = tripType === 'round trip' || tripType === 'roundtrip';
-  const isOneWay = tripType === 'one way' || tripType === 'oneway';
-  if (!isRound && !isOneWay) {
-    throw new HttpError(400, 'Trip type must be One Way or Round Trip.');
-  }
-  if (isRound && !returnDate) {
-    throw new HttpError(400, 'Return date is required for a round trip.');
-  }
-  if (returnDate && startOfUtcDay(returnDate) < startOfUtcDay(pickupDate)) {
-    throw new HttpError(400, 'Return date must be on or after the pickup date.');
-  }
-  if (passengerCount < 1 || passengerCount > 50) {
-    throw new HttpError(400, 'Passenger count must be between 1 and 50.');
-  }
-  if (!vehicleTypeId || vehicleTypeId < 1 || vehicleTypeId > 4) {
-    throw new HttpError(400, 'Select a valid vehicle type.');
-  }
-  if (additionalDetails && additionalDetails.length > 2000) {
-    throw new HttpError(400, 'Additional details are too long.');
-  }
+  const valid = result.data;
+  const isRound = valid.trip_type.toLowerCase().includes('round');
+  const pickupDate = parseDateOnly(valid.pickup_date)!;
+  const returnDate = isRound && valid.return_date ? parseDateOnly(valid.return_date) : null;
 
   return {
-    full_name: fullName,
-    phone_number: phone,
-    email,
-    pickup_location: pickupLocation,
-    dropoff_location: dropoffLocation,
+    full_name: valid.full_name,
+    phone_number: valid.phone_number,
+    email: valid.email ? valid.email.trim() : null,
+    pickup_location: valid.pickup_location,
+    dropoff_location: valid.dropoff_location,
     pickup_date: pickupDate,
-    return_date: isRound ? returnDate : null,
-    passenger_count: Math.round(passengerCount),
+    return_date: returnDate,
+    passenger_count: valid.passenger_count,
     trip_type: isRound ? 'Round Trip' : 'One Way',
-    vehicle_type_id: Math.round(vehicleTypeId),
-    additional_details: additionalDetails,
+    vehicle_type_id: valid.vehicle_type_id,
+    additional_details: valid.additional_details?.trim() || null,
   };
 }
+
+// Review Zod Schema
+export const reviewZodSchema = z.object({
+  customer_name: z.string().trim().min(1, 'Your name is required.').max(100, 'Name is too long.'),
+  rating: z.coerce.number().int().min(1, 'Rating must be between 1 and 5.').max(5, 'Rating must be between 1 and 5.'),
+  comment: z.string().trim().min(1, 'Review comment is required.').max(2000, 'Review comment is too long.'),
+  trip_title: z.string().max(150, 'Trip title is too long.').optional().nullable(),
+  website_hp: honeypotValidator,
+});
 
 export type ReviewInput = {
   customer_name: string;
@@ -165,33 +191,77 @@ export type ReviewInput = {
 };
 
 export function parseReview(body: unknown): ReviewInput {
-  const record = asRecord(body);
-  if (isHoneypotTriggered(record.website_hp)) {
-    throw new HttpError(400, 'Invalid submission.');
-  }
-
-  const customerName = readString(record, 'customer_name');
-  const comment = readString(record, 'comment');
-  const tripTitle = readOptionalString(record, 'trip_title');
-  const rating = readNumber(record, 'rating');
-
-  if (!customerName || customerName.length > 100) {
-    throw new HttpError(400, 'Your name is required.');
-  }
-  if (!comment || comment.length > 2000) {
-    throw new HttpError(400, 'Review comment is required.');
-  }
-  if (tripTitle && tripTitle.length > 150) {
-    throw new HttpError(400, 'Trip title is too long.');
-  }
-  if (!rating || rating < 1 || rating > 5) {
-    throw new HttpError(400, 'Rating must be between 1 and 5.');
+  const result = reviewZodSchema.safeParse(body);
+  if (!result.success) {
+    const firstIssue = result.error.issues[0];
+    throw new HttpError(400, firstIssue?.message || 'Invalid review submission.');
   }
 
   return {
-    customer_name: customerName,
-    rating: Math.round(rating),
-    comment,
-    trip_title: tripTitle,
+    customer_name: result.data.customer_name,
+    rating: result.data.rating,
+    comment: result.data.comment,
+    trip_title: result.data.trip_title?.trim() || null,
   };
 }
+
+// Auth Schemas
+export const loginZodSchema = z.object({
+  identifier: z.string().trim().min(1, 'Identifier (email or phone) is required.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
+});
+
+export const registerZodSchema = z.object({
+  name: z.string().trim().min(1, 'Full name is required.').max(100),
+  email: z.string().trim().email('Please enter a valid email address.').toLowerCase(),
+  phone: z.string().trim().min(1, 'Phone number is required.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
+});
+
+export const forgotPasswordZodSchema = z.object({
+  identifier: z.string().trim().min(1, 'Email or phone number is required.'),
+});
+
+export const resetPasswordZodSchema = z.object({
+  identifier: z.string().trim().min(1, 'Identifier is required.'),
+  code: z.string().trim().min(4, 'Verification code is required.'),
+  newPassword: z.string().min(6, 'New password must be at least 6 characters.'),
+});
+
+// Push Token Registration Schema
+export const registerPushTokenSchema = z.object({
+  pushToken: z.string().trim().min(1, 'Push token is required.'),
+  customerId: z.number().int().positive().optional().nullable(),
+  phoneNumber: z.string().trim().optional().nullable(),
+  email: z.string().trim().email().optional().nullable().or(z.literal('')),
+  devicePlatform: z.enum(['ios', 'android', 'web']).optional().nullable(),
+  deviceName: z.string().trim().max(100).optional().nullable(),
+});
+
+// Notification Dispatch Event Schemas
+export const bookingStatusTriggerSchema = z.object({
+  bookingId: z.number().int().positive('Valid bookingId is required.'),
+  status: z.enum(['Confirmed', 'Cancelled', 'Completed', 'In Progress']),
+  remarks: z.string().optional(),
+});
+
+export const driverAssignTriggerSchema = z.object({
+  bookingId: z.number().int().positive('Valid bookingId is required.'),
+  driverName: z.string().trim().min(1, 'Driver name is required.'),
+  driverPhone: z.string().trim().min(1, 'Driver phone is required.'),
+  vehiclePlate: z.string().trim().min(1, 'Vehicle plate number is required.'),
+  vehicleModel: z.string().trim().optional(),
+});
+
+export const tripReminderTriggerSchema = z.object({
+  bookingId: z.number().int().positive('Valid bookingId is required.'),
+});
+
+export const flightDelayTriggerSchema = z.object({
+  bookingId: z.number().int().positive('Valid bookingId is required.'),
+  flightNumber: z.string().trim().min(1, 'Flight number is required.'),
+  delayMinutes: z.number().int().min(1, 'Delay minutes must be positive.'),
+  newArrivalTime: z.string().trim().optional(),
+  airline: z.string().trim().optional(),
+});
+

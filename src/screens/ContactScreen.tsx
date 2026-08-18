@@ -1,8 +1,17 @@
-import { useState } from 'react';
-import * as Linking from 'expo-linking';
-import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react-native';
-import { type ReactNode } from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Linking from 'expo-linking';
+import {
+  Clock,
+  Headphones,
+  Mail,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Send,
+  ShieldCheck,
+  Star,
+} from 'lucide-react-native';
 
 import { submitReview } from '../api/reviews';
 import { HoneypotField } from '../components/honeypot/HoneypotField';
@@ -17,16 +26,20 @@ import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { CONTACT_INFO } from '../constants/contact';
 import { LIMITS } from '../constants/validation';
 import { HOME_FAQS } from '../content/faqs';
+import { useAuth } from '../context/AuthContext';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { radius, spacing } from '../theme/spacing';
 import { extractErrorMessage } from '../utils/errors';
+import { hapticFeedback } from '../utils/haptics';
 
 export function ContactScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const [name, setName] = useState('');
+  const { user, isAuthenticated } = useAuth();
+
+  const [name, setName] = useState(isAuthenticated && user ? user.name : '');
   const [trip, setTrip] = useState('');
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(5);
@@ -34,10 +47,11 @@ export function ContactScreen() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
-  const onSubmit = async () => {
+  const onSubmitReview = async () => {
     setError('');
     if (!name.trim() || !comment.trim()) {
-      setError('Please add your name and review.');
+      hapticFeedback.error();
+      setError('Please add your name and review comment.');
       return;
     }
     setSubmitting(true);
@@ -49,13 +63,15 @@ export function ContactScreen() {
         trip_title: trip.trim() || null,
         website_hp: '',
       });
-      setName('');
+      hapticFeedback.success();
+      setName(isAuthenticated && user ? user.name : '');
       setTrip('');
       setComment('');
       setRating(5);
       setSuccess(true);
     } catch (err) {
-      setError(extractErrorMessage(err, 'Could not submit review.'));
+      hapticFeedback.error();
+      setError(extractErrorMessage(err, 'Could not submit review. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -65,104 +81,145 @@ export function ContactScreen() {
     <Screen>
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
-          <SectionHeader tag="DISPATCH DESK" title={CONTACT_INFO.brandName} subtitle={CONTACT_INFO.tagline} />
+          <Text style={styles.badgeTag}>24/7 SUPPORT DESK</Text>
+          <Text style={styles.pageTitle}>Contact & Help Center</Text>
+          <Text style={styles.pageSubtitle}>
+            Direct dispatch line, WhatsApp support & roadside assistance across Nepal.
+          </Text>
         </View>
         <ThemeToggle variant="onSurface" />
       </View>
 
-      <ContactRow
-        icon={<Phone color={colors.accent} size={20} />}
-        label="Call dispatch"
-        value={CONTACT_INFO.phoneDisplay}
-        onPress={() => Linking.openURL(CONTACT_INFO.telLink)}
-      />
-      <ContactRow
-        icon={<MessageCircle color={colors.success} size={20} />}
-        label="WhatsApp"
-        value={CONTACT_INFO.whatsappNumber}
-        onPress={() => Linking.openURL(CONTACT_INFO.whatsappLink)}
-      />
-      <ContactRow
-        icon={<Mail color={colors.navy} size={20} />}
-        label="Email"
-        value={CONTACT_INFO.email}
-        onPress={() => Linking.openURL(CONTACT_INFO.mailtoLink)}
-      />
-      <ContactRow
-        icon={<MapPin color={colors.muted} size={20} />}
-        label="Office"
-        value={`${CONTACT_INFO.address}\n${CONTACT_INFO.cityCountry}`}
-      />
-
-      <SectionHeader tag="FAQ" title="Common questions" />
-      <FaqList items={HOME_FAQS} />
-
-      <SectionHeader tag="WRITE A REVIEW" title="Share your trip" subtitle="Reviews appear after our team approves them." />
       <HoneypotField />
-      <TextField
-        label="Your name *"
-        value={name}
-        onChangeText={setName}
-        autoCapitalize="words"
-        maxLength={LIMITS.reviewName}
-      />
-      <Text style={styles.label}>Rating *</Text>
-      <View style={styles.stars}>
-        {[1, 2, 3, 4, 5].map((value) => (
-          <Pressable key={value} onPress={() => setRating(value)} style={[styles.star, rating >= value && styles.starOn]}>
-            <Text style={[styles.starText, rating >= value && styles.starTextOn]}>{value}★</Text>
-          </Pressable>
-        ))}
+
+      {/* Quick Dialing Channels */}
+      <View style={styles.channelsGrid}>
+        <Pressable
+          onPress={() => {
+            hapticFeedback.light();
+            Linking.openURL(CONTACT_INFO.telLink);
+          }}
+          style={({ pressed }) => [styles.channelCard, pressed && styles.pressed]}
+        >
+          <View style={[styles.channelIconWrap, { backgroundColor: colors.accentSoft }]}>
+            <Phone size={22} color={colors.accent} />
+          </View>
+          <Text style={styles.channelTitle}>Phone Hotline</Text>
+          <Text style={styles.channelValue}>{CONTACT_INFO.phoneDisplay}</Text>
+          <Text style={styles.channelStatus}>Instant Call ➔</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            hapticFeedback.light();
+            Linking.openURL(CONTACT_INFO.whatsappLink);
+          }}
+          style={({ pressed }) => [styles.channelCard, pressed && styles.pressed]}
+        >
+          <View style={[styles.channelIconWrap, { backgroundColor: 'rgba(37, 211, 102, 0.15)' }]}>
+            <MessageCircle size={22} color="#25D366" />
+          </View>
+          <Text style={styles.channelTitle}>WhatsApp 24/7</Text>
+          <Text style={styles.channelValue}>{CONTACT_INFO.whatsappNumber}</Text>
+          <Text style={[styles.channelStatus, { color: '#25D366' }]}>Live Chat ➔</Text>
+        </Pressable>
       </View>
-      <TextField
-        label="Trip title"
-        value={trip}
-        onChangeText={setTrip}
-        placeholder="Manakamana, TIA pickup…"
-        maxLength={LIMITS.reviewTrip}
-      />
-      <TextField
-        label="Your review *"
-        value={comment}
-        onChangeText={setComment}
-        multiline
-        maxLength={LIMITS.reviewComment}
-      />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <Button label="Submit review" onPress={onSubmit} loading={submitting} />
+
+      {/* Office & Operations Location */}
+      <Card style={styles.officeCard}>
+        <View style={styles.officeHeader}>
+          <MapPin size={20} color={colors.accent} />
+          <View style={styles.officeTextWrap}>
+            <Text style={styles.officeTitle}>Drive Kendra Main Hub</Text>
+            <Text style={styles.officeSubtitle}>{CONTACT_INFO.address}, {CONTACT_INFO.cityCountry}</Text>
+          </View>
+        </View>
+        <View style={styles.officeHoursRow}>
+          <Clock size={15} color={colors.muted} />
+          <Text style={styles.officeHoursText}>Dispatch Desk: 24 Hours / 7 Days a Week</Text>
+        </View>
+      </Card>
+
+      {/* Leave Customer Review Section */}
+      <Card style={styles.reviewCard}>
+        <Text style={styles.reviewCardTitle}>Share Your Experience</Text>
+        <Text style={styles.reviewCardSubtitle}>Help fellow travelers explore Nepal with confidence.</Text>
+
+        {error ? (
+          <View style={styles.errorAlert}>
+            <Text style={styles.errorAlertText}>{error}</Text>
+          </View>
+        ) : null}
+
+        {/* Star Rating Interactive Selector */}
+        <View style={styles.ratingSection}>
+          <Text style={styles.ratingLabel}>Your Rating</Text>
+          <View style={styles.starsRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Pressable
+                key={star}
+                onPress={() => {
+                  hapticFeedback.selection();
+                  setRating(star);
+                }}
+                style={styles.starBtn}
+              >
+                <Star
+                  size={26}
+                  color={star <= rating ? colors.highlight : colors.subtle}
+                  fill={star <= rating ? colors.highlight : 'transparent'}
+                />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <TextField
+          label="Your Name *"
+          value={name}
+          onChangeText={setName}
+          placeholder="e.g. Aarav Sharma"
+          maxLength={LIMITS.reviewName}
+        />
+
+        <TextField
+          label="Trip or Destination (Optional)"
+          value={trip}
+          onChangeText={setTrip}
+          placeholder="e.g. Muktinath 4x4 Pilgrimage"
+          maxLength={LIMITS.reviewTrip}
+        />
+
+        <TextField
+          label="Your Review / Feedback *"
+          value={comment}
+          onChangeText={setComment}
+          placeholder="Tell us about the vehicle condition, hill driver hospitality, and route experience..."
+          multiline
+          maxLength={LIMITS.reviewComment}
+        />
+
+        <Button
+          label={submitting ? 'Submitting Review...' : 'Submit Verified Review'}
+          onPress={onSubmitReview}
+          loading={submitting}
+          variant="primary"
+        />
+      </Card>
+
+      {/* Support FAQ */}
+      <View style={{ marginTop: spacing.md, paddingBottom: 40 }}>
+        <SectionHeader tag="FAQ" title="Help & Policies" subtitle="Quick answers to common questions" />
+        <FaqList items={HOME_FAQS} />
+      </View>
 
       <SuccessModal
         visible={success}
-        title="Thank you"
-        message="Your review was submitted and will appear after approval."
+        title="Thank You for Your Review!"
+        message="Your feedback has been submitted for verification and will appear on the app shortly."
         onClose={() => setSuccess(false)}
       />
     </Screen>
-  );
-}
-
-function ContactRow({
-  icon,
-  label,
-  value,
-  onPress,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-  onPress?: () => void;
-}) {
-  const styles = useThemedStyles(createStyles);
-  return (
-    <Pressable onPress={onPress} disabled={!onPress} style={styles.rowWrap}>
-      <Card style={styles.row}>
-        <View style={styles.icon}>{icon}</View>
-        <View style={styles.body}>
-          <Text style={styles.rowLabel}>{label}</Text>
-          <Text style={styles.value}>{value}</Text>
-        </View>
-      </Card>
-    </Pressable>
   );
 }
 
@@ -171,75 +228,163 @@ function createStyles(colors: ThemeColors) {
     headerRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      gap: spacing.md,
+      justifyContent: 'space-between',
+      marginBottom: spacing.md,
     },
     headerCopy: {
       flex: 1,
     },
-    rowWrap: {
-      marginBottom: spacing.md,
+    badgeTag: {
+      color: colors.accent,
+      fontSize: 11,
+      fontWeight: '800',
+      letterSpacing: 1,
+      marginBottom: 2,
     },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.md,
-    },
-    icon: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: colors.elevated,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    body: {
-      flex: 1,
-    },
-    rowLabel: {
-      color: colors.muted,
-      fontSize: 13,
-      fontWeight: '700',
-    },
-    value: {
+    pageTitle: {
+      fontSize: 24,
+      fontWeight: '900',
       color: colors.text,
-      fontSize: 16,
-      marginTop: 2,
-      lineHeight: 22,
-      fontWeight: '700',
     },
-    label: {
-      color: colors.muted,
+    pageSubtitle: {
       fontSize: 13,
-      fontWeight: '600',
-      marginBottom: spacing.sm,
+      color: colors.muted,
+      marginTop: 2,
+      lineHeight: 18,
     },
-    stars: {
+    channelsGrid: {
       flexDirection: 'row',
       gap: spacing.sm,
       marginBottom: spacing.md,
     },
-    star: {
+    channelCard: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+    },
+    channelIconWrap: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
+    },
+    channelTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    channelValue: {
+      fontSize: 11,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    channelStatus: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.accent,
+      marginTop: 6,
+    },
+    officeCard: {
+      marginBottom: spacing.md,
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: spacing.sm,
+    },
+    officeHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    officeTextWrap: {
+      flex: 1,
+    },
+    officeTitle: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    officeSubtitle: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+    },
+    officeHoursRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.elevated,
+      padding: spacing.sm,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    officeHoursText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    reviewCard: {
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.md,
+    },
+    reviewCardTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    reviewCardSubtitle: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 2,
+      marginBottom: spacing.md,
+    },
+    ratingSection: {
+      marginBottom: spacing.md,
+      alignItems: 'center',
+      backgroundColor: colors.elevated,
+      padding: spacing.md,
       borderRadius: radius.md,
       borderWidth: 1,
       borderColor: colors.border,
-      backgroundColor: colors.surface,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
     },
-    starOn: {
-      backgroundColor: colors.accentSoft,
-      borderColor: colors.accent,
+    ratingLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.muted,
+      marginBottom: spacing.xs,
     },
-    starText: {
-      color: colors.subtle,
-      fontWeight: '800',
+    starsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
     },
-    starTextOn: {
-      color: colors.accent,
+    starBtn: {
+      padding: 4,
     },
-    error: {
-      color: colors.error,
+    errorAlert: {
+      backgroundColor: colors.errorSoft,
+      padding: spacing.md,
+      borderRadius: radius.md,
       marginBottom: spacing.md,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.error,
+    },
+    errorAlertText: {
+      color: colors.error,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    pressed: {
+      opacity: 0.8,
+      transform: [{ scale: 0.98 }],
     },
   });
 }

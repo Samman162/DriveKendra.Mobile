@@ -1,3 +1,4 @@
+import React, { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { ThemeColors } from '../../theme/colors';
@@ -7,7 +8,7 @@ import type { PublicReviewDto } from '../../types/api';
 import { relativeTime } from '../../utils/dates';
 import { Card } from './Card';
 
-export function ReviewCard({ review }: { review: PublicReviewDto }) {
+export const ReviewCard = memo(function ReviewCard({ review }: { review: PublicReviewDto }) {
   const styles = useThemedStyles(createStyles);
   return (
     <Card style={styles.card}>
@@ -20,7 +21,7 @@ export function ReviewCard({ review }: { review: PublicReviewDto }) {
       <Text style={styles.comment}>{review.comment}</Text>
     </Card>
   );
-}
+});
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({

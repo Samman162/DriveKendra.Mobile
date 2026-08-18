@@ -33,7 +33,8 @@ reviewsRoute.get('/', async (c) => {
 });
 
 reviewsRoute.post('/', async (c) => {
-  const review = parseReview(await c.req.json().catch(() => null));
+  const body = await c.req.json().catch(() => null);
+  const review = parseReview(body);
 
   await withPublicClient((client) =>
     client.query(

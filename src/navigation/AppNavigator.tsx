@@ -1,26 +1,37 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Car, Compass, Map, PhoneCall, Sparkles } from 'lucide-react-native';
+import { Car, Compass, Map, PhoneCall, Sparkles, User as UserIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { hapticFeedback } from '../utils/haptics';
 import { AirportScreen } from '../screens/AirportScreen';
+import { AuthScreen } from '../screens/AuthScreen';
 import { BookingScreen } from '../screens/BookingScreen';
 import { ContactScreen } from '../screens/ContactScreen';
 import { ExploreScreen } from '../screens/ExploreScreen';
 import { FleetScreen } from '../screens/FleetScreen';
 import { HomeScreen } from '../screens/HomeScreen';
+import { MyTripsScreen } from '../screens/MyTripsScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { RatesScreen } from '../screens/RatesScreen';
 import { TourDetailScreen } from '../screens/TourDetailScreen';
 import { ToursScreen } from '../screens/ToursScreen';
 import { WeddingScreen } from '../screens/WeddingScreen';
 import { useTheme } from '../theme/ThemeProvider';
-import type { ExploreStackParamList, HomeStackParamList, RootTabParamList, ToursStackParamList } from './types';
+import type {
+  AccountStackParamList,
+  ExploreStackParamList,
+  HomeStackParamList,
+  RootTabParamList,
+  ToursStackParamList,
+} from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const ExploreStack = createNativeStackNavigator<ExploreStackParamList>();
 const ToursStack = createNativeStackNavigator<ToursStackParamList>();
+const AccountStack = createNativeStackNavigator<AccountStackParamList>();
 
 function stackScreenOptions(colors: ReturnType<typeof useTheme>['colors']) {
   return {
@@ -33,9 +44,25 @@ function stackScreenOptions(colors: ReturnType<typeof useTheme>['colors']) {
 }
 
 function HomeStackNavigator() {
+  const { colors } = useTheme();
   return (
     <HomeStack.Navigator screenOptions={{ headerShown: false }}>
       <HomeStack.Screen name="HomeMain" component={HomeScreen} />
+      <HomeStack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
+      <HomeStack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={stackScreenOptions(colors)}
+      />
+      <HomeStack.Screen
+        name="MyTrips"
+        component={MyTripsScreen}
+        options={stackScreenOptions(colors)}
+      />
     </HomeStack.Navigator>
   );
 }
@@ -49,6 +76,11 @@ function ExploreStackNavigator() {
       <ExploreStack.Screen name="Rates" component={RatesScreen} options={{ title: 'Official rates' }} />
       <ExploreStack.Screen name="Airport" component={AirportScreen} options={{ title: 'Airport transfer' }} />
       <ExploreStack.Screen name="Wedding" component={WeddingScreen} options={{ title: 'Wedding cars' }} />
+      <ExploreStack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
     </ExploreStack.Navigator>
   );
 }
@@ -59,31 +91,70 @@ function ToursStackNavigator() {
     <ToursStack.Navigator screenOptions={stackScreenOptions(colors)}>
       <ToursStack.Screen name="ToursHome" component={ToursScreen} options={{ headerShown: false }} />
       <ToursStack.Screen name="TourDetail" component={TourDetailScreen} options={{ title: 'Tour package' }} />
+      <ToursStack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
     </ToursStack.Navigator>
+  );
+}
+
+function AccountStackNavigator() {
+  const { colors } = useTheme();
+  return (
+    <AccountStack.Navigator screenOptions={stackScreenOptions(colors)}>
+      <AccountStack.Screen
+        name="AccountHome"
+        component={ProfileScreen}
+        options={{ title: 'My Account' }}
+      />
+      <AccountStack.Screen
+        name="Auth"
+        component={AuthScreen}
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
+      <AccountStack.Screen
+        name="MyTrips"
+        component={MyTripsScreen}
+        options={{ title: 'My Reservations' }}
+      />
+    </AccountStack.Navigator>
   );
 }
 
 export function AppNavigator() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 56 + Math.max(insets.bottom, 8);
+  const tabBarHeight = 58 + Math.max(insets.bottom, 10);
   return (
     <Tab.Navigator
+      screenListeners={{
+        tabPress: () => {
+          hapticFeedback.selection();
+        },
+      }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.tabBar,
-          borderTopColor: colors.navySoft,
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
           height: tabBarHeight,
           paddingTop: 6,
-          paddingBottom: Math.max(insets.bottom, 8),
+          paddingBottom: Math.max(insets.bottom, 10),
+          shadowColor: colors.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 6,
+          elevation: 8,
         },
-        tabBarActiveTintColor: colors.highlight,
-        tabBarInactiveTintColor: colors.tabInactive,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.subtle,
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '700',
-          paddingBottom: 6,
+          paddingBottom: 4,
         },
       }}
     >
@@ -117,6 +188,14 @@ export function AppNavigator() {
         options={{
           title: 'Tours',
           tabBarIcon: ({ color, size }) => <Map color={color} size={size} />,
+        }}
+      />
+      <Tab.Screen
+        name="Account"
+        component={AccountStackNavigator}
+        options={{
+          title: 'Account',
+          tabBarIcon: ({ color, size }) => <UserIcon color={color} size={size} />,
         }}
       />
       <Tab.Screen
