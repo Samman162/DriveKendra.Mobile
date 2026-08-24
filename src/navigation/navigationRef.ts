@@ -1,25 +1,25 @@
 import { createNavigationContainerRef } from '@react-navigation/native';
-import type { RootTabParamList } from './types';
+import type { RootStackParamList } from './types';
 
-export const navigationRef = createNavigationContainerRef<RootTabParamList>();
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 /**
- * Global navigation helper to redirect user directly to MyTrips screen
- * from notifications or external deep links.
+ * Global navigation helper to redirect user directly to MyBookings tab
+ * from notifications, quick actions, or external deep links.
  */
 export function navigateToMyTrips(bookingId?: string | number) {
   if (navigationRef.isReady()) {
-    // Navigate to Account tab -> MyTrips stack screen with optional booking ID
-    navigationRef.navigate('Account', {
-      screen: 'MyTrips',
+    // Navigate to MainTabs -> MyBookings tab with optional booking ID
+    navigationRef.navigate('MainTabs', {
+      screen: 'MyBookings',
       params: bookingId ? { bookingId } : undefined,
     });
   } else {
     // Retry once when container becomes ready
     const timer = setTimeout(() => {
       if (navigationRef.isReady()) {
-        navigationRef.navigate('Account', {
-          screen: 'MyTrips',
+        navigationRef.navigate('MainTabs', {
+          screen: 'MyBookings',
           params: bookingId ? { bookingId } : undefined,
         });
       }

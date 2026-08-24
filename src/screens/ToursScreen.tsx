@@ -23,7 +23,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { TourCard } from '../components/ui/TourCard';
 import { TOUR_PACKAGES, type TourPackage } from '../content/tours';
-import type { RootTabParamList, ToursStackParamList } from '../navigation/types';
+import type { RootStackParamList, RootTabParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -31,7 +31,7 @@ import { radius, spacing } from '../theme/spacing';
 import { hapticFeedback } from '../utils/haptics';
 
 type Nav = CompositeNavigationProp<
-  NativeStackNavigationProp<ToursStackParamList>,
+  NativeStackNavigationProp<RootStackParamList>,
   BottomTabNavigationProp<RootTabParamList>
 >;
 
@@ -74,10 +74,10 @@ export function ToursScreen() {
         return;
       }
       if (tour.exploreTarget === 'airport') {
-        navigation.navigate('Explore', { screen: 'Airport' });
+        navigation.navigate('Airport');
         return;
       }
-      navigation.navigate('Explore', { screen: 'Rates' });
+      navigation.navigate('Rates');
     },
     [navigation],
   );

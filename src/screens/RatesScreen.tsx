@@ -37,7 +37,7 @@ import {
   type RateCategory,
 } from '../content/rates';
 import { navigateToBook } from '../navigation/booking';
-import type { ExploreStackParamList, RootTabParamList } from '../navigation/types';
+import type { RootStackParamList, RootTabParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -45,7 +45,7 @@ import { radius, spacing } from '../theme/spacing';
 import { hapticFeedback } from '../utils/haptics';
 
 type Nav = CompositeNavigationProp<
-  NativeStackNavigationProp<ExploreStackParamList>,
+  NativeStackNavigationProp<RootStackParamList>,
   BottomTabNavigationProp<RootTabParamList>
 >;
 

@@ -1,6 +1,9 @@
 import React from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   Calendar,
   Car,
@@ -20,14 +23,20 @@ import { Screen } from '../components/ui/Screen';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 import { useBiometrics } from '../hooks/useBiometrics';
+import type { RootStackParamList, RootTabParamList } from '../navigation/types';
 import { radius, spacing } from '../theme/spacing';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { hapticFeedback } from '../utils/haptics';
 
+type ProfileNav = CompositeNavigationProp<
+  BottomTabNavigationProp<RootTabParamList, 'Profile'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
 export function ProfileScreen() {
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<ProfileNav>();
   const { colors, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const { user, isAuthenticated, signOut, biometricEnabled, setBiometricEnabled } = useAuth();
@@ -137,7 +146,7 @@ export function ProfileScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-          onPress={() => navigation.navigate('MyTrips')}
+          onPress={() => navigation.navigate('MyBookings')}
         >
           <View style={[styles.menuIconWrap, { backgroundColor: colors.accentSoft }]}>
             <Calendar size={18} color={colors.accent} />
@@ -151,7 +160,7 @@ export function ProfileScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-          onPress={() => navigation.navigate('Book')}
+          onPress={() => navigation.navigate('BookingModal')}
         >
           <View style={styles.menuIconWrap}>
             <Car size={18} color={colors.accent} />

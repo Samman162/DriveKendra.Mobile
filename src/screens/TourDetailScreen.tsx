@@ -37,7 +37,7 @@ import {
 } from '../content/tourDetails';
 import { TOUR_PACKAGES } from '../content/tours';
 import { formatNprAmount, navigateToBook } from '../navigation/booking';
-import type { RootTabParamList, ToursStackParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -55,8 +55,8 @@ function manakamanaPrice(option: ManakamanaOption, mode: ManakamanaMode): number
 export function TourDetailScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
-  const route = useRoute<RouteProp<ToursStackParamList, 'TourDetail'>>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'TourDetail'>>();
   const tour = TOUR_PACKAGES.find((item) => item.detailId === route.params.tourId);
 
   const [mode, setMode] = useState<ManakamanaMode>('same_day');

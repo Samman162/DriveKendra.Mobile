@@ -1,5 +1,4 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
-
 import type { TripType } from '../types/api';
 
 export type BookParams = {
@@ -17,40 +16,29 @@ export type AuthParams = {
   redirectTo?: string;
 };
 
-export type HomeStackParamList = {
-  HomeMain: undefined;
-  Auth: AuthParams | undefined;
+/**
+ * Primary 3-Tab Bottom Navigation: Home, My Bookings, Profile
+ */
+export type RootTabParamList = {
+  Home: undefined;
+  MyBookings: { bookingId?: string | number; openBookingModal?: boolean; initialParams?: BookParams } | undefined;
   Profile: undefined;
-  MyTrips: { bookingId?: string | number } | undefined;
 };
 
-export type ExploreStackParamList = {
-  ExploreHome: undefined;
+/**
+ * Root Stack Navigation: Encapsulates MainTabs and all full-screen & modal routes
+ */
+export type RootStackParamList = {
+  MainTabs: NavigatorScreenParams<RootTabParamList> | undefined;
+  BookingModal: BookParams | undefined;
   Fleet: undefined;
   Rates: undefined;
   Airport: undefined;
   Wedding: undefined;
-  Auth: AuthParams | undefined;
-};
-
-export type ToursStackParamList = {
-  ToursHome: undefined;
+  Tours: undefined;
   TourDetail: { tourId: 'manakamana' | 'muktinath' | 'kalinchowk' };
-  Auth: AuthParams | undefined;
-};
-
-export type AccountStackParamList = {
-  AccountHome: undefined;
+  Contact: undefined;
   Auth: AuthParams | undefined;
   MyTrips: { bookingId?: string | number } | undefined;
+  Profile: undefined;
 };
-
-export type RootTabParamList = {
-  Home: NavigatorScreenParams<HomeStackParamList> | undefined;
-  Explore: NavigatorScreenParams<ExploreStackParamList> | undefined;
-  Book: BookParams | undefined;
-  Tours: NavigatorScreenParams<ToursStackParamList> | undefined;
-  Account: NavigatorScreenParams<AccountStackParamList> | undefined;
-  Contact: undefined;
-};
-

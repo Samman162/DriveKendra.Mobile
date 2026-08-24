@@ -17,7 +17,7 @@ import { SectionHeader } from '../components/ui/SectionHeader';
 import { VehicleCard } from '../components/ui/VehicleCard';
 import { FLEET_CATEGORIES, FLEET_VEHICLES, type FleetCategory, type FleetVehicle } from '../content/vehicles';
 import { navigateToBook } from '../navigation/booking';
-import type { RootTabParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -28,7 +28,7 @@ export function FleetScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
-  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   const [category, setCategory] = useState<FleetCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');

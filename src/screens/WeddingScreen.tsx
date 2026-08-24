@@ -18,7 +18,7 @@ import {
   type WeddingDuration,
 } from '../content/wedding';
 import { formatNprAmount, navigateToBook } from '../navigation/booking';
-import type { RootTabParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -28,7 +28,7 @@ import { hapticFeedback } from '../utils/haptics';
 export function WeddingScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   const [tierId, setTierId] = useState('gold');
   const [duration, setDuration] = useState<WeddingDuration>('full_day');

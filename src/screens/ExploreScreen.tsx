@@ -21,7 +21,7 @@ import { Card } from '../components/ui/Card';
 import { Screen } from '../components/ui/Screen';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
-import type { ExploreStackParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -70,7 +70,7 @@ const SERVICES = [
 export function ExploreScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const navigation = useNavigation<NativeStackNavigationProp<ExploreStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   return (
     <Screen>

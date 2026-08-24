@@ -1,7 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NavigationProp } from '@react-navigation/native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import {
   ArrowRight,
@@ -16,6 +25,7 @@ import {
   MessageCircle,
   Mountain,
   Phone,
+  Plus,
   RotateCcw,
   ShieldCheck,
   Star,
@@ -32,8 +42,8 @@ import { SectionHeader } from '../components/ui/SectionHeader';
 import { CONTACT_INFO } from '../constants/contact';
 import { useAuth } from '../context/AuthContext';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import { navigateToBook } from '../navigation/booking';
-import type { RootTabParamList } from '../navigation/types';
+import type { BookParams, RootTabParamList } from '../navigation/types';
+import { BookingScreen } from './BookingScreen';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -64,7 +74,7 @@ export interface TripRecord {
   status: 'confirmed' | 'completed' | 'cancelled';
 }
 
-const MOCK_TRIPS: TripRecord[] = [
+const INITIAL_TRIPS: TripRecord[] = [
   {
     id: 'trip_101',
     bookingRef: 'DK-2026-8492',
@@ -118,29 +128,50 @@ const MOCK_TRIPS: TripRecord[] = [
 export function MyTripsScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
   const { user } = useAuth();
   const { isOffline } = useNetworkStatus();
+
+  let routeParams: RootTabParamList['MyBookings'];
+  try {
+    const route = useRoute<RouteProp<RootTabParamList, 'MyBookings'>>();
+    routeParams = route.params;
+  } catch {
+    routeParams = undefined;
+  }
+
+  const [trips, setTrips] = useState<TripRecord[]>(INITIAL_TRIPS);
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [mountainModeManual, setMountainModeManual] = useState<boolean>(false);
   const [cachedVoucher, setCachedVoucher] = useState<OfflineVoucher | null>(null);
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
 
+  // Booking Form Modal State
+  const [bookingModalVisible, setBookingModalVisible] = useState<boolean>(false);
+  const [prefillParams, setPrefillParams] = useState<BookParams | undefined>(undefined);
+
   // Auto-cache trips to local storage for offline / mountain road access
   useEffect(() => {
-    saveOfflineVouchers(MOCK_TRIPS);
+    saveOfflineVouchers(trips);
     getActiveOfflineVoucher().then((voucher) => {
       if (voucher) {
         setCachedVoucher(voucher);
-      } else {
-        setCachedVoucher(formatToOfflineVoucher(MOCK_TRIPS[0]));
+      } else if (trips.length > 0) {
+        setCachedVoucher(formatToOfflineVoucher(trips[0]));
       }
     });
-  }, []);
+  }, [trips]);
+
+  // Handle external trigger to open modal with parameters
+  useEffect(() => {
+    if (routeParams?.openBookingModal) {
+      setPrefillParams(routeParams.initialParams);
+      setBookingModalVisible(true);
+    }
+  }, [routeParams]);
 
   const shouldShowEmergencyVoucher = isOffline || mountainModeManual;
 
-  const filteredTrips = MOCK_TRIPS.filter((t) => {
+  const filteredTrips = trips.filter((t) => {
     if (tab === 'upcoming') return t.status === 'confirmed';
     return t.status === 'completed';
   });
@@ -181,243 +212,316 @@ export function MyTripsScreen() {
     }
   };
 
-  const handleDownloadInvoice = (trip: TripRecord) => {
-    handleDownloadVoucher(trip);
+  const handleNewBookingCreated = (newTrip: TripRecord) => {
+    setTrips((prev) => [newTrip, ...prev]);
+    setTab('upcoming');
+    setBookingModalVisible(false);
   };
 
   return (
-    <Screen>
-      <SectionHeader
-        tag="MY RESERVATIONS"
-        title="Trip & Ride History"
-        subtitle="Manage upcoming driver pickups, view assigned chauffeurs & download tax receipts."
-      />
+    <View style={styles.outerContainer}>
+      <Screen>
+        <SectionHeader
+          tag="MY RESERVATIONS"
+          title="Trip & Ride History"
+          subtitle="Manage upcoming driver pickups, view assigned chauffeurs & download tax receipts."
+        />
 
-      {/* Mountain Emergency Mode Quick Action Bar */}
-      <View style={styles.mountainBar}>
-        <View style={styles.mountainBarLeft}>
-          <View style={[styles.mountainIconDot, shouldShowEmergencyVoucher && styles.mountainIconDotActive]}>
-            {isOffline ? (
-              <WifiOff size={14} color={colors.error} />
-            ) : (
-              <Mountain size={14} color={shouldShowEmergencyVoucher ? colors.accent : colors.subtle} />
-            )}
+        {/* Mountain Emergency Mode Quick Action Bar */}
+        <View style={styles.mountainBar}>
+          <View style={styles.mountainBarLeft}>
+            <View style={[styles.mountainIconDot, shouldShowEmergencyVoucher && styles.mountainIconDotActive]}>
+              {isOffline ? (
+                <WifiOff size={14} color={colors.error} />
+              ) : (
+                <Mountain size={14} color={shouldShowEmergencyVoucher ? colors.accent : colors.subtle} />
+              )}
+            </View>
+            <View>
+              <Text style={styles.mountainBarTitle}>
+                {isOffline ? 'Offline Mountain Mode' : 'Mountain Emergency Mode'}
+              </Text>
+              <Text style={styles.mountainBarSub}>
+                {isOffline
+                  ? 'Cellular lost. Offline SOS & Voucher active.'
+                  : 'Muktinath, Jomsom & remote 4x4 routes.'}
+              </Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.mountainBarTitle}>
-              {isOffline ? 'Offline Mountain Mode' : 'Mountain Emergency Mode'}
+
+          <Pressable
+            style={[styles.mountainToggleBtn, shouldShowEmergencyVoucher && styles.mountainToggleBtnActive]}
+            onPress={() => {
+              hapticFeedback.selection();
+              setMountainModeManual(!mountainModeManual);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Toggle Mountain Emergency Mode"
+          >
+            <Text style={[styles.mountainToggleText, shouldShowEmergencyVoucher && styles.mountainToggleTextActive]}>
+              {shouldShowEmergencyVoucher ? 'Active (SOS)' : 'Enable SOS'}
             </Text>
-            <Text style={styles.mountainBarSub}>
-              {isOffline
-                ? 'Cellular lost. Offline SOS & Voucher active.'
-                : 'Muktinath, Jomsom & remote 4x4 routes.'}
-            </Text>
-          </View>
+          </Pressable>
         </View>
 
-        <Pressable
-          style={[styles.mountainToggleBtn, shouldShowEmergencyVoucher && styles.mountainToggleBtnActive]}
-          onPress={() => {
-            hapticFeedback.selection();
-            setMountainModeManual(!mountainModeManual);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Toggle Mountain Emergency Mode"
-        >
-          <Text style={[styles.mountainToggleText, shouldShowEmergencyVoucher && styles.mountainToggleTextActive]}>
-            {shouldShowEmergencyVoucher ? 'Active (SOS)' : 'Enable SOS'}
-          </Text>
-        </Pressable>
-      </View>
+        {/* Prominent Offline Mountain Emergency Mode Card */}
+        {shouldShowEmergencyVoucher && cachedVoucher && (
+          <EmergencyTripCard
+            voucher={cachedVoucher}
+            isOffline={isOffline}
+          />
+        )}
 
-      {/* Prominent Offline Mountain Emergency Mode Card */}
-      {shouldShowEmergencyVoucher && cachedVoucher && (
-        <EmergencyTripCard
-          voucher={cachedVoucher}
-          isOffline={isOffline}
-        />
-      )}
+        {/* Segmented Tab Switcher */}
+        <View style={styles.tabSwitcher}>
+          <Pressable
+            onPress={() => {
+              hapticFeedback.selection();
+              setTab('upcoming');
+            }}
+            style={[styles.tabBtn, tab === 'upcoming' && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabBtnText, tab === 'upcoming' && styles.tabBtnTextActive]}>
+              Upcoming ({trips.filter((t) => t.status === 'confirmed').length})
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              hapticFeedback.selection();
+              setTab('past');
+            }}
+            style={[styles.tabBtn, tab === 'past' && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabBtnText, tab === 'past' && styles.tabBtnTextActive]}>
+              Past Trips ({trips.filter((t) => t.status === 'completed').length})
+            </Text>
+          </Pressable>
+        </View>
 
-      {/* Segmented Tab Switcher */}
-      <View style={styles.tabSwitcher}>
-        <Pressable
-          onPress={() => {
-            hapticFeedback.selection();
-            setTab('upcoming');
-          }}
-          style={[styles.tabBtn, tab === 'upcoming' && styles.tabBtnActive]}
-        >
-          <Text style={[styles.tabBtnText, tab === 'upcoming' && styles.tabBtnTextActive]}>
-            Upcoming ({MOCK_TRIPS.filter((t) => t.status === 'confirmed').length})
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            hapticFeedback.selection();
-            setTab('past');
-          }}
-          style={[styles.tabBtn, tab === 'past' && styles.tabBtnActive]}
-        >
-          <Text style={[styles.tabBtnText, tab === 'past' && styles.tabBtnTextActive]}>
-            Past Trips ({MOCK_TRIPS.filter((t) => t.status === 'completed').length})
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Trips List */}
-      {filteredTrips.map((trip) => (
-        <Card key={trip.id} style={styles.tripCard}>
-          {/* Card Header Status */}
-          <View style={styles.cardHeader}>
-            <View style={styles.bookingRefRow}>
-              <Text style={styles.bookingRefText}>REF: {trip.bookingRef}</Text>
-            </View>
-            <View
-              style={[
-                styles.statusBadge,
-                trip.status === 'confirmed' ? styles.statusConfirmed : styles.statusCompleted,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  trip.status === 'confirmed' ? styles.statusTextConfirmed : styles.statusTextCompleted,
-                ]}
-              >
-                {trip.status === 'confirmed' ? '🟢 Driver Assigned' : '✓ Completed'}
-              </Text>
-            </View>
-          </View>
-
-          {/* Route Section */}
-          <View style={styles.routeBox}>
-            <View style={styles.pointRow}>
-              <View style={[styles.pointDot, { backgroundColor: colors.accent }]} />
-              <Text style={styles.pointText}>{trip.pickup}</Text>
-            </View>
-            <View style={styles.routeLine} />
-            <View style={styles.pointRow}>
-              <View style={[styles.pointDot, { backgroundColor: colors.success }]} />
-              <Text style={styles.pointText}>{trip.dropoff}</Text>
-            </View>
-          </View>
-
-          {/* Date & Fare Bar */}
-          <View style={styles.detailsGrid}>
-            <View style={styles.detailItem}>
-              <Calendar size={13} color={colors.subtle} />
-              <Text style={styles.detailLabel}>{trip.date} • {trip.time}</Text>
-            </View>
-            <Text style={styles.fareAmount}>{trip.fare}</Text>
-          </View>
-
-          {/* Driver & Vehicle Box */}
-          <View style={styles.driverBox}>
-            <View style={styles.driverAvatar}>
-              <Text style={styles.driverInitial}>{trip.driverName.slice(0, 1)}</Text>
-            </View>
-            <View style={styles.driverInfo}>
-              <View style={styles.driverNameRow}>
-                <Text style={styles.driverName}>{trip.driverName}</Text>
-                <View style={styles.ratingChip}>
-                  <Star size={10} color={colors.highlight} fill={colors.highlight} />
-                  <Text style={styles.ratingVal}>{trip.driverRating}</Text>
+        {/* Trips List */}
+        {filteredTrips.length === 0 ? (
+          <Card style={styles.emptyCard}>
+            <Car size={36} color={colors.subtle} style={{ marginBottom: spacing.sm }} />
+            <Text style={styles.emptyTitle}>No {tab} trips found</Text>
+            <Text style={styles.emptySubtitle}>
+              {tab === 'upcoming'
+                ? 'Ready for your next Himalayan tour or airport transfer?'
+                : 'Your completed journey receipts will appear here.'}
+            </Text>
+            {tab === 'upcoming' && (
+              <View style={{ marginTop: spacing.md, width: '100%' }}>
+                <Button
+                  label="Book a Vehicle Now"
+                  onPress={() => {
+                    hapticFeedback.medium();
+                    setPrefillParams(undefined);
+                    setBookingModalVisible(true);
+                  }}
+                  variant="primary"
+                />
+              </View>
+            )}
+          </Card>
+        ) : (
+          filteredTrips.map((trip) => (
+            <Card key={trip.id} style={styles.tripCard}>
+              {/* Card Header Status */}
+              <View style={styles.cardHeader}>
+                <View style={styles.bookingRefRow}>
+                  <Text style={styles.bookingRefText}>REF: {trip.bookingRef}</Text>
+                </View>
+                <View
+                  style={[
+                    styles.statusBadge,
+                    trip.status === 'confirmed' ? styles.statusConfirmed : styles.statusCompleted,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      trip.status === 'confirmed' ? styles.statusTextConfirmed : styles.statusTextCompleted,
+                    ]}
+                  >
+                    {trip.status === 'confirmed' ? '🟢 Driver Assigned' : '✓ Completed'}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.vehicleInfo}>
-                {trip.vehicleName} • <Text style={styles.plate}>{trip.vehiclePlate}</Text>
-              </Text>
-            </View>
 
-            {/* Quick Call Driver Button for Upcoming */}
-            {trip.status === 'confirmed' && (
-              <Pressable
-                onPress={() => {
-                  hapticFeedback.light();
-                  Linking.openURL(`tel:${trip.driverPhone}`);
-                }}
-                style={styles.callDriverBtn}
-              >
-                <Phone size={16} color={colors.onAccent} />
-              </Pressable>
-            )}
-          </View>
-
-          {/* Bottom Actions */}
-          <View style={styles.cardFooter}>
-            {trip.status === 'confirmed' ? (
-              <View style={styles.confirmedActionsRow}>
-                <Pressable
-                  style={styles.pdfDownloadBtn}
-                  onPress={() => handleDownloadVoucher(trip)}
-                  disabled={generatingPdfId === trip.id}
-                  accessibilityRole="button"
-                  accessibilityLabel="Download Trip Voucher and Tax Receipt PDF"
-                >
-                  {generatingPdfId === trip.id ? (
-                    <ActivityIndicator size="small" color={colors.accent} />
-                  ) : (
-                    <Download size={14} color={colors.accent} />
-                  )}
-                  <Text style={styles.pdfDownloadBtnText}>
-                    {generatingPdfId === trip.id ? 'Generating...' : 'Voucher PDF'}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  style={styles.whatsappBtn}
-                  onPress={() => {
-                    hapticFeedback.light();
-                    Linking.openURL(CONTACT_INFO.whatsappLink);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Chat with Driver Dispatch on WhatsApp"
-                >
-                  <MessageCircle size={14} color={colors.onAccent} />
-                  <Text style={styles.whatsappBtnText}>WhatsApp</Text>
-                </Pressable>
+              {/* Route Section */}
+              <View style={styles.routeBox}>
+                <View style={styles.pointRow}>
+                  <View style={[styles.pointDot, { backgroundColor: colors.accent }]} />
+                  <Text style={styles.pointText}>{trip.pickup}</Text>
+                </View>
+                <View style={styles.routeLine} />
+                <View style={styles.pointRow}>
+                  <View style={[styles.pointDot, { backgroundColor: colors.success }]} />
+                  <Text style={styles.pointText}>{trip.dropoff}</Text>
+                </View>
               </View>
-            ) : (
-              <View style={styles.pastActionsRow}>
-                <Pressable
-                  onPress={() => handleDownloadVoucher(trip)}
-                  disabled={generatingPdfId === trip.id}
-                  style={styles.invoiceBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel="Download Official Tax Receipt PDF"
-                >
-                  {generatingPdfId === trip.id ? (
-                    <ActivityIndicator size="small" color={colors.accent} />
-                  ) : (
-                    <FileText size={14} color={colors.accent} />
-                  )}
-                  <Text style={styles.invoiceBtnText}>
-                    {generatingPdfId === trip.id ? 'Generating...' : 'Tax Receipt (PDF)'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    navigateToBook(navigation, {
-                      pickupLocation: trip.pickup,
-                      dropoffLocation: trip.dropoff,
-                    });
-                  }}
-                  style={styles.rebookBtn}
-                >
-                  <RotateCcw size={14} color={colors.onAccent} />
-                  <Text style={styles.rebookBtnText}>Book Again</Text>
-                </Pressable>
+
+              {/* Date & Fare Bar */}
+              <View style={styles.detailsGrid}>
+                <View style={styles.detailItem}>
+                  <Calendar size={13} color={colors.subtle} />
+                  <Text style={styles.detailLabel}>{trip.date} • {trip.time}</Text>
+                </View>
+                <Text style={styles.fareAmount}>{trip.fare}</Text>
               </View>
-            )}
-          </View>
-        </Card>
-      ))}
-    </Screen>
+
+              {/* Driver & Vehicle Box */}
+              <View style={styles.driverBox}>
+                <View style={styles.driverAvatar}>
+                  <Text style={styles.driverInitial}>{trip.driverName.slice(0, 1)}</Text>
+                </View>
+                <View style={styles.driverInfo}>
+                  <View style={styles.driverNameRow}>
+                    <Text style={styles.driverName}>{trip.driverName}</Text>
+                    <View style={styles.ratingChip}>
+                      <Star size={10} color={colors.highlight} fill={colors.highlight} />
+                      <Text style={styles.ratingVal}>{trip.driverRating}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.vehicleInfo}>
+                    {trip.vehicleName} • <Text style={styles.plate}>{trip.vehiclePlate}</Text>
+                  </Text>
+                </View>
+
+                {/* Quick Call Driver Button for Upcoming */}
+                {trip.status === 'confirmed' && (
+                  <Pressable
+                    onPress={() => {
+                      hapticFeedback.light();
+                      Linking.openURL(`tel:${trip.driverPhone}`);
+                    }}
+                    style={styles.callDriverBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="Call Assigned Driver"
+                  >
+                    <Phone size={16} color={colors.onAccent} />
+                  </Pressable>
+                )}
+              </View>
+
+              {/* Bottom Actions */}
+              <View style={styles.cardFooter}>
+                {trip.status === 'confirmed' ? (
+                  <View style={styles.confirmedActionsRow}>
+                    <Pressable
+                      style={styles.pdfDownloadBtn}
+                      onPress={() => handleDownloadVoucher(trip)}
+                      disabled={generatingPdfId === trip.id}
+                      accessibilityRole="button"
+                      accessibilityLabel="Download Trip Voucher and Tax Receipt PDF"
+                    >
+                      {generatingPdfId === trip.id ? (
+                        <ActivityIndicator size="small" color={colors.accent} />
+                      ) : (
+                        <Download size={14} color={colors.accent} />
+                      )}
+                      <Text style={styles.pdfDownloadBtnText}>
+                        {generatingPdfId === trip.id ? 'Generating...' : 'Voucher PDF'}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={styles.whatsappBtn}
+                      onPress={() => {
+                        hapticFeedback.light();
+                        Linking.openURL(CONTACT_INFO.whatsappLink);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Chat with Driver Dispatch on WhatsApp"
+                    >
+                      <MessageCircle size={14} color={colors.onAccent} />
+                      <Text style={styles.whatsappBtnText}>WhatsApp</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  <View style={styles.pastActionsRow}>
+                    <Pressable
+                      onPress={() => handleDownloadVoucher(trip)}
+                      disabled={generatingPdfId === trip.id}
+                      style={styles.invoiceBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Download Official Tax Receipt PDF"
+                    >
+                      {generatingPdfId === trip.id ? (
+                        <ActivityIndicator size="small" color={colors.accent} />
+                      ) : (
+                        <FileText size={14} color={colors.accent} />
+                      )}
+                      <Text style={styles.invoiceBtnText}>
+                        {generatingPdfId === trip.id ? 'Generating...' : 'Tax Receipt (PDF)'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        hapticFeedback.selection();
+                        setPrefillParams({
+                          pickupLocation: trip.pickup,
+                          dropoffLocation: trip.dropoff,
+                        });
+                        setBookingModalVisible(true);
+                      }}
+                      style={styles.rebookBtn}
+                      accessibilityRole="button"
+                      accessibilityLabel="Rebook this route"
+                    >
+                      <RotateCcw size={14} color={colors.onAccent} />
+                      <Text style={styles.rebookBtnText}>Book Again</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            </Card>
+          ))
+        )}
+
+        <View style={{ height: 80 }} />
+      </Screen>
+
+      {/* Sticky / Floating "New Booking" CTA Button */}
+      <View style={styles.floatingButtonContainer}>
+        <Pressable
+          style={({ pressed }) => [styles.floatingNewBookingBtn, pressed && styles.floatingBtnPressed]}
+          onPress={() => {
+            hapticFeedback.medium();
+            setPrefillParams(undefined);
+            setBookingModalVisible(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Create New Vehicle Booking"
+        >
+          <Plus size={20} color={colors.onAccent} />
+          <Text style={styles.floatingNewBookingText}>New Booking</Text>
+        </Pressable>
+      </View>
+
+      {/* Booking Engine Animated Modal Dialog */}
+      <Modal
+        visible={bookingModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setBookingModalVisible(false)}
+      >
+        <BookingScreen
+          isModal
+          initialParams={prefillParams}
+          onClose={() => setBookingModalVisible(false)}
+          onSuccess={handleNewBookingCreated}
+        />
+      </Modal>
+    </View>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
+    outerContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
     mountainBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -517,6 +621,27 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       padding: spacing.md,
+    },
+    emptyCard: {
+      padding: spacing.xl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginVertical: spacing.md,
+    },
+    emptyTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    emptySubtitle: {
+      fontSize: 13,
+      color: colors.muted,
+      textAlign: 'center',
+      lineHeight: 18,
     },
     cardHeader: {
       flexDirection: 'row',
@@ -752,6 +877,38 @@ function createStyles(colors: ThemeColors) {
       fontSize: 12,
       fontWeight: '700',
       color: colors.onAccent,
+    },
+    floatingButtonContainer: {
+      position: 'absolute',
+      bottom: 20,
+      right: 20,
+      zIndex: 99,
+      elevation: 8,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+    },
+    floatingNewBookingBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      backgroundColor: colors.accent,
+      paddingHorizontal: 18,
+      paddingVertical: 13,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.2)',
+    },
+    floatingBtnPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.97 }],
+    },
+    floatingNewBookingText: {
+      color: colors.onAccent,
+      fontSize: 14,
+      fontWeight: '800',
+      letterSpacing: 0.3,
     },
   });
 }

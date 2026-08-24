@@ -27,7 +27,7 @@ import {
   type AirportVehicle,
 } from '../content/airport';
 import { formatNprAmount, navigateToBook } from '../navigation/booking';
-import type { RootTabParamList } from '../navigation/types';
+import type { RootStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -37,7 +37,7 @@ import { hapticFeedback } from '../utils/haptics';
 export function AirportScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   const [type, setType] = useState<AirportTransferType>('pickup');
   const [routeId, setRouteId] = useState('thamel');

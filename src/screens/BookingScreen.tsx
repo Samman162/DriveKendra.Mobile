@@ -7,7 +7,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   ArrowRight,
   Calendar,
@@ -22,6 +24,7 @@ import {
   Sparkles,
   User,
   Users,
+  X,
 } from 'lucide-react-native';
 
 import { submitBooking } from '../api/bookings';
@@ -43,7 +46,7 @@ import { CONTACT_INFO } from '../constants/contact';
 import { LIMITS, NEPAL_PHONE_ERROR } from '../constants/validation';
 import { VEHICLE_TYPES } from '../constants/vehicles';
 import { useAuth } from '../context/AuthContext';
-import type { BookParams, RootTabParamList } from '../navigation/types';
+import type { BookParams, RootStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -55,6 +58,28 @@ import { hapticFeedback } from '../utils/haptics';
 import { isValidNepalPhone, normalizeNepalPhone } from '../utils/phone';
 
 type BookingErrors = Partial<Record<string, string>>;
+
+export interface BookingScreenProps {
+  onClose?: () => void;
+  onSuccess?: (newTrip: {
+    id: string;
+    bookingRef: string;
+    pickup: string;
+    dropoff: string;
+    date: string;
+    time: string;
+    tripType: 'One Way' | 'Round Trip';
+    vehicleName: string;
+    vehiclePlate: string;
+    driverName: string;
+    driverPhone: string;
+    driverRating: number;
+    fare: string;
+    status: 'confirmed';
+  }) => void;
+  isModal?: boolean;
+  initialParams?: BookParams;
+}
 
 const QUICK_LOCATIONS = [
   'TIA Airport',
@@ -79,10 +104,24 @@ const emptyForm = {
   additional_details: '',
 };
 
-export function BookingScreen() {
+export function BookingScreen({
+  onClose,
+  onSuccess,
+  isModal,
+  initialParams,
+}: BookingScreenProps = {}) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const route = useRoute<RouteProp<RootTabParamList, 'Book'>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  
+  let routeParams: BookParams | undefined;
+  try {
+    const route = useRoute<RouteProp<RootStackParamList, 'BookingModal'>>();
+    routeParams = route.params;
+  } catch {
+    routeParams = undefined;
+  }
+
   const { user, isAuthenticated } = useAuth();
 
   const [form, setForm] = useState(emptyForm);
@@ -108,7 +147,8 @@ export function BookingScreen() {
   const minReturn = useMemo(() => form.pickup_date ?? startOfToday(), [form.pickup_date]);
 
   useEffect(() => {
-    const params = (route.params ?? {}) as BookParams;
+    const params = initialParams ?? routeParams;
+    if (!params) return;
     if (!params.intentId && !params.pickupLocation && !params.vehicleTypeId) {
       return;
     }
@@ -123,7 +163,7 @@ export function BookingScreen() {
       passenger_count: params.passengerCount ?? current.passenger_count,
       return_date: params.tripType === 'Round Trip' ? current.return_date : null,
     }));
-  }, [route.params]);
+  }, [initialParams, routeParams]);
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -152,6 +192,15 @@ export function BookingScreen() {
     return Object.keys(next).length === 0;
   };
 
+  const handleDismiss = () => {
+    hapticFeedback.light();
+    if (onClose) {
+      onClose();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
+
   const onSubmit = async () => {
     setFormError('');
     if (!validate() || !form.pickup_date || !form.vehicle_type_id) {
@@ -161,6 +210,9 @@ export function BookingScreen() {
 
     setSubmitting(true);
     try {
+      const selectedVehicle = VEHICLE_TYPES.find((v) => v.id === form.vehicle_type_id);
+      const vehicleName = selectedVehicle ? selectedVehicle.name : 'Scorpio 4WD';
+
       await submitBooking({
         full_name: form.full_name.trim(),
         phone_number: normalizeNepalPhone(form.phone_number),
@@ -175,16 +227,44 @@ export function BookingScreen() {
         additional_details: emptyToNull(form.additional_details),
         website_hp: '',
       });
+
+      const randomRefNum = Math.floor(1000 + Math.random() * 9000);
+      const newBookingRecord = {
+        id: `trip_${Date.now()}`,
+        bookingRef: `DK-2026-${randomRefNum}`,
+        pickup: form.pickup_location.trim(),
+        dropoff: form.dropoff_location.trim(),
+        date: toLocalDateOnly(form.pickup_date) ?? 'Tomorrow',
+        time: '7:00 AM',
+        tripType: form.trip_type as 'One Way' | 'Round Trip',
+        vehicleName: `${vehicleName} (AC)`,
+        vehiclePlate: `Ba ${Math.floor(1 + Math.random() * 5)} Cha ${randomRefNum}`,
+        driverName: 'Suman Shrestha (Kathmandu Dispatch)',
+        driverPhone: '+9779851363783',
+        driverRating: 4.9,
+        fare: discount > 0 ? `NPR ${(12000 - discount).toLocaleString('en-IN')}` : 'NPR 12,000',
+        status: 'confirmed' as const,
+      };
+
       hapticFeedback.success();
       setForm(emptyForm);
       setErrors({});
       setSuccessVisible(true);
+
+      if (onSuccess) {
+        onSuccess(newBookingRecord);
+      }
     } catch (error) {
       hapticFeedback.error();
       setFormError(extractErrorMessage(error, 'Failed to submit booking. Please try again.'));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSuccessClose = () => {
+    setSuccessVisible(false);
+    handleDismiss();
   };
 
   return (
@@ -197,7 +277,20 @@ export function BookingScreen() {
             Instant booking with verified mountain drivers & upfront rates.
           </Text>
         </View>
-        <ThemeToggle variant="onSurface" />
+
+        <View style={styles.headerRightActions}>
+          <ThemeToggle variant="onSurface" />
+          {(isModal || onClose || navigation.canGoBack()) && (
+            <Pressable
+              onPress={handleDismiss}
+              style={styles.closeBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Close Booking Form Dialog"
+            >
+              <X size={20} color={colors.text} />
+            </Pressable>
+          )}
+        </View>
       </View>
 
       <HoneypotField />
@@ -423,7 +516,7 @@ export function BookingScreen() {
         visible={successVisible}
         title="Booking Request Received!"
         message="Thank you! Our Kathmandu 24/7 dispatch desk will call or WhatsApp you within 15 minutes to confirm driver and vehicle details."
-        onClose={() => setSuccessVisible(false)}
+        onClose={handleSuccessClose}
       />
     </Screen>
   );
@@ -439,6 +532,22 @@ function createStyles(colors: ThemeColors) {
     },
     headerCopy: {
       flex: 1,
+    },
+    headerRightActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    closeBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginLeft: 4,
     },
     badgeTag: {
       color: colors.accent,

@@ -49,7 +49,7 @@ import { TOUR_PACKAGES } from '../content/tours';
 import { FLEET_VEHICLES } from '../content/vehicles';
 import { useAuth } from '../context/AuthContext';
 import { navigateToBook } from '../navigation/booking';
-import type { HomeStackParamList, RootTabParamList } from '../navigation/types';
+import type { RootStackParamList, RootTabParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
@@ -83,8 +83,8 @@ const POPULAR_ROUTES = [
 ];
 
 type Nav = CompositeNavigationProp<
-  NativeStackNavigationProp<HomeStackParamList, 'HomeMain'>,
-  BottomTabNavigationProp<RootTabParamList>
+  BottomTabNavigationProp<RootTabParamList, 'Home'>,
+  NativeStackNavigationProp<RootStackParamList>
 >;
 
 import { NotificationsModal } from '../components/ui/NotificationsModal';
@@ -194,9 +194,9 @@ export function HomeScreen() {
             onPress={() => {
               hapticFeedback.light();
               if (isAuthenticated) {
-                navigation.navigate('Account', { screen: 'AccountHome' });
+                navigation.navigate('Profile');
               } else {
-                navigation.navigate('Account', { screen: 'Auth', params: { initialMode: 'signin' } });
+                navigation.navigate('Auth', { initialMode: 'signin' });
               }
             }}
             style={({ pressed }) => [styles.avatarButton, pressed && styles.pressed]}
@@ -221,7 +221,7 @@ export function HomeScreen() {
         <Pressable
           onPress={() => {
             hapticFeedback.light();
-            navigation.navigate('Account', { screen: 'MyTrips' as any });
+            navigation.navigate('MyBookings');
           }}
           style={({ pressed }) => [styles.upcomingBanner, pressed && styles.pressed]}
         >
@@ -259,7 +259,7 @@ export function HomeScreen() {
         <Pressable
           onPress={() => {
             hapticFeedback.light();
-            navigation.navigate('Explore', { screen: 'Fleet' });
+            navigation.navigate('Fleet');
           }}
           style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}
         >
@@ -273,7 +273,7 @@ export function HomeScreen() {
         <Pressable
           onPress={() => {
             hapticFeedback.light();
-            navigation.navigate('Explore', { screen: 'Airport' });
+            navigation.navigate('Airport');
           }}
           style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}
         >
@@ -287,7 +287,7 @@ export function HomeScreen() {
         <Pressable
           onPress={() => {
             hapticFeedback.light();
-            navigation.navigate('Tours', { screen: 'ToursHome' });
+            navigation.navigate('Tours');
           }}
           style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}
         >
@@ -301,7 +301,7 @@ export function HomeScreen() {
         <Pressable
           onPress={() => {
             hapticFeedback.light();
-            navigation.navigate('Explore', { screen: 'Wedding' });
+            navigation.navigate('Wedding');
           }}
           style={({ pressed }) => [styles.serviceCard, pressed && styles.pressed]}
         >
@@ -373,7 +373,7 @@ export function HomeScreen() {
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeading}>Trending Nepal Routes</Text>
-          <Pressable onPress={() => navigation.navigate('Explore', { screen: 'Rates' })}>
+          <Pressable onPress={() => navigation.navigate('Rates')}>
             <Text style={styles.seeAllText}>View all rates →</Text>
           </Pressable>
         </View>
@@ -407,7 +407,7 @@ export function HomeScreen() {
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeading}>Explore Fleet by Category</Text>
-          <Pressable onPress={() => navigation.navigate('Explore', { screen: 'Fleet' })}>
+          <Pressable onPress={() => navigation.navigate('Fleet')}>
             <Text style={styles.seeAllText}>Full Fleet ({FLEET_VEHICLES.length}) →</Text>
           </Pressable>
         </View>
@@ -453,7 +453,7 @@ export function HomeScreen() {
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeading}>Himalayan Tour Packages</Text>
-          <Pressable onPress={() => navigation.navigate('Tours', { screen: 'ToursHome' })}>
+          <Pressable onPress={() => navigation.navigate('Tours')}>
             <Text style={styles.seeAllText}>All Tours →</Text>
           </Pressable>
         </View>
@@ -463,9 +463,8 @@ export function HomeScreen() {
             key={tour.id}
             tour={tour}
             onPress={() => {
-              navigation.navigate('Tours', {
-                screen: 'TourDetail',
-                params: { tourId: tour.id as any },
+              navigation.navigate('TourDetail', {
+                tourId: tour.id as 'manakamana' | 'muktinath' | 'kalinchowk',
               });
             }}
           />
