@@ -59,7 +59,7 @@ Drive Kendra Mobile eliminates these points of failure through localized caching
 
 When a reservation is confirmed or viewed in the app, its metadata (booking ID, driver name, vehicle plate, itinerary, emergency numbers) is automatically serialized and cached in local storage:
 
-- **Storage Adapter**: AsyncStorage with AES-like secure serialization.
+- **Storage Adapter**: AsyncStorage with secure JSON serialization.
 - **Cache Policy**: Stored indefinitely until explicitly cleared or replaced.
 - **Failover**: If the backend API is unreachable, the **MyTrips** screen seamlessly displays cached vouchers with an `Offline Mode` indicator badge.
 
@@ -106,7 +106,7 @@ Maps Link: https://maps.google.com/?q=28.8167,83.8667
 ### 4. Dynamic Offline Action Queue (`offlineQueue.ts`)
 
 If a user submits a review or updates their preferences while offline:
-- The mutation is queued in `offlineQueue.ts`.
+- The mutation is queued in `src/api/offlineQueue.ts`.
 - The UI reflects the change optimistically.
 - As soon as the device regains internet connection, the queue drains automatically in FIFO sequence.
 
@@ -161,7 +161,7 @@ sequenceDiagram
 
 1. **Simulate Airplane Mode**:
    - On Android Emulator: Toggle Airplane Mode via Extended Controls (`...` ➔ `Cellular` ➔ `Data status: Denied`).
-   - On iOS Simulator: Toggle Mac Wi-Fi off or disable network interfaces via Network Link Conditioner.
+   - On iOS Simulator: Toggle Wi-Fi off or disable network interfaces via Network Link Conditioner.
 2. **Verify Screen Behavior**:
    - Open **Rates Screen**: Ensure all 7 provinces load instantly.
    - Open **My Trips**: Verify cached voucher loads with driver contact info.

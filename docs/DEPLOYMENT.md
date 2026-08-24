@@ -186,17 +186,17 @@ server {
 > Remember the fundamental database rule: **NEVER run SQL queries directly from automated agents or unvetted scripts**. Always review and execute migrations manually.
 
 ### Initial Database Provisioning
-Run the complete base schema on your fresh database:
+Run the canonical base schema on your fresh database:
 ```bash
 psql -U postgres -h <DB_HOST> -d car_rental_db -f database/database.sql
 ```
 
 ### Applying Sequential Patches
-To upgrade existing databases, run patch files in ascending numeric order:
+When pending patches exist in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/), run patch files in ascending numeric order:
 ```bash
-psql -U postgres -h <DB_HOST> -d car_rental_db -f database/patches/001_add_push_notifications_schema.sql
-psql -U postgres -h <DB_HOST> -d car_rental_db -f database/patches/002_add_idempotency_keys_schema.sql
+psql -U postgres -h <DB_HOST> -d car_rental_db -f database/patches/<patch_name>.sql
 ```
+Once applied to all target environments and verified in `database.sql`, remove the applied patch file from `database/patches/`.
 
 ---
 

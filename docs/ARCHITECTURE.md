@@ -25,7 +25,6 @@ This document details the high-level system design, data flows, security boundar
 - [Push Notification Pipeline](#-push-notification-pipeline)
 - [Offline-First & Himalayan Resilience Strategy](#-offline-first--himalayan-resilience-strategy)
 - [Security & Authentication Model](#-security--authentication-model)
-- [Data Flow Diagrams](#-data-flow-diagrams)
 
 ---
 
@@ -74,7 +73,7 @@ This document details the high-level system design, data flows, security boundar
 
 ## 📱 Client Architecture (React Native / Expo)
 
-The client is built using **Expo SDK 57** (React Native 0.86.2) with strict TypeScript compliance.
+The client is built using **Expo SDK 57** (React Native 0.86.2, React 19.2.3) with strict TypeScript compliance.
 
 ### Navigation Architecture
 Drive Kendra uses `@react-navigation/native` v7 structured with a nested tab and modal stack pattern:
@@ -200,4 +199,4 @@ Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) fre
 - **Biometric Gatekeeper**: Hardware biometrics (Touch ID / Face ID) protect access to stored credentials.
 - **Bot Honeypots**: Invisible form inputs filter automated bots.
 - **SQL Injection Immunization**: 100% of SQL queries use positional parameterization (`$1, $2`).
-- **Zero Live SQL Execution Rule**: Database modifications must follow the strict patch protocol (`database/patches/`).
+- **Zero Live SQL Execution Rule**: Database modifications must follow the strict patch protocol ([`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/)).

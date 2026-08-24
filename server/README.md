@@ -5,7 +5,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Expo Server SDK](https://img.shields.io/badge/Expo-Push%20SDK-000020?style=for-the-badge&logo=expo&logoColor=white)](https://docs.expo.dev/push-notifications/sending-notifications/)
 
-The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for car bookings, user authentication, customer review management, public fleet statistics, idempotency handling, and an automated push notification pipeline.
+The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, user authentication, customer review management, public fleet statistics, idempotency handling, and an automated push notification pipeline.
 
 ---
 
@@ -34,7 +34,7 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 - **⚡ Blazing Fast Routing**: Powered by Hono v4 and `@hono/node-server`.
 - **🔒 Idempotent Booking Engine**: Eliminates duplicate charges/reservations caused by flaky mountain cellular networks using `X-Idempotency-Key` and database caching.
 - **📲 Push Notification Pipeline**: Real-time push alerts for booking confirmations, driver dispatch (with driver phone link and plate numbers), 24h reminders, and Tribhuvan International Airport (TIA) flight delay notices via `expo-server-sdk` (FCM v1 ready).
-- **🛡️ Strict Validation & Anti-Spam**: Zod schema validation, honeypot bot traps (`website_hp`), and Nepal phone number sanitization (`+977 98/97`).
+- **🛡️ Strict Validation & Anti-Spam**: Zod schema validation, honeypot bot traps (`website_hp`), and Nepal phone number sanitization (`+977 98/97` or `01XXXXXXX`).
 - **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `cr_customers`, `cr_bookings`, `cr_trip_requests`, and `cr_notifications`.
 - **📊 Real-time Analytics**: Stored procedure `cr_get_public_stats()` aggregating active fleet counts, completed trips, cities covered, and customer ratings.
 
@@ -110,7 +110,7 @@ npm run dev
 
 The API will start at `http://localhost:8787`.
 
-### 3. Build & Run in Production
+### 3. Run in Production
 ```bash
 npm run start --prefix server
 ```
@@ -370,7 +370,7 @@ Submits a customer review for moderation.
 ### 7. Platform Statistics
 
 #### `GET /api/stats`
-Calls stored procedure `cr_get_public_stats()` to retrieve platform metrics.
+Calls stored procedure `cr_get_public_stats()` to retrieve real-time platform metrics.
 
 - **Response `200 OK`**:
 ```json
@@ -391,7 +391,7 @@ All database queries executed via `withPublicClient` in `src/db.ts` automaticall
 ```sql
 SET LOCAL app.is_admin = 'false';
 ```
-This isolates unauthenticated public requests from administrative operations and enforces strict database tenant safety. All SQL statements use `$1, $2, ...` positional parameterization to ensure full protection against SQL injection.
+This isolates unauthenticated public requests from administrative operations and enforces strict database tenant safety. All SQL statements use `$1, $2, ...` positional parameterization to ensure complete protection against SQL injection.
 
 ---
 

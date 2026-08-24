@@ -52,7 +52,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - 🆘 **Himalayan Emergency SOS**: Offline GPS coordinate capture with pre-filled SMS emergency dispatch to rescue hotlines and tourist police.
 - 📄 **Instant PDF Voucher Generator**: Export official booking receipts and itinerary vouchers as PDFs with direct sharing to WhatsApp and email.
 - 🌗 **Dual-Theme Engine**: Built-in Light and Dark modes with tactile haptic feedback on all interactions.
-- 🛡️ **Anti-Spam & Validation**: Bot honeypots, strict Nepal phone validation (`+977 98/97`), and transactional SQL database writes with idempotency keys.
+- 🛡️ **Anti-Spam & Validation**: Bot honeypots, strict Nepal phone validation (`+977 98/97` or `01XXXXXXX`), and transactional SQL database writes with idempotency keys.
 
 ---
 
@@ -183,7 +183,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 
 ### 8. 📝 Booking Engine (`src/screens/BookingScreen.tsx`)
 - Comprehensive trip booking form:
-  - **Personal Details**: Full name, Nepal mobile number (`+977 98/97`), optional email (autofilled when logged in).
+  - **Personal Details**: Full name, Nepal mobile number (`+977 98/97` or `01XXXXXXX`), optional email (autofilled when logged in).
   - **Route**: Pickup and dropoff locations with quick-chip suggestions.
   - **Dates**: Pickup date and optional return date using native date pickers with validation.
   - **Trip Type**: Segmented One Way / Round Trip toggle.
@@ -239,9 +239,8 @@ DriveKendra.Mobile/
 ├── assets/                       # App icons, splash screens, and adaptive icons
 ├── database/                     # PostgreSQL Database Management
 │   ├── patches/                  # Sequential SQL migration patches
-│   │   ├── 001_add_push_notifications_schema.sql
-│   │   └── 002_add_idempotency_keys_schema.sql
-│   ├── database.sql              # Master complete PostgreSQL schema & procedures
+│   │   └── .gitkeep              # Retained for future incremental migrations
+│   ├── database.sql              # Master canonical PostgreSQL schema & procedures
 │   └── README.md                 # Dedicated Database Management Guide
 ├── docs/                         # Specialized Technical Documentation
 │   ├── ARCHITECTURE.md           # End-to-end system architecture blueprint
@@ -281,7 +280,9 @@ DriveKendra.Mobile/
 │   │   └── users.ts              # Push token registration API
 │   ├── components/
 │   │   ├── honeypot/             # Anti-spam HoneypotField component
-│   │   └── ui/                   # 26+ reusable themed UI components
+│   │   │   └── HoneypotField.tsx
+│   │   ├── rates/                # Rate filtering and table components
+│   │   └── ui/                   # 26 reusable themed UI components
 │   │       ├── Button.tsx        # Variants: primary, secondary, subtle, outline, danger
 │   │       ├── Card.tsx          # Themed surface container
 │   │       ├── DateField.tsx     # Native date picker wrapper
@@ -331,7 +332,22 @@ DriveKendra.Mobile/
 │   ├── navigation/
 │   │   ├── AppNavigator.tsx      # Bottom tabs & stack navigators
 │   │   ├── booking.ts            # Cross-screen booking navigation helpers
+│   │   ├── navigationRef.ts      # Global navigation reference
 │   │   └── types.ts              # React Navigation param lists
+│   ├── screens/                  # 13 feature screens
+│   │   ├── AirportScreen.tsx     # TIA airport transfer calculator & booking
+│   │   ├── AuthScreen.tsx        # SignIn, SignUp, and OTP reset
+│   │   ├── BookingScreen.tsx     # Comprehensive booking engine
+│   │   ├── ContactScreen.tsx     # 24/7 hotline, WhatsApp, and review submission
+│   │   ├── ExploreScreen.tsx     # Visual service categories hub
+│   │   ├── FleetScreen.tsx       # Fleet vehicle catalog with specifications
+│   │   ├── HomeScreen.tsx        # Hero stats, route map, featured fleet, reviews
+│   │   ├── MyTripsScreen.tsx     # Active/past reservations, QR voucher & PDF export
+│   │   ├── ProfileScreen.tsx     # User profile, statistics, settings, theme toggle
+│   │   ├── RatesScreen.tsx       # 7-province official Nepal fare matrix
+│   │   ├── TourDetailScreen.tsx  # Itinerary, packing guide, and pax rate table
+│   │   ├── ToursScreen.tsx       # Curated Himalayan tour expeditions
+│   │   └── WeddingScreen.tsx     # VIP & ceremonial convoy packages
 │   ├── theme/
 │   │   ├── ThemeProvider.tsx     # Theme context & hook
 │   │   ├── colors.ts             # Light & Dark color palettes
@@ -345,7 +361,6 @@ DriveKendra.Mobile/
 │       ├── dates.ts              # Date formatting and comparison
 │       ├── errors.ts             # Axios and runtime error extractors
 │       ├── haptics.ts            # Tactile feedback helpers
-│       ├── offlineQueue.ts       # Offline action queue persistence
 │       ├── offlineVoucherStorage.ts # Encrypted offline trip voucher storage
 │       ├── pdfGenerator.ts       # PDF receipt creation and sharing
 │       ├── phone.ts              # Nepal phone number sanitization and checks
@@ -408,6 +423,7 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `POST` | `/api/notifications/dispatch-booking-status` | Dispatch status alert | `{ bookingId, status }` | `{ "message": "..." }` |
 | `POST` | `/api/notifications/dispatch-trip-reminder` | Dispatch 24h reminder | `{ bookingId }` | `{ "message": "..." }` |
 | `POST` | `/api/notifications/dispatch-flight-delay` | Dispatch flight delay | `{ bookingId, flightNumber, delayMinutes }` | `{ "message": "..." }` |
+| `POST` | `/api/notifications/verify-receipts` | Verify Expo push delivery tickets | `{ receiptIds }` | `{ "receipts": [...] }` |
 | `GET` | `/api/reviews` | Fetch approved reviews | — | `PublicReviewDto[]` |
 | `POST` | `/api/reviews` | Submit customer review | `CreateReviewDto` | `{ "message": "Thank you! ..." }` |
 | `POST` | `/api/auth/login` | User login (email or phone) | `{ identifier, password }` | `{ user, token, message }` |
@@ -424,7 +440,7 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 > [!IMPORTANT]
 > **Strict Database Management Rules**:
 > 1. **Base Schema**: Always maintain and update the master schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
-> 2. **Patches Folder**: For any database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_...`, `002_...`).
+> 2. **Patches Folder**: For any pending database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_...`, `002_...`).
 > 3. **Execution Constraint**: **NEVER** run SQL queries directly on live production/staging databases. Migrations are executed manually by database administrators.
 
 👉 *Read the full database documentation in [`database/README.md`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md).*

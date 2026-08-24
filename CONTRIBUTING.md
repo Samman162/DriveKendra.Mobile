@@ -1,6 +1,6 @@
 # 🤝 Contributing to Drive Kendra Mobile
 
-Thank you for your interest in contributing to **Drive Kendra Mobile**! We welcome contributions to improve features, stability, documentation, and user experience.
+Thank you for your interest in contributing to **Drive Kendra Mobile**! We welcome contributions to improve features, stability, documentation, offline resilience, and user experience.
 
 Please review this guide before submitting pull requests or making modifications.
 
@@ -20,12 +20,12 @@ Please review this guide before submitting pull requests or making modifications
 ## ⚠️ Core Principles & Rules
 
 > [!IMPORTANT]
-> 1. **Expo SDK Version**: This project runs on **Expo SDK 57**. Always refer to the exact versioned documentation at [https://docs.expo.dev/versions/v57.0.0/](https://docs.expo.dev/versions/v57.0.0/) before introducing native modules or altering configurations.
+> 1. **Expo SDK Version**: This project runs on **Expo SDK 57** (React Native 0.86.2, React 19.2.3). Always refer to the exact versioned documentation at [https://docs.expo.dev/versions/v57.0.0/](https://docs.expo.dev/versions/v57.0.0/) before introducing native modules or altering configurations.
 > 2. **Database Management Rules**:
 >    - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
->    - Create new sequential patch files in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `003_add_xyz_table.sql`).
+>    - Create new sequential patch files in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_add_xyz_table.sql`).
 >    - **NEVER** run SQL queries directly on live databases. Migrations must be manually applied by administrators.
-> 3. **Theming Architecture**: Always use `useThemedStyles` and tokens from `src/theme/` to support both Light and Dark themes.
+> 3. **Theming Architecture**: Always use `useThemedStyles` and design tokens from `src/theme/` (`colors.ts`, `spacing.ts`, `typography.ts`) to support both Light and Dark themes.
 
 ---
 
@@ -61,15 +61,17 @@ npm run dev
 
 ## 🎨 Code Style & Standards
 
-- **TypeScript**: Strict mode is enabled. Avoid `any` types wherever possible; use explicit interfaces and types from `src/types/`.
+- **TypeScript**: Strict mode is enabled (`tsconfig.json`). Avoid `any` types wherever possible; use explicit interfaces and DTOs from `src/types/`.
 - **Component Architecture**:
   - Reusable UI primitives belong in `src/components/ui/`.
   - Feature-specific screens belong in `src/screens/`.
   - API communication logic belongs in `src/api/`.
+  - Offline resilience utilities belong in `src/utils/` and `src/api/offlineQueue.ts`.
 - **Theming**:
   - Never hardcode color hex codes (e.g. `#FFFFFF` or `#000000`) inside screen styles. Use `theme.colors.*` values.
   - Utilize `src/theme/spacing.ts` and `src/theme/typography.ts` tokens for consistency.
-- **Haptic Feedback**: Integrate subtle haptic feedback using `src/utils/haptics.ts` on primary user interactions.
+- **Haptic Feedback**: Integrate tactile feedback using `src/utils/haptics.ts` on primary user interactions.
+- **Anti-Spam & Validation**: Include honeypot fields (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`) on all form submissions.
 
 ---
 
@@ -79,9 +81,10 @@ If your feature requires schema additions or alterations:
 1. Update the base schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
 2. Create a new patch file in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) with standard naming:
    ```
-   database/patches/003_your_feature_name.sql
+   database/patches/001_your_feature_name.sql
    ```
 3. Use `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` clauses to ensure idempotency.
+4. Once verified and applied to production/staging, delete the applied patch file to keep `database/patches/` clean.
 
 ---
 
@@ -119,4 +122,5 @@ Use standard conventional commit prefixes:
 - [ ] All unit test suites pass (`npm test` and `npm test --prefix server`).
 - [ ] Light and Dark theme visuals look crisp and accessible.
 - [ ] Any database alterations include both `database/database.sql` updates and a new numbered patch in `database/patches/`.
+- [ ] Offline failover behaviors have been verified (e.g. offline trip vouchers, rate matrix).
 - [ ] No hardcoded API secrets or live production credentials in commit history.

@@ -32,9 +32,12 @@ npm test
 npm test --prefix server
 ```
 
-### Building & Packaging
+### Building & Packaging (EAS CLI)
 ```bash
-# Build standalone preview APK for Android
+# Build internal development client for on-device native debugging
+npx eas-cli build --profile development --platform android
+
+# Build standalone preview APK for Android beta testing
 npx eas-cli build --profile preview --platform android
 
 # Build production release AAB for Google Play Store
@@ -50,14 +53,14 @@ npx eas-cli build --profile production --platform android
    - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
    - Add incremental changes as numbered patches in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
    - **NEVER** run SQL queries directly on live databases.
-3. **Theming**: Use `useThemedStyles` hook with tokens from `src/theme/` to support dynamic Light and Dark modes.
-4. **Himalayan Offline Resilience**: Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), and `rateCategories.generated.ts` for off-grid resilience.
-5. **Push Notifications**: Expo Server SDK + FCM v1 in `server/src/services/notifications.ts`, registered via `/api/users/push-token` and managed in `src/hooks/usePushNotifications.ts`.
+3. **Theming**: Use `useThemedStyles` hook with tokens from `src/theme/` (`colors.ts`, `spacing.ts`, `typography.ts`) to support dynamic Light and Dark modes.
+4. **Himalayan Offline Resilience**: Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `VoucherQrCode`, and bundled rate charts for off-grid resilience.
+5. **Push Notifications**: Expo Server SDK + FCM v1 in `server/src/services/notifications.ts`, registered via `POST /api/users/push-token` and managed in `src/hooks/usePushNotifications.ts`.
 
 ---
 
 ## 📚 Specialized Documentation
-- [Root Readme](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/README.md)
+- [Main Readme](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/README.md)
 - [Server API Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md)
 - [Database Schema Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md)
 - [System Architecture](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/ARCHITECTURE.md)

@@ -3,7 +3,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Database Rules](https://img.shields.io/badge/Schema%20Rules-Strict%20Migrations-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
-This directory contains the core PostgreSQL database schema, stored procedures, indexes, and sequential migration patch files for **Drive Kendra**.
+This directory contains the canonical PostgreSQL database schema, stored procedures, indexes, and sequential migration patch files for **Drive Kendra**.
 
 ---
 
@@ -14,7 +14,7 @@ This directory contains the core PostgreSQL database schema, stored procedures, 
 >
 > 1. **Base Schema**: Always maintain and update the complete base database schema, tables, indexes, and functions in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) as the single canonical source of truth.
 > 2. **Patches Folder**: For any pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g., `001_add_feature.sql`, `002_add_table.sql`).
-> 3. **Patch Consolidation & Cleanup**: Once patches have been applied to the live/staging databases and verified in `database/database.sql`, delete the applied patch files from `database/patches/`.
+> 3. **Patch Consolidation & Cleanup**: Once patches have been applied to the live/staging databases and verified in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql), delete the applied patch files from `database/patches/`.
 > 4. **Execution Constraint**: **NEVER** run SQL queries directly on any live production or staging database yourself. Only produce the SQL files in `database/database.sql` and `database/patches/` for manual or administrator application.
 
 ---
@@ -33,9 +33,10 @@ This directory contains the core PostgreSQL database schema, stored procedures, 
   - [8. `cr_idempotency_keys`](#8-cr_idempotency_keys)
 - [Stored Functions & Procedures](#-stored-functions--procedures)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
-- [Patch History & Migration Guide](#-patch-history--migration-guide)
-  - [Applying Patches via psql](#applying-patches-via-psql)
-  - [Applying Patches via pgAdmin](#applying-patches-via-pgadmin)
+- [Patch Lifecycle & Migration Workflow](#-patch-lifecycle--migration-workflow)
+  - [Initializing Database from Scratch](#initializing-database-from-scratch)
+  - [Applying Pending Patches via psql](#applying-pending-patches-via-psql)
+  - [Applying Pending Patches via pgAdmin](#applying-pending-patches-via-pgadmin)
 
 ---
 
@@ -89,12 +90,12 @@ Physical fleet vehicle inventory.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `vehicle_id` | `SERIAL` | `PRIMARY KEY` | Vehicle inventory ID |
-| `vehicle_type_id` | `INTEGER` | `REFERENCES cr_vehicle_types` | Associated category |
+| `vehicle_type_id` | `INTEGER` | `REFERENCES cr_vehicle_types ON DELETE SET NULL` | Associated category |
 | `name` | `VARCHAR(150)` | `NOT NULL` | Vehicle make and model |
 | `plate_number` | `VARCHAR(50)` | `UNIQUE` | Registration plate (e.g. Ba 12 Cha 3456) |
-| `capacity` | `INTEGER` | `DEFAULT 4` | Passenger seating capacity |
-| `luggage_capacity` | `INTEGER` | `DEFAULT 2` | Luggage capacity (bags) |
-| `is_active` | `BOOLEAN` | `DEFAULT TRUE` | Active fleet status |
+| `capacity` | `INTEGER` | `NOT NULL DEFAULT 4` | Passenger seating capacity |
+| `luggage_capacity` | `INTEGER` | `NOT NULL DEFAULT 2` | Luggage capacity (bags) |
+| `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Active fleet status |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Last update timestamp |
 
@@ -123,16 +124,16 @@ Primary trip and vehicle booking records.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `booking_id` | `SERIAL` | `PRIMARY KEY` | Reservation ID |
-| `customer_id` | `INTEGER` | `REFERENCES cr_customers ON DELETE CASCADE` | Linked customer |
-| `vehicle_type_id` | `INTEGER` | `REFERENCES cr_vehicle_types` | Chosen vehicle category |
+| `customer_id` | `INTEGER` | `NOT NULL REFERENCES cr_customers ON DELETE CASCADE` | Linked customer |
+| `vehicle_type_id` | `INTEGER` | `REFERENCES cr_vehicle_types ON DELETE SET NULL` | Chosen vehicle category |
 | `pickup_location` | `VARCHAR(255)` | `NOT NULL` | Origin address or landmark |
 | `dropoff_location` | `VARCHAR(255)` | `NOT NULL` | Destination address or landmark |
 | `pickup_date` | `TIMESTAMPTZ` | `NOT NULL` | Departure date & time |
 | `return_date` | `TIMESTAMPTZ` | | Return date & time (for round trips) |
-| `passenger_count` | `INTEGER` | `DEFAULT 1` | Number of travelers |
-| `trip_type` | `VARCHAR(50)` | `DEFAULT 'One Way'` | `One Way` or `Round Trip` |
+| `passenger_count` | `INTEGER` | `NOT NULL DEFAULT 1` | Number of travelers |
+| `trip_type` | `VARCHAR(50)` | `NOT NULL DEFAULT 'One Way'` | `One Way` or `Round Trip` |
 | `additional_details` | `TEXT` | | Special instructions & luggage notes |
-| `booking_status` | `VARCHAR(50)` | `DEFAULT 'Pending'` | `Pending`, `Confirmed`, `Completed`, `Cancelled` |
+| `booking_status` | `VARCHAR(50)` | `NOT NULL DEFAULT 'Pending'` | `Pending`, `Confirmed`, `Completed`, `Cancelled` |
 | `assigned_driver_name` | `VARCHAR(100)` | | Driver full name |
 | `assigned_driver_phone` | `VARCHAR(30)` | | Driver direct contact number |
 | `assigned_vehicle_plate` | `VARCHAR(50)` | | Vehicle number plate |
@@ -150,16 +151,16 @@ Operational dispatch records dispatched to fleet operators.
 |---|---|---|---|
 | `trip_request_id` | `SERIAL` | `PRIMARY KEY` | Dispatch ID |
 | `booking_id` | `INTEGER` | `REFERENCES cr_bookings ON DELETE CASCADE` | Source booking |
-| `customer_id` | `INTEGER` | `REFERENCES cr_customers` | Customer reference |
-| `vehicle_type_id` | `INTEGER` | `REFERENCES cr_vehicle_types` | Vehicle type |
+| `customer_id` | `INTEGER` | `REFERENCES cr_customers ON DELETE SET NULL` | Customer reference |
+| `vehicle_type_id` | `INTEGER` | `REFERENCES cr_vehicle_types ON DELETE SET NULL` | Vehicle type |
 | `pickup_location` | `VARCHAR(255)` | `NOT NULL` | Pickup origin |
 | `dropoff_location` | `VARCHAR(255)` | `NOT NULL` | Dropoff destination |
 | `pickup_date` | `TIMESTAMPTZ` | `NOT NULL` | Scheduled pickup |
 | `return_date` | `TIMESTAMPTZ` | | Scheduled return |
-| `passenger_count` | `INTEGER` | `DEFAULT 1` | Passenger count |
-| `trip_type` | `VARCHAR(50)` | `DEFAULT 'One Way'` | Route type |
+| `passenger_count` | `INTEGER` | `NOT NULL DEFAULT 1` | Passenger count |
+| `trip_type` | `VARCHAR(50)` | `NOT NULL DEFAULT 'One Way'` | Route type |
 | `additional_details` | `TEXT` | | Notes |
-| `request_status` | `VARCHAR(50)` | `DEFAULT 'Pending'` | Operational status |
+| `request_status` | `VARCHAR(50)` | `NOT NULL DEFAULT 'Pending'` | Operational status |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Update timestamp |
 
@@ -172,10 +173,10 @@ Customer reviews and ratings.
 |---|---|---|---|
 | `review_id` | `SERIAL` | `PRIMARY KEY` | Review ID |
 | `customer_name` | `VARCHAR(100)` | `NOT NULL` | Reviewer name |
-| `rating` | `INTEGER` | `CHECK (rating BETWEEN 1 AND 5)` | Star rating (1 to 5) |
+| `rating` | `INTEGER` | `NOT NULL CHECK (rating >= 1 AND rating <= 5)` | Star rating (1 to 5) |
 | `comment` | `TEXT` | `NOT NULL` | Review body |
 | `trip_title` | `VARCHAR(150)` | | Destination / Trip title |
-| `is_approved` | `BOOLEAN` | `DEFAULT FALSE` | Moderation approval flag |
+| `is_approved` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | Moderation approval flag |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Submission timestamp |
 
 ---
@@ -186,7 +187,7 @@ In-app and push notification delivery log.
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `notification_id` | `SERIAL` | `PRIMARY KEY` | Notification log ID |
-| `customer_id` | `INTEGER` | `REFERENCES cr_customers` | Target recipient |
+| `customer_id` | `INTEGER` | `REFERENCES cr_customers ON DELETE SET NULL` | Target recipient |
 | `title` | `VARCHAR(255)` | `NOT NULL` | Alert title |
 | `message` | `TEXT` | `NOT NULL` | Alert message text |
 | `related_entity_id` | `INTEGER` | | Linked booking or request ID |
@@ -194,7 +195,7 @@ In-app and push notification delivery log.
 | `push_status` | `VARCHAR(50)` | `DEFAULT 'delivered'` | `delivered`, `failed`, `ticket_created` |
 | `payload` | `JSONB` | | Deep link data payload |
 | `ticket_id` | `VARCHAR(255)` | | Expo Push Ticket ID |
-| `is_read` | `BOOLEAN` | `DEFAULT FALSE` | In-app read status |
+| `is_read` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | In-app read status |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Creation timestamp |
 
 ---
@@ -204,10 +205,10 @@ Prevents duplicate transactions when mobile clients retry on unstable cellular n
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `idempotency_key` | `VARCHAR(128)` | `PRIMARY KEY` | Client-generated UUID / key |
+| `idempotency_key` | `VARCHAR(128)` | `PRIMARY KEY` | Client-generated unique UUID / key |
 | `request_hash` | `VARCHAR(64)` | `NOT NULL` | SHA-256 hash of payload |
-| `endpoint` | `VARCHAR(100)` | `DEFAULT '/api/bookings'` | API endpoint |
-| `status` | `VARCHAR(30)` | `DEFAULT 'processing'` | `processing`, `completed`, `failed` |
+| `endpoint` | `VARCHAR(100)` | `NOT NULL DEFAULT '/api/bookings'` | API endpoint |
+| `status` | `VARCHAR(30)` | `NOT NULL DEFAULT 'processing'` | `processing`, `completed`, `failed` |
 | `response_code` | `INTEGER` | | Cached HTTP status (e.g. 201) |
 | `response_body` | `JSONB` | | Cached JSON response body |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Creation timestamp |
@@ -260,7 +261,7 @@ The repository adheres to a strict zero-downtime, non-destructive migration life
 1. **Pending Schema Changes**:
    When new tables or columns are introduced, developers or AI agents create a new sequential file in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_feature_name.sql`) using idempotent statements (`ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`).
 2. **Base Schema Synchronization**:
-   The base schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) is simultaneously updated so fresh database setups always execute the full schema in clean DDL format (not nested migrations).
+   The canonical base schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) is simultaneously updated so fresh database setups always execute the full schema in clean DDL format (not nested migrations).
 3. **Application & Patch Deletion**:
    Once the database administrator applies the pending patch to staging/production and verifies schema parity, the applied patch file is removed from `database/patches/`.
 
@@ -287,4 +288,4 @@ psql -U postgres -d car_rental_db -f database/patches/<patch_name>.sql
 2. Select database `car_rental_db`.
 3. Open the **Query Tool** (`Tools` ➔ `Query Tool`).
 4. Open the SQL patch file from `database/patches/` and click **Execute (F5)**.
-5. Once applied, remove the patch file.
+5. Once applied and verified, remove the patch file from `database/patches/`.

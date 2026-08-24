@@ -4,9 +4,9 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 
 # Database Management Rules
 
-1. **Base Schema**: Always maintain and update the complete base database schema, tables, indexes, and functions in `database/database.sql` as the single canonical source of truth (written cleanly with full DDL definitions, not appended migration commands).
-2. **Patches Folder**: For pending database updates, alterations, or incremental changes, create a new numbered patch file inside `database/patches/` (e.g., `001_initial_schema.sql`, `002_add_field.sql`).
-3. **Patch Consolidation & Cleanup**: Once patches are applied by the administrator/developer to the target database and confirmed in `database/database.sql`, delete the applied patch files from `database/patches/`.
+1. **Base Schema**: Always maintain and update the complete base database schema, tables, indexes, and functions in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) as the single canonical source of truth (written cleanly with full DDL definitions, not appended migration commands).
+2. **Patches Folder**: For pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g., `001_initial_schema.sql`, `002_add_field.sql`).
+3. **Patch Consolidation & Cleanup**: Once patches are applied by the administrator/developer to the target database and confirmed in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql), delete the applied patch files from `database/patches/`.
 4. **Execution Constraint**: **NEVER** run SQL queries directly on any live database yourself. Only produce the SQL files in `database/database.sql` and `database/patches/` for manual or administrator application.
 
 ---
@@ -21,9 +21,9 @@ This document outlines key technical guidelines, architectural patterns, and qua
 
 Drive Kendra Mobile is a production-grade cross-platform mobile application for vehicle rentals and Himalayan tour expeditions in Nepal.
 
-- **Mobile Client (`src/`)**: Built with React Native 0.86.2, Expo SDK 57, React 19, TypeScript strict mode, and React Navigation v7.
+- **Mobile Client (`src/`)**: Built with React Native 0.86.2, Expo SDK 57, React 19.2.3, TypeScript strict mode, and React Navigation v7.
 - **Backend API (`server/`)**: Built with Hono v4, Node.js (`tsx watch`), Zod v4 validation, and `pg` PostgreSQL connection pool.
-- **Database (`database/`)**: PostgreSQL 15+ schema in `database/database.sql` and incremental patches in `database/patches/`.
+- **Database (`database/`)**: PostgreSQL 15+ canonical schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) and incremental patches in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
 - **Documentation (`docs/`)**: In-depth subsystem guides for Architecture, Offline Resilience, Push Notifications, and Deployment.
 
 ---
@@ -44,12 +44,12 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
    - Maintain 100% strict type safety.
    - Avoid `any` types. Utilize dedicated DTO types from `src/types/api.ts` and `src/types/auth.ts`.
 5. **Himalayan Resilience & Offline Handling**:
-   - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97`).
+   - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
    - Use `offlineVoucherStorage.ts` when persisting trip vouchers for off-grid access.
    - Use `offlineQueue.ts` for handling network disruptions during mutating operations.
 6. **Push Notification Pipeline**:
    - Device tokens are registered via `src/hooks/usePushNotifications.ts` and endpoint `POST /api/users/push-token`.
-   - Server-side notification dispatches are routed through `server/src/services/notifications.ts`.
+   - Server-side notification dispatches are routed through `server/src/services/notifications.ts` (FCM v1 ready).
 
 ---
 
