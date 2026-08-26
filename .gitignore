@@ -1,17 +1,16 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# Dependencies
+﻿# Dependencies
 node_modules/
 .pnp
 .pnp.js
 
-# Expo
+# Expo & Web Builds
 .expo/
 dist/
+build/
 web-build/
 expo-env.d.ts
 
-# Native builds & credentials
+# Native builds & credentials (iOS / Android)
 .kotlin/
 *.orig.*
 *.jks
@@ -20,6 +19,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 *.keystore
+*.apk
+*.aab
+*.ipa
 /ios/
 /android/
 
@@ -40,6 +42,10 @@ pnpm-debug.log*
 # Environment & Secrets
 .env
 .env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 *.pem
 
 # TypeScript & Build caches
@@ -58,6 +64,14 @@ ehthumbs_vista.db
 
 # IDE & Editor caches
 .idea/
+.vscode/
 *.swp
 *.swo
 *~
+*.suo
+*.user
+
+# Agent & Workspace Temporary Files
+.agents/
+.opencode/
+scratch/

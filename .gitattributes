@@ -1,4 +1,4 @@
-# Auto detect text files and perform LF normalization
+﻿# Auto detect text files and perform LF normalization
 * text=auto eol=lf
 
 # Source code and config files (LF)
@@ -6,6 +6,7 @@
 *.tsx text eol=lf
 *.js text eol=lf
 *.jsx text eol=lf
+*.mjs text eol=lf
 *.json text eol=lf
 *.md text eol=lf
 *.sql text eol=lf
@@ -13,6 +14,7 @@
 *.yaml text eol=lf
 *.html text eol=lf
 *.css text eol=lf
+*.scss text eol=lf
 *.sh text eol=lf
 *.env.example text eol=lf
 .gitignore text eol=lf
@@ -22,6 +24,9 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
+
+# Vector images
+*.svg text eol=lf
 
 # Binary assets
 *.png binary
@@ -42,3 +47,8 @@
 *.ttf binary
 *.otf binary
 *.eot binary
+*.apk binary
+*.aab binary
+*.ipa binary
+*.zip binary
+*.tar.gz binary
