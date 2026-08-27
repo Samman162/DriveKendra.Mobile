@@ -72,6 +72,7 @@ export const nepalPhoneSchema = z
 // Trip Booking Zod Schema
 export const bookingZodSchema = z
   .object({
+    user_id: z.coerce.number().int().positive().optional().nullable(),
     full_name: z.string().trim().min(1, 'Full name is required.').max(100, 'Full name is too long.'),
     phone_number: nepalPhoneSchema,
     email: z
@@ -134,6 +135,7 @@ export const bookingZodSchema = z
   });
 
 export type BookingInput = {
+  user_id?: number | null;
   full_name: string;
   phone_number: string;
   email: string | null;
@@ -160,6 +162,7 @@ export function parseBooking(body: unknown): BookingInput {
   const returnDate = isRound && valid.return_date ? parseDateOnly(valid.return_date) : null;
 
   return {
+    user_id: valid.user_id,
     full_name: valid.full_name,
     phone_number: valid.phone_number,
     email: valid.email ? valid.email.trim() : null,
@@ -176,6 +179,7 @@ export function parseBooking(body: unknown): BookingInput {
 
 // Review Zod Schema
 export const reviewZodSchema = z.object({
+  user_id: z.coerce.number().int().positive().optional().nullable(),
   customer_name: z.string().trim().min(1, 'Your name is required.').max(100, 'Name is too long.'),
   rating: z.coerce.number().int().min(1, 'Rating must be between 1 and 5.').max(5, 'Rating must be between 1 and 5.'),
   comment: z.string().trim().min(1, 'Review comment is required.').max(2000, 'Review comment is too long.'),
@@ -184,6 +188,7 @@ export const reviewZodSchema = z.object({
 });
 
 export type ReviewInput = {
+  user_id?: number | null;
   customer_name: string;
   rating: number;
   comment: string;
@@ -198,6 +203,7 @@ export function parseReview(body: unknown): ReviewInput {
   }
 
   return {
+    user_id: result.data.user_id,
     customer_name: result.data.customer_name,
     rating: result.data.rating,
     comment: result.data.comment,
@@ -231,7 +237,8 @@ export const resetPasswordZodSchema = z.object({
 // Push Token Registration Schema
 export const registerPushTokenSchema = z.object({
   pushToken: z.string().trim().min(1, 'Push token is required.'),
-  customerId: z.number().int().positive().optional().nullable(),
+  userId: z.number().int().positive().optional().nullable(),
+  customerId: z.number().int().positive().optional().nullable(), // backwards-compatible alias
   phoneNumber: z.string().trim().optional().nullable(),
   email: z.string().trim().email().optional().nullable().or(z.literal('')),
   devicePlatform: z.enum(['ios', 'android', 'web']).optional().nullable(),
@@ -264,4 +271,3 @@ export const flightDelayTriggerSchema = z.object({
   newArrivalTime: z.string().trim().optional(),
   airline: z.string().trim().optional(),
 });
-

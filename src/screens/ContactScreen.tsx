@@ -15,6 +15,7 @@ import {
 
 import { submitReview } from '../api/reviews';
 import { HoneypotField } from '../components/honeypot/HoneypotField';
+import { BrandLogo } from '../components/ui/BrandLogo';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { FaqList } from '../components/ui/FaqList';
@@ -57,6 +58,7 @@ export function ContactScreen() {
     setSubmitting(true);
     try {
       await submitReview({
+        user_id: isAuthenticated && user ? user.id : undefined,
         customer_name: name.trim(),
         comment: comment.trim(),
         rating,
@@ -128,7 +130,7 @@ export function ContactScreen() {
       {/* Office & Operations Location */}
       <Card style={styles.officeCard}>
         <View style={styles.officeHeader}>
-          <MapPin size={20} color={colors.accent} />
+          <BrandLogo size="sm" variant="card" style={{ marginRight: spacing.sm }} />
           <View style={styles.officeTextWrap}>
             <Text style={styles.officeTitle}>Drive Kendra Main Hub</Text>
             <Text style={styles.officeSubtitle}>{CONTACT_INFO.address}, {CONTACT_INFO.cityCountry}</Text>

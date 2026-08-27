@@ -35,6 +35,7 @@ import {
 
 import { getApprovedReviews } from '../api/reviews';
 import { getPublicStats } from '../api/stats';
+import { BrandLogo } from '../components/ui/BrandLogo';
 import { Button } from '../components/ui/Button';
 import { FaqList } from '../components/ui/FaqList';
 import { ReviewCard } from '../components/ui/ReviewCard';
@@ -168,13 +169,16 @@ export function HomeScreen() {
 
       {/* Modern Native App Bar */}
       <View style={styles.appBar}>
-        <View style={styles.locationWrap}>
-          <Text style={styles.greetingText}>
-            {isAuthenticated && user ? `Namaste, ${user.name.split(' ')[0]} 👋` : 'Namaste, Traveler 👋'}
-          </Text>
-          <View style={styles.locationPill}>
-            <MapPin size={13} color={colors.accent} />
-            <Text style={styles.locationText}>Kathmandu, Nepal</Text>
+        <View style={styles.brandRow}>
+          <BrandLogo size="xs" variant="card" style={{ marginRight: spacing.xs }} />
+          <View style={styles.locationWrap}>
+            <Text style={styles.greetingText}>
+              {isAuthenticated && user ? `Namaste, ${user.name.split(' ')[0]} 👋` : 'Namaste, Traveler 👋'}
+            </Text>
+            <View style={styles.locationPill}>
+              <MapPin size={13} color={colors.accent} />
+              <Text style={styles.locationText}>Kathmandu, Nepal</Text>
+            </View>
           </View>
         </View>
 
@@ -540,6 +544,12 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
+    },
+    brandRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+      marginRight: spacing.sm,
     },
     locationWrap: {
       flex: 1,

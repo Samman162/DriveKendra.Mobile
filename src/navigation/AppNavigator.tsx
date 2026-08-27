@@ -12,6 +12,7 @@ import { ContactScreen } from '../screens/ContactScreen';
 import { FleetScreen } from '../screens/FleetScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { MyTripsScreen } from '../screens/MyTripsScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RatesScreen } from '../screens/RatesScreen';
 import { TourDetailScreen } from '../screens/TourDetailScreen';
@@ -23,6 +24,10 @@ import type { RootStackParamList, RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 const RootStack = createNativeStackNavigator<RootStackParamList>();
+
+interface AppNavigatorProps {
+  initialRouteName?: keyof RootStackParamList;
+}
 
 function stackScreenOptions(colors: ReturnType<typeof useTheme>['colors'], title?: string) {
   return {
@@ -99,16 +104,26 @@ function MainTabsNavigator() {
   );
 }
 
-export function AppNavigator() {
+export function AppNavigator({ initialRouteName = 'MainTabs' }: AppNavigatorProps) {
   const { colors } = useTheme();
 
   return (
-    <RootStack.Navigator>
+    <RootStack.Navigator initialRouteName={initialRouteName}>
       {/* 3-Tab Bottom Shell */}
       <RootStack.Screen
         name="MainTabs"
         component={MainTabsNavigator}
         options={{ headerShown: false }}
+      />
+
+      {/* First-Launch Onboarding Walkthrough */}
+      <RootStack.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{
+          headerShown: false,
+          animation: 'fade',
+        }}
       />
 
       {/* Booking Form Presented as Animated Full Modal Dialog */}

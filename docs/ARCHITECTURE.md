@@ -65,7 +65,7 @@ This document details the high-level system design, data flows, security boundar
                ▼                                                        ▼
 ┌───────────────────────────────────────────────┐     ┌───────────────────┐
 │          PostgreSQL Database Server           │     │ Expo Push Service │
-│  (cr_bookings • cr_customers • cr_idemp • etc)│     │     (FCM v1)      │
+│   (dka_bookings • dka_users • dka_idemp etc)  │     │     (FCM v1)      │
 └───────────────────────────────────────────────┘     └───────────────────┘
 ```
 
@@ -136,7 +136,7 @@ The server entry point (`server/src/index.ts`) mounts distinct feature routes on
 - `/api/stats` ➔ Real-time platform metrics
 
 ### Idempotency & Concurrency Handling
-When the mobile client submits a booking, it generates a unique `X-Idempotency-Key` header. The server verifies this key against the `cr_idempotency_keys` table:
+When the mobile client submits a booking, it generates a unique `X-Idempotency-Key` header. The server verifies this key against the `dka_idempotency_keys` table:
 1. **New Key**: Inserted with `status: 'processing'` and SHA-256 hash of payload.
 2. **Key in-flight (`processing`)**: Rejects with `409 Conflict` to prevent double-charging or dual bookings.
 3. **Key completed (`completed`)**: Immediately returns cached response with `X-Cache-Lookup: HIT`.
@@ -168,7 +168,7 @@ All queries run inside `withPublicClient` in `server/src/db.ts`:
          |---------------------------->|                                |
          | 2. POST /api/users/push-token                                |
          |---------------------------->|                                |
-         |                             | 3. Store Token in cr_customers |
+         |                             | 3. Store Token in dka_users    |
          |                             |                                |
          |                             | 4. Dispatch Event (Chauffeur)  |
          |                             |------------------------------->|

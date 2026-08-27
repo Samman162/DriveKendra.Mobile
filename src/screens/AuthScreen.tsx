@@ -7,20 +7,24 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import {
   ArrowLeft,
   CheckCircle2,
-  Car,
-  KeyRound,
+  Eye,
+  EyeOff,
+  Lock,
   Mail,
-  Phone,
+  Phone as PhoneIcon,
   ShieldCheck,
   User as UserIcon,
 } from 'lucide-react-native';
 
+import { MapPinBrandBadge, TopAmbientBlobs } from '../components/ui/MapPinBrandBadge';
+import { SignupHeroIllustration } from '../components/ui/SignupHeroIllustration';
 import { Button } from '../components/ui/Button';
 import { OtpInput } from '../components/ui/OtpInput';
 import { PasswordField } from '../components/ui/PasswordField';
@@ -33,6 +37,7 @@ import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { extractErrorMessage } from '../utils/errors';
+import { hapticFeedback } from '../utils/haptics';
 
 export type AuthMode = 'signin' | 'signup' | 'forgot';
 
@@ -43,17 +48,27 @@ type AuthRouteParams = {
   };
 };
 
-export function AuthScreen() {
-  const navigation = useNavigation();
-  const route = useRoute<RouteProp<AuthRouteParams, 'Auth'>>();
-  const { colors } = useTheme();
+interface AuthScreenProps {
+  navigation?: any;
+  route?: RouteProp<AuthRouteParams, 'Auth'>;
+}
+
+export function AuthScreen({
+  navigation: propNavigation,
+  route: propRoute,
+}: AuthScreenProps = {}) {
+  const hookNav = useNavigation();
+  const hookRoute = useRoute<RouteProp<AuthRouteParams, 'Auth'>>();
+  const navigation = propNavigation || hookNav;
+  const route = propRoute || hookRoute;
+  const { colors, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const { signIn, signUp, sendPasswordResetCode, resetPassword } = useAuth();
 
   // Screen State
-  const initialMode = route.params?.initialMode || 'signin';
+  const initialMode = route?.params?.initialMode || 'signin';
   const [mode, setMode] = useState<AuthMode>(initialMode);
-  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1); // 1: Email/Phone, 2: OTP, 3: New Password
+  const [forgotStep, setForgotStep] = useState<1 | 2 | 3>(1); // 1: Phone/Email, 2: OTP, 3: New Password
 
   // Form Fields
   const [identifier, setIdentifier] = useState('');
@@ -62,6 +77,8 @@ export function AuthScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(true);
@@ -98,7 +115,7 @@ export function AuthScreen() {
     clearErrors();
     const newErrors: Record<string, string> = {};
     if (!identifier.trim()) {
-      newErrors.identifier = 'Please enter your email or mobile number.';
+      newErrors.identifier = 'Please enter your phone number or email.';
     }
     if (!password) {
       newErrors.password = 'Please enter your password.';
@@ -106,16 +123,19 @@ export function AuthScreen() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      hapticFeedback.light();
       return;
     }
 
     setSubmitting(true);
     try {
       await signIn({ identifier, password });
-      if (navigation.canGoBack()) {
+      hapticFeedback.success();
+      if (navigation.canGoBack?.()) {
         navigation.goBack();
       }
     } catch (err) {
+      hapticFeedback.light();
       setErrors({ form: extractErrorMessage(err, 'Failed to sign in. Please check your credentials.') });
     } finally {
       setSubmitting(false);
@@ -125,25 +145,28 @@ export function AuthScreen() {
   const handleSignUp = async () => {
     clearErrors();
     const newErrors: Record<string, string> = {};
-    if (!name.trim()) newErrors.name = 'Full name is required.';
-    if (!email.trim() || !email.includes('@')) newErrors.email = 'Valid email is required.';
-    if (!phone.trim()) newErrors.phone = 'Mobile number is required.';
+    if (!name.trim()) newErrors.name = 'Please enter your full name.';
+    if (!phone.trim()) newErrors.phone = 'Please enter your mobile phone number.';
     if (!password || password.length < 6) newErrors.password = 'Password must be at least 6 characters.';
     if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match.';
     if (!agreeTerms) newErrors.terms = 'Please accept terms & conditions to continue.';
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      hapticFeedback.light();
       return;
     }
 
     setSubmitting(true);
     try {
-      await signUp({ name, email, phone, password });
-      if (navigation.canGoBack()) {
+      const userEmail = email.trim() || `${phone.replace(/[^0-9]/g, '')}@drivekendra.com`;
+      await signUp({ name, email: userEmail, phone, password });
+      hapticFeedback.success();
+      if (navigation.canGoBack?.()) {
         navigation.goBack();
       }
     } catch (err) {
+      hapticFeedback.light();
       setErrors({ form: extractErrorMessage(err, 'Failed to create account. Please try again.') });
     } finally {
       setSubmitting(false);
@@ -153,7 +176,7 @@ export function AuthScreen() {
   const handleSendResetCode = async () => {
     clearErrors();
     if (!identifier.trim()) {
-      setErrors({ identifier: 'Please enter your registered email or phone.' });
+      setErrors({ identifier: 'Please enter your registered phone or email.' });
       return;
     }
 
@@ -162,10 +185,12 @@ export function AuthScreen() {
       const res = await sendPasswordResetCode(identifier);
       setInfoMessage(res.message);
       if (res.code) {
-        setOtpCode(res.code); // Pre-fill mock demo code for smooth testing
+        setOtpCode(res.code);
       }
       setForgotStep(2);
+      hapticFeedback.success();
     } catch (err) {
+      hapticFeedback.light();
       setErrors({ form: extractErrorMessage(err, 'Could not send verification code. Please try again.') });
     } finally {
       setSubmitting(false);
@@ -179,6 +204,7 @@ export function AuthScreen() {
       return;
     }
     setForgotStep(3);
+    hapticFeedback.selection();
   };
 
   const handleResetPassword = async () => {
@@ -203,6 +229,7 @@ export function AuthScreen() {
         code: otpCode,
         newPassword,
       });
+      hapticFeedback.success();
       Alert.alert('Success', res.message, [
         {
           text: 'Login Now',
@@ -214,6 +241,7 @@ export function AuthScreen() {
         },
       ]);
     } catch (err) {
+      hapticFeedback.light();
       setErrors({ form: extractErrorMessage(err, 'Failed to reset password. Please try again.') });
     } finally {
       setSubmitting(false);
@@ -224,529 +252,817 @@ export function AuthScreen() {
     setIdentifier(demoEmail);
     setPassword(demoPass);
     clearErrors();
+    hapticFeedback.light();
   };
 
   return (
     <Screen padded={false}>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
-        {/* Top Bar with Back Button */}
-        <View style={styles.headerBar}>
-          {navigation.canGoBack() && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              onPress={() => navigation.goBack()}
-              style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
-            >
-              <ArrowLeft size={22} color={colors.text} />
-            </Pressable>
-          )}
-          <View style={styles.brandTag}>
-            <Car size={18} color={colors.accent} style={{ marginRight: 6 }} />
-            <Text style={styles.brandTitle}>Drive Kendra</Text>
+        {/* Top-Left Ambient Organic Blobs */}
+        <TopAmbientBlobs />
+
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Top Bar with Back Button */}
+          <View style={styles.topBar}>
+            {navigation.canGoBack?.() && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                onPress={() => navigation.goBack()}
+                style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+                hitSlop={12}
+                testID="auth-back-btn"
+              >
+                <ArrowLeft size={24} color={colors.text} />
+              </Pressable>
+            )}
           </View>
-        </View>
 
-        {/* Hero Title Card */}
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>
-            {mode === 'signin'
-              ? 'Welcome Back'
-              : mode === 'signup'
-              ? 'Create an Account'
-              : 'Reset Your Password'}
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            {mode === 'signin'
-              ? 'Sign in to access your bookings, saved rates, and exclusive perks.'
-              : mode === 'signup'
-              ? 'Join Drive Kendra for instant car rentals and Himalayan tour packages.'
-              : 'We will help you recover access to your account securely.'}
-          </Text>
-        </View>
+          {/* ================= HERO SECTION ================= */}
+          <View style={styles.heroSection}>
+            {mode === 'signin' && (
+              <>
+                <MapPinBrandBadge size={92} style={{ marginBottom: spacing.sm }} />
+                <Text style={styles.brandHeadline}>
+                  <Text style={styles.brandOrange}>Travel </Text>
+                  <Text style={styles.brandNavy}>Kendra</Text>
+                </Text>
+                <Text style={styles.welcomeHeading}>Welcome Back!</Text>
+                <Text style={styles.welcomeSub}>
+                  Welcome to Travel Kendra! Please sign in to continue.
+                </Text>
+              </>
+            )}
 
-        {/* Mode Switcher Tabs (Sign In / Sign Up) */}
-        {mode !== 'forgot' && (
-          <View style={styles.tabSwitcher}>
-            <Pressable
-              onPress={() => {
-                setMode('signin');
-                clearErrors();
-              }}
-              style={[styles.tabItem, mode === 'signin' && styles.tabItemActive]}
-            >
-              <Text style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}>
-                Sign In
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setMode('signup');
-                clearErrors();
-              }}
-              style={[styles.tabItem, mode === 'signup' && styles.tabItemActive]}
-            >
-              <Text style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}>
-                Create Account
-              </Text>
-            </Pressable>
+            {mode === 'signup' && (
+              <>
+                <SignupHeroIllustration
+                  width={220}
+                  height={165}
+                  style={{ marginBottom: spacing.xs }}
+                />
+                <Text style={styles.brandHeadline}>
+                  <Text style={styles.brandOrange}>Travel </Text>
+                  <Text style={styles.brandNavy}>Kendra</Text>
+                </Text>
+              </>
+            )}
+
+            {mode === 'forgot' && (
+              <>
+                <MapPinBrandBadge size={80} style={{ marginBottom: spacing.sm }} />
+                <Text style={styles.brandHeadline}>
+                  <Text style={styles.brandOrange}>Travel </Text>
+                  <Text style={styles.brandNavy}>Kendra</Text>
+                </Text>
+                <Text style={styles.welcomeHeading}>Reset Password</Text>
+                <Text style={styles.welcomeSub}>
+                  We will help you recover access to your account securely.
+                </Text>
+              </>
+            )}
           </View>
-        )}
 
-        {/* Form Container */}
-        <View style={styles.formContainer}>
-          {/* General Form Error / Notice */}
-          {errors.form && (
-            <View style={styles.errorAlert}>
-              <Text style={styles.errorAlertText}>{errors.form}</Text>
-            </View>
-          )}
-
-          {infoMessage && (
-            <View style={styles.infoAlert}>
-              <CheckCircle2 size={16} color={colors.success} style={{ marginRight: 6 }} />
-              <Text style={styles.infoAlertText}>{infoMessage}</Text>
-            </View>
-          )}
-
-          {/* ================= MODE: SIGN IN ================= */}
-          {mode === 'signin' && (
-            <View>
-              <TextField
-                label="Email or Mobile Number"
-                value={identifier}
-                onChangeText={setIdentifier}
-                placeholder="e.g. 9851363783 or name@drivekendra.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={errors.identifier}
-              />
-
-              <PasswordField
-                label="Password"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                error={errors.password}
-                onSubmitEditing={handleSignIn}
-              />
-
-              <View style={styles.forgotRow}>
-                <Pressable
-                  onPress={() => {
-                    setMode('forgot');
-                    setForgotStep(1);
-                    clearErrors();
-                  }}
-                >
-                  <Text style={styles.forgotText}>Forgot password?</Text>
-                </Pressable>
+          {/* Form Container */}
+          <View style={styles.formContainer}>
+            {/* General Form Error Alert */}
+            {errors.form && (
+              <View style={styles.errorAlert} testID="auth-error-alert">
+                <Text style={styles.errorAlertText}>{errors.form}</Text>
               </View>
+            )}
 
-              <Button
-                label={submitting ? 'Signing In...' : 'Sign In'}
-                onPress={handleSignIn}
-                loading={submitting}
-                variant="primary"
-              />
-
-              <SocialAuthButtons
-                onQuickDemoFill={handleQuickDemoFill}
-                onGooglePress={() => {
-                  setIdentifier('aarav@drivekendra.com');
-                  setPassword('password123');
-                  Alert.alert('Google Sign In', 'Connected via Google account.');
-                }}
-                onApplePress={() => {
-                  setIdentifier('suman@drivekendra.com');
-                  setPassword('password123');
-                  Alert.alert('Apple Sign In', 'Connected via Apple ID.');
-                }}
-              />
-
-              <View style={styles.footerRow}>
-                <Text style={styles.footerText}>Don't have an account?</Text>
-                <Pressable
-                  onPress={() => {
-                    setMode('signup');
-                    clearErrors();
-                  }}
-                >
-                  <Text style={styles.footerLink}> Sign Up</Text>
-                </Pressable>
+            {infoMessage && (
+              <View style={styles.infoAlert}>
+                <CheckCircle2 size={16} color={colors.success} style={{ marginRight: 6 }} />
+                <Text style={styles.infoAlertText}>{infoMessage}</Text>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* ================= MODE: SIGN UP ================= */}
-          {mode === 'signup' && (
-            <View>
-              <TextField
-                label="Full Name"
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. Aarav Sharma"
-                autoCapitalize="words"
-                error={errors.name}
-              />
-
-              <TextField
-                label="Email Address"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="e.g. aarav@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                error={errors.email}
-              />
-
-              <TextField
-                label="Mobile Phone Number"
-                value={phone}
-                onChangeText={setPhone}
-                placeholder="e.g. +977 9851363783"
-                keyboardType="phone-pad"
-                error={errors.phone}
-              />
-
-              <PasswordField
-                label="Create Password"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="At least 6 characters"
-                error={errors.password}
-              />
-
-              {strength && (
-                <View style={styles.strengthWrap}>
-                  <View style={styles.strengthTrack}>
-                    <View
-                      style={[
-                        styles.strengthBar,
-                        { backgroundColor: strength.color, width: strength.width as any },
-                      ]}
+            {/* ================= MODE: SIGN IN (LOGIN) ================= */}
+            {mode === 'signin' && (
+              <View>
+                {/* Phone Field */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Phone</Text>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      errors.identifier ? styles.inputErrorBorder : null,
+                    ]}
+                  >
+                    <Text style={styles.phonePrefix}>(+977) | </Text>
+                    <TextInput
+                      value={identifier}
+                      onChangeText={(text) => {
+                        setIdentifier(text);
+                        if (errors.identifier) clearErrors();
+                      }}
+                      placeholder="Enter Phone Number"
+                      placeholderTextColor={colors.subtle}
+                      keyboardType="phone-pad"
+                      autoCapitalize="none"
+                      style={styles.textInputField}
+                      testID="auth-phone-input"
                     />
                   </View>
-                  <Text style={[styles.strengthLabel, { color: strength.color }]}>
-                    Strength: {strength.label}
-                  </Text>
+                  {errors.identifier ? (
+                    <Text style={styles.fieldError}>{errors.identifier}</Text>
+                  ) : null}
                 </View>
-              )}
 
-              <PasswordField
-                label="Confirm Password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Re-enter your password"
-                error={errors.confirmPassword}
-              />
-
-              {/* Terms Checkbox */}
-              <Pressable
-                onPress={() => setAgreeTerms((prev) => !prev)}
-                style={styles.termsRow}
-              >
-                <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
-                  {agreeTerms && <ShieldCheck size={14} color={colors.onAccent} />}
+                {/* Password Field */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Password</Text>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      errors.password ? styles.inputErrorBorder : null,
+                    ]}
+                  >
+                    <Lock size={18} color={colors.subtle} style={{ marginRight: 10 }} />
+                    <TextInput
+                      value={password}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        if (errors.password) clearErrors();
+                      }}
+                      placeholder="Enter Your password"
+                      placeholderTextColor={colors.subtle}
+                      secureTextEntry={!showPassword}
+                      style={styles.textInputField}
+                      onSubmitEditing={handleSignIn}
+                      testID="auth-password-input"
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={10}
+                      style={({ pressed }) => [styles.eyeBtn, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                      testID="auth-toggle-password-btn"
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} color={colors.subtle} />
+                      ) : (
+                        <Eye size={18} color={colors.subtle} />
+                      )}
+                    </Pressable>
+                  </View>
+                  {errors.password ? (
+                    <Text style={styles.fieldError}>{errors.password}</Text>
+                  ) : null}
                 </View>
-                <Text style={styles.termsText}>
-                  I agree to Drive Kendra's{' '}
-                  <Text style={styles.termsHighlight}>Terms of Service</Text> and{' '}
-                  <Text style={styles.termsHighlight}>Privacy Policy</Text>.
-                </Text>
-              </Pressable>
-              {errors.terms ? <Text style={styles.fieldError}>{errors.terms}</Text> : null}
 
-              <View style={{ marginTop: spacing.md }}>
+                {/* Solid Orange Login Button */}
                 <Button
-                  label={submitting ? 'Creating Account...' : 'Create Account'}
+                  label={submitting ? 'Logging In...' : 'Login'}
+                  onPress={handleSignIn}
+                  loading={submitting}
+                  variant="primary"
+                  style={styles.primaryActionBtn}
+                  textStyle={styles.primaryActionBtnText}
+                  testID="auth-login-btn"
+                />
+
+                {/* Switch to Sign Up */}
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchBaseText}>Don't Have an account ? </Text>
+                  <Pressable
+                    onPress={() => {
+                      setMode('signup');
+                      clearErrors();
+                    }}
+                    hitSlop={8}
+                    testID="auth-goto-signup-btn"
+                  >
+                    <Text style={styles.switchBoldText}>Sign Up</Text>
+                  </Pressable>
+                </View>
+
+                {/* OR Divider */}
+                <View style={styles.orDividerRow}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>OR</Text>
+                  <View style={styles.orLine} />
+                </View>
+
+                {/* Forgot Password Link */}
+                <View style={styles.forgotRow}>
+                  <Pressable
+                    onPress={() => {
+                      setMode('forgot');
+                      setForgotStep(1);
+                      clearErrors();
+                    }}
+                    hitSlop={8}
+                    testID="auth-goto-forgot-btn"
+                  >
+                    <Text style={styles.forgotLink}>
+                      Forgot Your <Text style={styles.switchBoldText}>Password ?</Text>
+                    </Text>
+                  </Pressable>
+                </View>
+
+                {/* Quick Demo Fill & Social Login */}
+                <SocialAuthButtons
+                  onQuickDemoFill={handleQuickDemoFill}
+                  onGooglePress={() => {
+                    setIdentifier('9851363783');
+                    setPassword('password123');
+                    Alert.alert('Google Sign In', 'Connected via Google account.');
+                  }}
+                  onApplePress={() => {
+                    setIdentifier('9841234567');
+                    setPassword('password123');
+                    Alert.alert('Apple Sign In', 'Connected via Apple ID.');
+                  }}
+                />
+              </View>
+            )}
+
+            {/* ================= MODE: SIGN UP (REGISTER) ================= */}
+            {mode === 'signup' && (
+              <View>
+                {/* Full Name */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Full Name</Text>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      styles.inputContainerActive,
+                      errors.name ? styles.inputErrorBorder : null,
+                    ]}
+                  >
+                    <UserIcon size={18} color={colors.subtle} style={{ marginRight: 10 }} />
+                    <TextInput
+                      value={name}
+                      onChangeText={(text) => {
+                        setName(text);
+                        if (errors.name) clearErrors();
+                      }}
+                      placeholder="Full Name"
+                      placeholderTextColor={colors.subtle}
+                      autoCapitalize="words"
+                      style={styles.textInputField}
+                      testID="auth-signup-name-input"
+                    />
+                  </View>
+                  {errors.name ? <Text style={styles.fieldError}>{errors.name}</Text> : null}
+                </View>
+
+                {/* Phone Number (Added per user request) */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Phone</Text>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      errors.phone ? styles.inputErrorBorder : null,
+                    ]}
+                  >
+                    <Text style={styles.phonePrefix}>(+977) | </Text>
+                    <TextInput
+                      value={phone}
+                      onChangeText={(text) => {
+                        setPhone(text);
+                        if (errors.phone) clearErrors();
+                      }}
+                      placeholder="Enter Phone Number"
+                      placeholderTextColor={colors.subtle}
+                      keyboardType="phone-pad"
+                      style={styles.textInputField}
+                      testID="auth-signup-phone-input"
+                    />
+                  </View>
+                  {errors.phone ? <Text style={styles.fieldError}>{errors.phone}</Text> : null}
+                </View>
+
+                {/* Password */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Password</Text>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      errors.password ? styles.inputErrorBorder : null,
+                    ]}
+                  >
+                    <Lock size={18} color={colors.subtle} style={{ marginRight: 10 }} />
+                    <TextInput
+                      value={password}
+                      onChangeText={(text) => {
+                        setPassword(text);
+                        if (errors.password) clearErrors();
+                      }}
+                      placeholder="Password"
+                      placeholderTextColor={colors.subtle}
+                      secureTextEntry={!showPassword}
+                      style={styles.textInputField}
+                      testID="auth-signup-password-input"
+                    />
+                    <Pressable
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={10}
+                      style={({ pressed }) => [styles.eyeBtn, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? (
+                        <EyeOff size={18} color={colors.subtle} />
+                      ) : (
+                        <Eye size={18} color={colors.subtle} />
+                      )}
+                    </Pressable>
+                  </View>
+                  {errors.password ? (
+                    <Text style={styles.fieldError}>{errors.password}</Text>
+                  ) : null}
+                </View>
+
+                {strength && (
+                  <View style={styles.strengthWrap}>
+                    <View style={styles.strengthTrack}>
+                      <View
+                        style={[
+                          styles.strengthBar,
+                          { backgroundColor: strength.color, width: strength.width as any },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.strengthLabel, { color: strength.color }]}>
+                      Strength: {strength.label}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Confirm Password */}
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.fieldLabel}>Confirm Password</Text>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      errors.confirmPassword ? styles.inputErrorBorder : null,
+                    ]}
+                  >
+                    <Lock size={18} color={colors.subtle} style={{ marginRight: 10 }} />
+                    <TextInput
+                      value={confirmPassword}
+                      onChangeText={(text) => {
+                        setConfirmPassword(text);
+                        if (errors.confirmPassword) clearErrors();
+                      }}
+                      placeholder="Confirm Password"
+                      placeholderTextColor={colors.subtle}
+                      secureTextEntry={!showConfirmPassword}
+                      style={styles.textInputField}
+                      testID="auth-signup-confirm-password-input"
+                    />
+                    <Pressable
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      hitSlop={10}
+                      style={({ pressed }) => [styles.eyeBtn, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff size={18} color={colors.subtle} />
+                      ) : (
+                        <Eye size={18} color={colors.subtle} />
+                      )}
+                    </Pressable>
+                  </View>
+                  {errors.confirmPassword ? (
+                    <Text style={styles.fieldError}>{errors.confirmPassword}</Text>
+                  ) : null}
+                </View>
+
+                {/* Terms Checkbox */}
+                <Pressable
+                  onPress={() => setAgreeTerms(!agreeTerms)}
+                  style={styles.termsBoxRow}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: agreeTerms }}
+                  testID="auth-terms-checkbox"
+                >
+                  <View style={[styles.squareCheckbox, agreeTerms && styles.squareCheckboxChecked]}>
+                    {agreeTerms && <CheckCircle2 size={15} color={colors.accent} />}
+                  </View>
+                  <Text style={styles.termsAgreementText}>
+                    By ticking, you are confirming that you have read, understood and agree to our{' '}
+                    <Text style={styles.termsUnderlineText}>terms & conditions</Text>
+                  </Text>
+                </Pressable>
+                {errors.terms && <Text style={styles.fieldError}>{errors.terms}</Text>}
+
+                {/* Register Button */}
+                <Button
+                  label={submitting ? 'Registering...' : 'Register'}
                   onPress={handleSignUp}
                   loading={submitting}
                   variant="primary"
+                  style={styles.primaryActionBtn}
+                  textStyle={styles.primaryActionBtnText}
+                  testID="auth-register-btn"
                 />
-              </View>
 
-              <View style={styles.footerRow}>
-                <Text style={styles.footerText}>Already have an account?</Text>
-                <Pressable
-                  onPress={() => {
-                    setMode('signin');
-                    clearErrors();
-                  }}
-                >
-                  <Text style={styles.footerLink}> Sign In</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-
-          {/* ================= MODE: FORGOT PASSWORD ================= */}
-          {mode === 'forgot' && (
-            <View>
-              {/* Stepper indicators */}
-              <View style={styles.stepsIndicator}>
-                <View style={[styles.stepDot, forgotStep >= 1 && styles.stepDotActive]}>
-                  <Text style={styles.stepNum}>1</Text>
-                </View>
-                <View style={[styles.stepLine, forgotStep >= 2 && styles.stepLineActive]} />
-                <View style={[styles.stepDot, forgotStep >= 2 && styles.stepDotActive]}>
-                  <Text style={styles.stepNum}>2</Text>
-                </View>
-                <View style={[styles.stepLine, forgotStep >= 3 && styles.stepLineActive]} />
-                <View style={[styles.stepDot, forgotStep >= 3 && styles.stepDotActive]}>
-                  <Text style={styles.stepNum}>3</Text>
+                {/* Switch to Sign In */}
+                <View style={styles.switchRow}>
+                  <Text style={styles.switchBaseText}>Already have an account ? </Text>
+                  <Pressable
+                    onPress={() => {
+                      setMode('signin');
+                      clearErrors();
+                    }}
+                    hitSlop={8}
+                    testID="auth-goto-signin-btn"
+                  >
+                    <Text style={styles.switchBoldText}>Login</Text>
+                  </Pressable>
                 </View>
               </View>
+            )}
 
-              {/* Step 1: Identifier */}
-              {forgotStep === 1 && (
-                <View>
-                  <Text style={styles.stepTitle}>Step 1: Account Identifier</Text>
-                  <Text style={styles.stepDesc}>
-                    Enter your email address or registered mobile number to receive a verification code.
-                  </Text>
-
-                  <TextField
-                    label="Email or Mobile"
-                    value={identifier}
-                    onChangeText={setIdentifier}
-                    placeholder="e.g. aarav@drivekendra.com"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    error={errors.identifier}
-                  />
-
-                  <Button
-                    label={submitting ? 'Sending Code...' : 'Send Verification Code'}
-                    onPress={handleSendResetCode}
-                    loading={submitting}
-                    variant="primary"
-                  />
+            {/* ================= MODE: FORGOT PASSWORD ================= */}
+            {mode === 'forgot' && (
+              <View>
+                {/* Step Indicators */}
+                <View style={styles.stepsIndicator}>
+                  <View style={[styles.stepDot, forgotStep >= 1 && styles.stepDotActive]}>
+                    <Text style={styles.stepNum}>1</Text>
+                  </View>
+                  <View style={[styles.stepLine, forgotStep >= 2 && styles.stepLineActive]} />
+                  <View style={[styles.stepDot, forgotStep >= 2 && styles.stepDotActive]}>
+                    <Text style={styles.stepNum}>2</Text>
+                  </View>
+                  <View style={[styles.stepLine, forgotStep >= 3 && styles.stepLineActive]} />
+                  <View style={[styles.stepDot, forgotStep >= 3 && styles.stepDotActive]}>
+                    <Text style={styles.stepNum}>3</Text>
+                  </View>
                 </View>
-              )}
 
-              {/* Step 2: OTP Verification */}
-              {forgotStep === 2 && (
-                <View>
-                  <Text style={styles.stepTitle}>Step 2: Enter Verification Code</Text>
-                  <Text style={styles.stepDesc}>
-                    We've sent a 6-digit code to{' '}
-                    <Text style={{ fontWeight: '700', color: colors.text }}>{identifier}</Text>.
-                  </Text>
+                {forgotStep === 1 && (
+                  <View>
+                    <Text style={styles.stepTitle}>Find Your Account</Text>
+                    <Text style={styles.stepDesc}>
+                      Enter your mobile number or email address and we'll send a 6-digit recovery code.
+                    </Text>
 
-                  <OtpInput
-                    length={6}
-                    value={otpCode}
-                    onChange={setOtpCode}
-                    error={!!errors.otp}
-                  />
-                  {errors.otp ? <Text style={styles.fieldError}>{errors.otp}</Text> : null}
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Phone or Email</Text>
+                      <View
+                        style={[
+                          styles.inputContainer,
+                          errors.identifier ? styles.inputErrorBorder : null,
+                        ]}
+                      >
+                        <Text style={styles.phonePrefix}>(+977) | </Text>
+                        <TextInput
+                          value={identifier}
+                          onChangeText={setIdentifier}
+                          placeholder="Enter Phone Number"
+                          placeholderTextColor={colors.subtle}
+                          keyboardType="phone-pad"
+                          style={styles.textInputField}
+                        />
+                      </View>
+                      {errors.identifier ? (
+                        <Text style={styles.fieldError}>{errors.identifier}</Text>
+                      ) : null}
+                    </View>
 
-                  <View style={{ marginTop: spacing.md }}>
+                    <Button
+                      label={submitting ? 'Sending Code...' : 'Send Recovery Code'}
+                      onPress={handleSendResetCode}
+                      loading={submitting}
+                      variant="primary"
+                      style={styles.primaryActionBtn}
+                      textStyle={styles.primaryActionBtnText}
+                    />
+                  </View>
+                )}
+
+                {forgotStep === 2 && (
+                  <View>
+                    <Text style={styles.stepTitle}>Enter Verification Code</Text>
+                    <Text style={styles.stepDesc}>
+                      We sent a 6-digit code to {identifier}. Enter it below to verify.
+                    </Text>
+
+                    <OtpInput
+                      value={otpCode}
+                      onChange={setOtpCode}
+                      length={6}
+                      error={Boolean(errors.otp)}
+                    />
+
                     <Button
                       label="Verify Code"
                       onPress={handleVerifyOtp}
                       variant="primary"
+                      style={[styles.primaryActionBtn, { marginTop: spacing.lg }]}
+                      textStyle={styles.primaryActionBtnText}
+                    />
+
+                    <Pressable
+                      onPress={handleSendResetCode}
+                      style={styles.resendBtn}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.resendText}>Didn't receive code? Resend</Text>
+                    </Pressable>
+                  </View>
+                )}
+
+                {forgotStep === 3 && (
+                  <View>
+                    <Text style={styles.stepTitle}>Set New Password</Text>
+                    <Text style={styles.stepDesc}>
+                      Create a strong, new password for your Drive Kendra account.
+                    </Text>
+
+                    <PasswordField
+                      label="New Password"
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      placeholder="At least 6 characters"
+                      error={errors.newPassword}
+                    />
+
+                    <PasswordField
+                      label="Confirm New Password"
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      placeholder="Re-enter new password"
+                      error={errors.confirmPassword}
+                    />
+
+                    <Button
+                      label={submitting ? 'Updating Password...' : 'Save New Password'}
+                      onPress={handleResetPassword}
+                      loading={submitting}
+                      variant="primary"
+                      style={[styles.primaryActionBtn, { marginTop: spacing.md }]}
+                      textStyle={styles.primaryActionBtnText}
                     />
                   </View>
+                )}
 
+                {/* Back to Sign In Link */}
+                <View style={[styles.switchRow, { marginTop: spacing.xl }]}>
                   <Pressable
-                    onPress={handleSendResetCode}
-                    style={styles.resendBtn}
+                    onPress={() => {
+                      setMode('signin');
+                      setForgotStep(1);
+                      clearErrors();
+                    }}
+                    hitSlop={8}
                   >
-                    <Text style={styles.resendText}>Didn't receive code? Tap to Resend</Text>
+                    <Text style={styles.switchBoldText}>← Back to Login</Text>
                   </Pressable>
                 </View>
-              )}
-
-              {/* Step 3: New Password */}
-              {forgotStep === 3 && (
-                <View>
-                  <Text style={styles.stepTitle}>Step 3: Create New Password</Text>
-                  <Text style={styles.stepDesc}>
-                    Please enter your new strong password below.
-                  </Text>
-
-                  <PasswordField
-                    label="New Password"
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="At least 6 characters"
-                    error={errors.newPassword}
-                  />
-
-                  <PasswordField
-                    label="Confirm New Password"
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Re-type new password"
-                    error={errors.confirmPassword}
-                  />
-
-                  <Button
-                    label={submitting ? 'Resetting Password...' : 'Save & Update Password'}
-                    onPress={handleResetPassword}
-                    loading={submitting}
-                    variant="primary"
-                  />
-                </View>
-              )}
-
-              {/* Return to Sign In */}
-              <View style={styles.footerRow}>
-                <Pressable
-                  onPress={() => {
-                    setMode('signin');
-                    setForgotStep(1);
-                    clearErrors();
-                  }}
-                  style={styles.backToLoginBtn}
-                >
-                  <ArrowLeft size={16} color={colors.accent} style={{ marginRight: 6 }} />
-                  <Text style={styles.footerLink}>Return to Sign In</Text>
-                </Pressable>
               </View>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+            )}
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
-function createStyles(colors: ThemeColors) {
-  return StyleSheet.create({
+const createStyles = (theme: ThemeColors) =>
+  StyleSheet.create({
     scrollContent: {
+      flexGrow: 1,
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.md,
-      paddingBottom: 40,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xxl,
     },
-    headerBar: {
+    topBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: spacing.md,
+      justifyContent: 'flex-start',
+      paddingVertical: spacing.sm,
+      zIndex: 10,
     },
     backBtn: {
       width: 40,
       height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    brandTag: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 6,
-      paddingHorizontal: 12,
       borderRadius: radius.pill,
-      backgroundColor: colors.accentSoft,
-    },
-    brandTitle: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: colors.accent,
-      letterSpacing: 0.5,
-    },
-    heroCard: {
-      marginBottom: spacing.lg,
-    },
-    heroTitle: {
-      fontSize: 26,
-      fontWeight: '900',
-      color: colors.text,
-      marginBottom: 6,
-    },
-    heroSubtitle: {
-      fontSize: 14,
-      color: colors.muted,
-      lineHeight: 20,
-    },
-    tabSwitcher: {
-      flexDirection: 'row',
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
-      padding: 4,
-      marginBottom: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    tabItem: {
-      flex: 1,
-      paddingVertical: 10,
       alignItems: 'center',
       justifyContent: 'center',
-      borderRadius: radius.md,
     },
-    tabItemActive: {
-      backgroundColor: colors.navy,
+    heroSection: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+      marginBottom: spacing.md,
+      zIndex: 5,
     },
-    tabText: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: colors.muted,
+    brandHeadline: {
+      fontSize: 26,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+      marginBottom: spacing.xs,
     },
-    tabTextActive: {
-      color: colors.onNavy,
+    brandOrange: {
+      color: theme.accent,
+    },
+    brandNavy: {
+      color: theme.text,
+    },
+    welcomeHeading: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: theme.text,
+      marginTop: spacing.xs,
+      marginBottom: 4,
+      alignSelf: 'flex-start',
+    },
+    welcomeSub: {
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.subtle,
+      alignSelf: 'flex-start',
+      marginBottom: spacing.sm,
     },
     formContainer: {
-      backgroundColor: colors.surface,
-      padding: spacing.lg,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
+      zIndex: 10,
+    },
+    fieldGroup: {
+      marginBottom: spacing.md,
+    },
+    fieldLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.text,
+      marginBottom: 6,
+    },
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.surface,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+      borderRadius: 12,
+      paddingHorizontal: spacing.md,
+      height: 50,
+    },
+    inputContainerActive: {
+      borderColor: theme.accent,
+    },
+    phonePrefix: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.subtle,
+    },
+    textInputField: {
+      flex: 1,
+      fontSize: 15,
+      color: theme.text,
+      paddingVertical: 0,
+    },
+    eyeBtn: {
+      padding: 4,
+    },
+    inputErrorBorder: {
+      borderColor: theme.error,
+    },
+    fieldError: {
+      fontSize: 12,
+      color: theme.error,
+      marginTop: 4,
+      fontWeight: '500',
+    },
+    primaryActionBtn: {
+      backgroundColor: theme.accent,
+      height: 52,
+      borderRadius: 12,
+      marginTop: spacing.sm,
+      shadowColor: theme.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 5,
+    },
+    primaryActionBtnText: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: theme.onAccent,
+    },
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.lg,
+    },
+    switchBaseText: {
+      fontSize: 14,
+      color: theme.subtle,
+    },
+    switchBoldText: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: theme.text,
+    },
+    orDividerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginVertical: spacing.lg,
+      paddingHorizontal: spacing.md,
+    },
+    orLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: theme.border,
+    },
+    orText: {
+      marginHorizontal: spacing.md,
+      fontSize: 12,
+      fontWeight: '800',
+      color: theme.accent,
+      letterSpacing: 1,
+    },
+    forgotRow: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.xs,
+    },
+    forgotLink: {
+      fontSize: 14,
+      color: theme.subtle,
     },
     errorAlert: {
-      backgroundColor: colors.errorSoft,
+      backgroundColor: theme.errorSoft,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.error,
       padding: spacing.md,
       borderRadius: radius.md,
       marginBottom: spacing.md,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.error,
     },
     errorAlertText: {
-      color: colors.error,
       fontSize: 13,
+      color: theme.error,
       fontWeight: '600',
     },
     infoAlert: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: colors.successSoft,
+      backgroundColor: theme.successSoft,
+      borderLeftWidth: 4,
+      borderLeftColor: theme.success,
       padding: spacing.md,
       borderRadius: radius.md,
       marginBottom: spacing.md,
     },
     infoAlertText: {
-      color: colors.success,
       fontSize: 13,
+      color: theme.success,
       fontWeight: '600',
       flex: 1,
     },
-    forgotRow: {
-      alignItems: 'flex-end',
-      marginBottom: spacing.md,
-      marginTop: -spacing.xs,
+    termsBoxRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: spacing.sm,
     },
-    forgotText: {
-      color: colors.accent,
-      fontSize: 13,
-      fontWeight: '700',
+    squareCheckbox: {
+      width: 22,
+      height: 22,
+      borderRadius: 5,
+      borderWidth: 1.8,
+      borderColor: theme.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.sm,
+      backgroundColor: theme.surface,
+    },
+    squareCheckboxChecked: {
+      borderColor: theme.accent,
+    },
+    termsAgreementText: {
+      flex: 1,
+      fontSize: 12,
+      color: theme.subtle,
+      lineHeight: 17,
+    },
+    termsUnderlineText: {
+      color: theme.text,
+      textDecorationLine: 'underline',
+      fontWeight: '600',
     },
     strengthWrap: {
-      marginTop: -spacing.xs,
       marginBottom: spacing.md,
     },
     strengthTrack: {
       height: 4,
-      backgroundColor: colors.border,
+      backgroundColor: theme.border,
       borderRadius: 2,
       overflow: 'hidden',
       marginBottom: 4,
@@ -759,61 +1075,6 @@ function createStyles(colors: ThemeColors) {
       fontSize: 11,
       fontWeight: '700',
     },
-    termsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginVertical: spacing.xs,
-    },
-    checkbox: {
-      width: 20,
-      height: 20,
-      borderRadius: 4,
-      borderWidth: 1.5,
-      borderColor: colors.subtle,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: spacing.sm,
-    },
-    checkboxChecked: {
-      backgroundColor: colors.accent,
-      borderColor: colors.accent,
-    },
-    termsText: {
-      flex: 1,
-      fontSize: 12,
-      color: colors.muted,
-      lineHeight: 16,
-    },
-    termsHighlight: {
-      color: colors.accent,
-      fontWeight: '700',
-    },
-    fieldError: {
-      color: colors.error,
-      fontSize: 12,
-      marginTop: 4,
-    },
-    footerRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginTop: spacing.lg,
-    },
-    footerText: {
-      fontSize: 14,
-      color: colors.muted,
-    },
-    footerLink: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: colors.accent,
-    },
-    backToLoginBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacing.xs,
-    },
     stepsIndicator: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -824,39 +1085,39 @@ function createStyles(colors: ThemeColors) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: colors.elevated,
+      backgroundColor: theme.surface,
       borderWidth: 1.5,
-      borderColor: colors.border,
+      borderColor: theme.border,
       alignItems: 'center',
       justifyContent: 'center',
     },
     stepDotActive: {
-      backgroundColor: colors.accent,
-      borderColor: colors.accent,
+      backgroundColor: theme.accent,
+      borderColor: theme.accent,
     },
     stepNum: {
       fontSize: 12,
       fontWeight: '800',
-      color: colors.onAccent,
+      color: theme.onAccent,
     },
     stepLine: {
       width: 40,
       height: 2,
-      backgroundColor: colors.border,
+      backgroundColor: theme.border,
       marginHorizontal: 4,
     },
     stepLineActive: {
-      backgroundColor: colors.accent,
+      backgroundColor: theme.accent,
     },
     stepTitle: {
       fontSize: 17,
       fontWeight: '800',
-      color: colors.text,
+      color: theme.text,
       marginBottom: 4,
     },
     stepDesc: {
       fontSize: 13,
-      color: colors.muted,
+      color: theme.subtle,
       marginBottom: spacing.md,
       lineHeight: 18,
     },
@@ -867,10 +1128,9 @@ function createStyles(colors: ThemeColors) {
     resendText: {
       fontSize: 13,
       fontWeight: '700',
-      color: colors.accent,
+      color: theme.accent,
     },
     pressed: {
-      opacity: 0.7,
+      opacity: 0.65,
     },
   });
-}

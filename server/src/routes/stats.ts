@@ -27,26 +27,26 @@ statsRoute.get('/', async (c) => {
     try {
       const fromFunction = await client.query<StatsRow>(
         `SELECT fleet_count, completed_trips, cities_covered, review_count, average_rating
-         FROM cr_get_public_stats()`,
+         FROM dka_get_public_stats()`,
       );
       if (fromFunction.rows[0]) {
         return toStats(fromFunction.rows[0]);
       }
     } catch {
-      // Function exists only after the website RLS patch is applied.
+      // Fallback if stored procedure was not applied
     }
 
     const fallback = await client.query<StatsRow>(`
       SELECT
-        (SELECT COUNT(*) FROM cr_vehicles WHERE is_active = TRUE) AS fleet_count,
-        (SELECT COUNT(*) FROM cr_trip_requests WHERE LOWER(request_status) = 'completed') AS completed_trips,
+        (SELECT COUNT(*) FROM dka_vehicle_types) AS fleet_count,
+        (SELECT COUNT(*) FROM dka_bookings WHERE LOWER(booking_status) = 'completed') AS completed_trips,
         (SELECT COUNT(*) FROM (
-          SELECT DISTINCT LOWER(TRIM(pickup_location)) AS loc FROM cr_trip_requests
+          SELECT DISTINCT LOWER(TRIM(pickup_location)) AS loc FROM dka_bookings
           UNION
-          SELECT DISTINCT LOWER(TRIM(dropoff_location)) FROM cr_trip_requests
+          SELECT DISTINCT LOWER(TRIM(dropoff_location)) FROM dka_bookings
         ) cities) AS cities_covered,
-        (SELECT COUNT(*) FROM cr_reviews WHERE is_approved = TRUE) AS review_count,
-        (SELECT COALESCE(ROUND(AVG(rating)::numeric, 1), 0) FROM cr_reviews WHERE is_approved = TRUE) AS average_rating
+        (SELECT COUNT(*) FROM dka_reviews WHERE is_approved = TRUE) AS review_count,
+        (SELECT COALESCE(ROUND(AVG(rating)::numeric, 1), 0) FROM dka_reviews WHERE is_approved = TRUE) AS average_rating
     `);
     return toStats(fallback.rows[0]);
   });

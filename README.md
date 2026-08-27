@@ -93,7 +93,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
                ▼                                                        ▼
 ┌───────────────────────────────────────────────┐     ┌───────────────────┐
 │          PostgreSQL Database Server           │     │ Expo Push Service │
-│  (cr_bookings • cr_customers • cr_idemp • etc)│     │     (FCM v1)      │
+│   (dka_bookings • dka_users • dka_idemp etc)  │     │     (FCM v1)      │
 └───────────────────────────────────────────────┘     └───────────────────┘
 ```
 
@@ -563,7 +563,7 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
 
 1. **Honeypot Bot Protection**: Hidden field `website_hp` filters automated bots from booking and review forms.
 2. **Strict Nepal Phone Regex**: Pattern `/^(?:977)?(9[78]\d{8}|0[1-9]\d{7})$/` validates standard mobile (`98XXXXXXXX`, `97XXXXXXXX`) and regional landlines (`01XXXXXXX`).
-3. **Idempotency Keys**: Generates SHA-256 request hashes and checks `cr_idempotency_keys` to prevent accidental double-bookings on flaky connections.
+3. **Idempotency Keys**: Generates SHA-256 request hashes and checks `dka_idempotency_keys` to prevent accidental double-bookings on flaky connections.
 4. **Encrypted Secure Storage**: User tokens and biometrics are stored via `expo-secure-store` hardware encryption.
 5. **Database RLS Safety**: All database interactions use `SET LOCAL app.is_admin = 'false'` to isolate public requests.
 6. **Parameterized SQL Queries**: All queries use `$1, $2, ...` positional parameterization to eliminate SQL injection vulnerabilities.

@@ -53,7 +53,7 @@ const connectionString = firstNonEmpty(process.env.DATABASE_URL, process.env.Con
 
 if (!connectionString) {
   throw new Error(
-    "DATABASE_URL is not configured. Set it to the same Postgres connection the website uses.",
+    "DATABASE_URL is not configured. Set it to your PostgreSQL connection string in server/.env.",
   );
 }
 
@@ -68,7 +68,6 @@ export const pool = new Pool({
 export async function withPublicClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
-    await client.query("SELECT set_config('app.is_admin', 'false', false)");
     return await fn(client);
   } finally {
     client.release();

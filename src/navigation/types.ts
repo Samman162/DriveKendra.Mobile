@@ -38,6 +38,7 @@ export type RootStackParamList = {
   Tours: undefined;
   TourDetail: { tourId: 'manakamana' | 'muktinath' | 'kalinchowk' };
   Contact: undefined;
+  Onboarding: undefined;
   Auth: AuthParams | undefined;
   MyTrips: { bookingId?: string | number } | undefined;
   Profile: undefined;

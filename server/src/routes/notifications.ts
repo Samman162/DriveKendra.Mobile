@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { withPublicClient } from '../db.js';
 import {
   triggerBookingConfirmedNotification,
   triggerDriverAssignedNotification,
@@ -15,6 +16,76 @@ import {
 } from '../validation.js';
 
 export const notificationsRoute = new Hono();
+
+/**
+ * GET /api/notifications
+ * Fetch in-app notifications for a user
+ */
+notificationsRoute.get('/', async (c) => {
+  const userId = c.req.query('userId');
+
+  if (!userId) {
+    throw new HttpError(400, 'userId query parameter is required.');
+  }
+
+  const result = await withPublicClient(async (client) => {
+    return await client.query<{
+      notification_id: number;
+      user_id: number;
+      title: string;
+      message: string;
+      related_entity_id: number | null;
+      notification_type: string;
+      push_status: string;
+      payload: any;
+      is_read: boolean;
+      created_at: Date;
+    }>(
+      `SELECT notification_id, user_id, title, message, related_entity_id,
+              notification_type, push_status, payload, is_read, created_at
+       FROM dka_notifications
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [Number(userId)],
+    );
+  });
+
+  return c.json({
+    notifications: result.rows.map((row) => ({
+      id: row.notification_id,
+      userId: row.user_id,
+      title: row.title,
+      message: row.message,
+      relatedEntityId: row.related_entity_id,
+      type: row.notification_type,
+      pushStatus: row.push_status,
+      payload: row.payload,
+      isRead: row.is_read,
+      createdAt: row.created_at,
+    })),
+  });
+});
+
+/**
+ * PATCH /api/notifications/:id/read
+ * Mark a notification as read
+ */
+notificationsRoute.patch('/:id/read', async (c) => {
+  const notificationId = Number(c.req.param('id'));
+  if (!notificationId || isNaN(notificationId)) {
+    throw new HttpError(400, 'Valid notification ID is required.');
+  }
+
+  await withPublicClient(async (client) => {
+    await client.query(
+      `UPDATE dka_notifications SET is_read = TRUE WHERE notification_id = $1`,
+      [notificationId],
+    );
+  });
+
+  return c.json({ success: true, message: 'Notification marked as read.' });
+});
 
 /**
  * POST /api/notifications/dispatch-booking-status

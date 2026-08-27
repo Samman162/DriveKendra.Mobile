@@ -28,7 +28,7 @@ export interface SendPushNotificationOptions {
   channelId?: string;
   sound?: 'default' | null;
   priority?: 'default' | 'normal' | 'high';
-  customerId?: number;
+  userId?: number;
   relatedEntityId?: number;
   notificationType?: string;
 }
@@ -55,15 +55,16 @@ export interface FlightDelayDetails {
 }
 
 /**
- * Remove invalid or unregistered push tokens from customer records
+ * Remove invalid or unregistered push tokens from user records
  */
 export async function invalidatePushToken(pushToken: string): Promise<void> {
   try {
     await withPublicClient(async (client) => {
       await client.query(
-        `UPDATE cr_customers 
+        `UPDATE dka_users 
          SET push_token = NULL, 
-             push_token_updated_at = NOW() 
+             push_token_updated_at = NOW(),
+             updated_at = NOW()
          WHERE push_token = $1`,
         [pushToken],
       );
@@ -75,10 +76,10 @@ export async function invalidatePushToken(pushToken: string): Promise<void> {
 }
 
 /**
- * Audit log push notification into PostgreSQL cr_notifications table
+ * Audit log push notification into PostgreSQL dka_notifications table
  */
 export async function logNotificationToDb(params: {
-  customerId?: number | null;
+  userId?: number | null;
   title: string;
   message: string;
   relatedEntityId?: number | null;
@@ -90,12 +91,12 @@ export async function logNotificationToDb(params: {
   try {
     await withPublicClient(async (client) => {
       await client.query(
-        `INSERT INTO cr_notifications (
-            customer_id, title, message, related_entity_id, 
+        `INSERT INTO dka_notifications (
+            user_id, title, message, related_entity_id, 
             notification_type, push_status, payload, ticket_id, is_read, created_at
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false, NOW())`,
         [
-          params.customerId ?? null,
+          params.userId ?? null,
           params.title,
           params.message,
           params.relatedEntityId ?? null,
@@ -164,7 +165,7 @@ export async function dispatchBatchPushNotifications(
           });
 
           await logNotificationToDb({
-            customerId: meta.customerId,
+            userId: meta.userId,
             title: meta.title,
             message: meta.body,
             relatedEntityId: meta.relatedEntityId,
@@ -190,7 +191,7 @@ export async function dispatchBatchPushNotifications(
           });
 
           await logNotificationToDb({
-            customerId: meta.customerId,
+            userId: meta.userId,
             title: meta.title,
             message: meta.body,
             relatedEntityId: meta.relatedEntityId,
@@ -236,7 +237,7 @@ export async function verifyPushReceipts(receiptIds: string[]): Promise<Record<s
             // Update database notification status
             await withPublicClient(async (client) => {
               await client.query(
-                `UPDATE cr_notifications SET push_status = 'failed: DeviceNotRegistered' WHERE ticket_id = $1`,
+                `UPDATE dka_notifications SET push_status = 'failed: DeviceNotRegistered' WHERE ticket_id = $1`,
                 [receiptId],
               );
             });
@@ -252,7 +253,7 @@ export async function verifyPushReceipts(receiptIds: string[]): Promise<Record<s
 }
 
 /**
- * Helper: Fetch booking and customer details from PostgreSQL
+ * Helper: Fetch booking and user details from PostgreSQL
  */
 async function getBookingRecipient(bookingId: number) {
   return await withPublicClient(async (client) => {
@@ -263,7 +264,7 @@ async function getBookingRecipient(bookingId: number) {
       pickup_date: Date;
       booking_status: string;
       trip_type: string;
-      customer_id: number;
+      user_id: number;
       full_name: string;
       phone_number: string;
       email: string | null;
@@ -271,11 +272,11 @@ async function getBookingRecipient(bookingId: number) {
       type_name: string | null;
     }>(
       `SELECT b.booking_id, b.pickup_location, b.dropoff_location, b.pickup_date, b.booking_status,
-              b.trip_type, c.customer_id, c.full_name, c.phone_number, c.email, c.push_token,
+              b.trip_type, u.user_id, u.full_name, u.phone_number, u.email, u.push_token,
               vt.type_name
-       FROM cr_bookings b
-       JOIN cr_customers c ON b.customer_id = c.customer_id
-       LEFT JOIN cr_vehicle_types vt ON b.vehicle_type_id = vt.vehicle_type_id
+       FROM dka_bookings b
+       JOIN dka_users u ON b.user_id = u.user_id
+       LEFT JOIN dka_vehicle_types vt ON b.vehicle_type_id = vt.vehicle_type_id
        WHERE b.booking_id = $1`,
       [bookingId],
     );
@@ -299,10 +300,10 @@ export async function triggerBookingConfirmedNotification(
     return { success: false, error: `Booking #${bookingId} not found.` };
   }
 
-  // Update status in cr_bookings
+  // Update status in dka_bookings
   await withPublicClient(async (client) => {
     await client.query(
-      `UPDATE cr_bookings 
+      `UPDATE dka_bookings 
        SET booking_status = 'Confirmed', updated_at = NOW() 
        WHERE booking_id = $1`,
       [bookingId],
@@ -310,8 +311,8 @@ export async function triggerBookingConfirmedNotification(
   });
 
   if (!recipient.push_token) {
-    console.info(`[PushDispatcher] Customer #${recipient.customer_id} has no registered push token.`);
-    return { success: true, error: 'Customer has no active push token registered.' };
+    console.info(`[PushDispatcher] User #${recipient.user_id} has no registered push token.`);
+    return { success: true, error: 'User has no active push token registered.' };
   }
 
   const pickupFormatted = new Date(recipient.pickup_date).toLocaleDateString('en-US', {
@@ -331,7 +332,7 @@ export async function triggerBookingConfirmedNotification(
   const [result] = await dispatchBatchPushNotifications([
     {
       pushToken: recipient.push_token,
-      customerId: recipient.customer_id,
+      userId: recipient.user_id,
       relatedEntityId: recipient.booking_id,
       notificationType: 'BookingConfirmed',
       title: 'Booking Confirmed! 🚗',
@@ -362,7 +363,7 @@ export async function triggerDriverAssignedNotification(
   // Update booking record with assigned driver info
   await withPublicClient(async (client) => {
     await client.query(
-      `UPDATE cr_bookings 
+      `UPDATE dka_bookings 
        SET assigned_driver_name = $1,
            assigned_driver_phone = $2,
            assigned_vehicle_plate = $3,
@@ -373,7 +374,7 @@ export async function triggerDriverAssignedNotification(
   });
 
   if (!recipient.push_token) {
-    return { success: true, error: 'Customer has no active push token registered.' };
+    return { success: true, error: 'User has no active push token registered.' };
   }
 
   const payload: NotificationPayload = {
@@ -395,7 +396,7 @@ export async function triggerDriverAssignedNotification(
   const [result] = await dispatchBatchPushNotifications([
     {
       pushToken: recipient.push_token,
-      customerId: recipient.customer_id,
+      userId: recipient.user_id,
       relatedEntityId: recipient.booking_id,
       notificationType: 'DriverAssigned',
       title: 'Driver Assigned for Your Trip 👤',
@@ -422,7 +423,7 @@ export async function trigger24HourReminderNotification(
   }
 
   if (!recipient.push_token) {
-    return { success: true, error: 'Customer has no active push token registered.' };
+    return { success: true, error: 'User has no active push token registered.' };
   }
 
   const timeFormatted = new Date(recipient.pickup_date).toLocaleTimeString('en-US', {
@@ -440,7 +441,7 @@ export async function trigger24HourReminderNotification(
   const [result] = await dispatchBatchPushNotifications([
     {
       pushToken: recipient.push_token,
-      customerId: recipient.customer_id,
+      userId: recipient.user_id,
       relatedEntityId: recipient.booking_id,
       notificationType: 'TripReminder24h',
       title: 'Upcoming Trip Reminder ⏰ (24h)',
@@ -467,10 +468,10 @@ export async function triggerFlightDelayAlertNotification(
     return { success: false, error: `Booking #${bookingId} not found.` };
   }
 
-  // Update flight delay on cr_bookings
+  // Update flight delay on dka_bookings
   await withPublicClient(async (client) => {
     await client.query(
-      `UPDATE cr_bookings 
+      `UPDATE dka_bookings 
        SET flight_number = $1,
            flight_delay_minutes = $2,
            updated_at = NOW()
@@ -480,7 +481,7 @@ export async function triggerFlightDelayAlertNotification(
   });
 
   if (!recipient.push_token) {
-    return { success: true, error: 'Customer has no active push token registered.' };
+    return { success: true, error: 'User has no active push token registered.' };
   }
 
   const payload: NotificationPayload = {
@@ -498,7 +499,7 @@ export async function triggerFlightDelayAlertNotification(
   const [result] = await dispatchBatchPushNotifications([
     {
       pushToken: recipient.push_token,
-      customerId: recipient.customer_id,
+      userId: recipient.user_id,
       relatedEntityId: recipient.booking_id,
       notificationType: 'FlightDelayAlert',
       title: 'TIA Airport Transfer: Flight Delay Alert ✈️',

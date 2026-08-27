@@ -1,6 +1,7 @@
 export type TripType = 'One Way' | 'Round Trip';
 
 export interface BookingEntryDto {
+  user_id?: number | string | null;
   full_name: string;
   phone_number: string;
   email?: string | null;
@@ -24,6 +25,8 @@ export interface PublicStatsDto {
 }
 
 export interface PublicReviewDto {
+  id?: number | string;
+  user_id?: number | string | null;
   customer_name: string;
   rating: number;
   comment: string;
@@ -32,6 +35,7 @@ export interface PublicReviewDto {
 }
 
 export interface CreateReviewDto {
+  user_id?: number | string | null;
   customer_name: string;
   rating: number;
   comment: string;

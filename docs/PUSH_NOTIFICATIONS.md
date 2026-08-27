@@ -146,18 +146,18 @@ await triggerFlightDelayAlertNotification(bookingId, {
 
 ### Receipt Verification & Token Cleanup
 The server audits push ticket receipts:
-- If a delivery error indicates `DeviceNotRegistered`, the server immediately calls `invalidatePushToken()` to clear the stale token from `cr_customers`, avoiding wasted push quota.
+- If a delivery error indicates `DeviceNotRegistered`, the server immediately calls `invalidatePushToken()` to clear the stale token from `dka_users`, avoiding wasted push quota.
 
 ---
 
 ## 🗄 Database Schema & Delivery Audit Log
 
-All dispatched notifications are persisted in `cr_notifications`:
+All dispatched notifications are persisted in `dka_notifications`:
 
 ```sql
-CREATE TABLE IF NOT EXISTS cr_notifications (
+CREATE TABLE IF NOT EXISTS dka_notifications (
     notification_id SERIAL PRIMARY KEY,
-    customer_id INTEGER REFERENCES cr_customers(customer_id) ON DELETE SET NULL,
+    user_id INTEGER REFERENCES dka_users(user_id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
     related_entity_id INTEGER,

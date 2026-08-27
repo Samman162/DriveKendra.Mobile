@@ -1,5 +1,14 @@
 import React, { type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  Text,
+  TextStyle,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 import type { ThemeColors } from '../../theme/colors';
 import { useTheme } from '../../theme/ThemeProvider';
@@ -7,7 +16,7 @@ import { useThemedStyles } from '../../theme/useThemedStyles';
 import { radius, spacing } from '../../theme/spacing';
 import { hapticFeedback } from '../../utils/haptics';
 
-type ButtonProps = {
+export type ButtonProps = {
   label: string;
   onPress: () => void;
   loading?: boolean;
@@ -15,6 +24,9 @@ type ButtonProps = {
   variant?: 'primary' | 'secondary' | 'ghost' | 'navy' | 'outline';
   icon?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
+  testID?: string;
 };
 
 export function Button({
@@ -25,6 +37,9 @@ export function Button({
   variant = 'primary',
   icon,
   size = 'md',
+  style,
+  textStyle,
+  testID,
 }: ButtonProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -39,6 +54,7 @@ export function Button({
 
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       onPress={handlePress}
       disabled={isDisabled}
@@ -53,6 +69,7 @@ export function Button({
         variant === 'navy' && styles.navy,
         pressed && !isDisabled && styles.pressed,
         isDisabled && styles.disabled,
+        style,
       ]}
     >
       {loading ? (
@@ -68,6 +85,7 @@ export function Button({
               variant === 'secondary' && styles.secondaryLabel,
               variant === 'outline' && styles.outlineLabel,
               variant === 'ghost' && styles.ghostLabel,
+              textStyle,
             ]}
           >
             {label}

@@ -11,6 +11,13 @@ if (typeof globalThis !== 'undefined') {
     warn: jest.fn(),
     error: jest.fn(),
   };
+  if (!(globalThis as any).dispatchEvent) {
+    (globalThis as any).dispatchEvent = jest.fn();
+  }
+}
+
+if (typeof window !== 'undefined' && !(window as any).dispatchEvent) {
+  (window as any).dispatchEvent = jest.fn();
 }
 
 if (TurboModuleRegistry && typeof (TurboModuleRegistry as any).get !== 'function') {
@@ -43,6 +50,12 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+// Mock Expo Splash Screen
+jest.mock('expo-splash-screen', () => ({
+  preventAutoHideAsync: jest.fn(() => Promise.resolve()),
+  hideAsync: jest.fn(() => Promise.resolve()),
+}));
+
 // Mock NetInfo
 jest.mock('@react-native-community/netinfo', () => ({
   addEventListener: jest.fn(() => jest.fn()),
@@ -57,6 +70,8 @@ jest.mock('@react-navigation/native', () => {
     useNavigation: () => ({
       navigate: jest.fn(),
       goBack: jest.fn(),
+      canGoBack: jest.fn(() => true),
+      reset: jest.fn(),
       setOptions: jest.fn(),
     }),
     useRoute: () => ({
@@ -72,14 +87,20 @@ jest.mock('@react-navigation/native', () => {
 jest.mock('react-native-svg', () => {
   const React = require('react');
   const { View } = require('react-native');
+  const SvgElementMock = (props: any) => React.createElement(View, props);
   return {
     __esModule: true,
-    default: (props: any) => React.createElement(View, props),
-    Svg: (props: any) => React.createElement(View, props),
-    Circle: (props: any) => React.createElement(View, props),
-    Path: (props: any) => React.createElement(View, props),
-    Rect: (props: any) => React.createElement(View, props),
-    G: (props: any) => React.createElement(View, props),
+    default: SvgElementMock,
+    Svg: SvgElementMock,
+    Circle: SvgElementMock,
+    Path: SvgElementMock,
+    Rect: SvgElementMock,
+    G: SvgElementMock,
+    Defs: SvgElementMock,
+    LinearGradient: SvgElementMock,
+    Stop: SvgElementMock,
+    Line: SvgElementMock,
+    Text: SvgElementMock,
   };
 });
 

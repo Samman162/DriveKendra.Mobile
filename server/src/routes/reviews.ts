@@ -8,14 +8,16 @@ export const reviewsRoute = new Hono();
 reviewsRoute.get('/', async (c) => {
   const result = await withPublicClient((client) =>
     client.query<{
+      review_id: number;
+      user_id: number | null;
       customer_name: string;
       rating: number;
       comment: string;
       trip_title: string | null;
       created_at: Date;
     }>(
-      `SELECT customer_name, rating, comment, trip_title, created_at
-       FROM cr_reviews
+      `SELECT review_id, user_id, customer_name, rating, comment, trip_title, created_at
+       FROM dka_reviews
        WHERE is_approved = TRUE
        ORDER BY created_at DESC`,
     ),
@@ -23,6 +25,8 @@ reviewsRoute.get('/', async (c) => {
 
   return c.json(
     result.rows.map((row) => ({
+      id: row.review_id,
+      user_id: row.user_id,
       customer_name: row.customer_name,
       rating: Number(row.rating),
       comment: row.comment,
@@ -38,9 +42,9 @@ reviewsRoute.post('/', async (c) => {
 
   await withPublicClient((client) =>
     client.query(
-      `INSERT INTO cr_reviews (customer_name, rating, comment, trip_title, is_approved, created_at)
-       VALUES ($1, $2, $3, $4, FALSE, NOW())`,
-      [review.customer_name, review.rating, review.comment, review.trip_title],
+      `INSERT INTO dka_reviews (user_id, customer_name, rating, comment, trip_title, is_approved, created_at)
+       VALUES ($1, $2, $3, $4, $5, FALSE, NOW())`,
+      [review.user_id || null, review.customer_name, review.rating, review.comment, review.trip_title],
     ),
   );
 

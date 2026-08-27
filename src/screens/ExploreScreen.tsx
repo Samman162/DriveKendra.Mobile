@@ -17,6 +17,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 
+import { BrandLogo } from '../components/ui/BrandLogo';
 import { Card } from '../components/ui/Card';
 import { Screen } from '../components/ui/Screen';
 import { SectionHeader } from '../components/ui/SectionHeader';
@@ -119,7 +120,7 @@ export function ExploreScreen() {
       {/* Trust & Guarantee Banner */}
       <View style={styles.guaranteeCard}>
         <View style={styles.guaranteeHeader}>
-          <Shield size={18} color={colors.accent} />
+          <BrandLogo size="xs" variant="card" style={{ marginRight: spacing.xs }} />
           <Text style={styles.guaranteeTitle}>The Drive Kendra Promise</Text>
         </View>
         <View style={styles.guaranteeItem}>

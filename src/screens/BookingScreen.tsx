@@ -214,6 +214,7 @@ export function BookingScreen({
       const vehicleName = selectedVehicle ? selectedVehicle.name : 'Scorpio 4WD';
 
       await submitBooking({
+        user_id: isAuthenticated && user ? user.id : undefined,
         full_name: form.full_name.trim(),
         phone_number: normalizeNepalPhone(form.phone_number),
         email: emptyToNull(form.email),

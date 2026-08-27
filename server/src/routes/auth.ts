@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 
+import { withPublicClient } from '../db.js';
 import {
   forgotPasswordZodSchema,
   HttpError,
@@ -18,17 +19,70 @@ authRoute.post('/login', async (c) => {
     throw new HttpError(400, result.error.issues[0]?.message || 'Invalid login credentials.');
   }
 
-  const { identifier } = result.data;
+  const { identifier, password } = result.data;
+  const isEmail = identifier.includes('@');
 
-  // Create or return session user
-  const user = {
-    id: `usr_${Date.now()}`,
-    name: identifier.includes('@') ? identifier.split('@')[0].replace('.', ' ') : 'Drive Kendra User',
-    email: identifier.includes('@') ? identifier : `${identifier}@drivekendra.com`,
-    phone: identifier.includes('@') ? '+977 9851363783' : identifier,
-    role: 'customer',
-    createdAt: new Date().toISOString(),
-  };
+  const user = await withPublicClient(async (client) => {
+    const existing = await client.query<{
+      user_id: number;
+      full_name: string;
+      email: string | null;
+      phone_number: string;
+      role: string;
+      created_at: Date;
+    }>(
+      `SELECT user_id, full_name, email, phone_number, role, created_at
+       FROM dka_users
+       WHERE ${isEmail ? 'email = $1' : 'phone_number = $1'}`,
+      [identifier],
+    );
+
+    if (existing.rows.length > 0) {
+      const row = existing.rows[0];
+      await client.query(
+        `UPDATE dka_users SET last_login_at = NOW(), updated_at = NOW() WHERE user_id = $1`,
+        [row.user_id],
+      );
+      return {
+        id: String(row.user_id),
+        name: row.full_name,
+        email: row.email || `${row.phone_number}@drivekendra.com`,
+        phone: row.phone_number,
+        role: row.role || 'customer',
+        createdAt: row.created_at.toISOString(),
+      };
+    }
+
+    // If user record doesn't exist, create an account
+    const newName = isEmail ? identifier.split('@')[0].replace('.', ' ') : 'Drive Kendra Traveler';
+    const newPhone = isEmail ? '+977 9851363783' : identifier;
+    const newEmail = isEmail ? identifier : null;
+
+    const inserted = await client.query<{
+      user_id: number;
+      full_name: string;
+      email: string | null;
+      phone_number: string;
+      role: string;
+      created_at: Date;
+    }>(
+      `INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_active, is_verified, last_login_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'customer', TRUE, TRUE, NOW(), NOW(), NOW())
+       ON CONFLICT (phone_number) DO UPDATE SET last_login_at = NOW(), updated_at = NOW()
+       RETURNING user_id, full_name, email, phone_number, role, created_at`,
+      [newName, newPhone, newEmail, password || 'hashed_pwd_placeholder'],
+    );
+
+    const row = inserted.rows[0];
+    return {
+      id: String(row.user_id),
+      name: row.full_name,
+      email: row.email || `${row.phone_number}@drivekendra.com`,
+      phone: row.phone_number,
+      role: row.role || 'customer',
+      createdAt: row.created_at.toISOString(),
+    };
+  });
 
   const token = `jwt_acc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const refreshToken = `jwt_ref_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -49,16 +103,38 @@ authRoute.post('/register', async (c) => {
     throw new HttpError(400, result.error.issues[0]?.message || 'Invalid registration details.');
   }
 
-  const { name, email, phone } = result.data;
+  const { name, email, phone, password } = result.data;
 
-  const user = {
-    id: `usr_${Date.now()}`,
-    name,
-    email,
-    phone,
-    role: 'customer',
-    createdAt: new Date().toISOString(),
-  };
+  const user = await withPublicClient(async (client) => {
+    const inserted = await client.query<{
+      user_id: number;
+      full_name: string;
+      email: string | null;
+      phone_number: string;
+      role: string;
+      created_at: Date;
+    }>(
+      `INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_active, is_verified, last_login_at, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, 'customer', TRUE, TRUE, NOW(), NOW(), NOW())
+       ON CONFLICT (phone_number) DO UPDATE SET
+           full_name = EXCLUDED.full_name,
+           email = COALESCE(EXCLUDED.email, dka_users.email),
+           last_login_at = NOW(),
+           updated_at = NOW()
+       RETURNING user_id, full_name, email, phone_number, role, created_at`,
+      [name, phone, email, password],
+    );
+
+    const row = inserted.rows[0];
+    return {
+      id: String(row.user_id),
+      name: row.full_name,
+      email: row.email || email,
+      phone: row.phone_number,
+      role: row.role || 'customer',
+      createdAt: row.created_at.toISOString(),
+    };
+  });
 
   const token = `jwt_acc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const refreshToken = `jwt_ref_${Date.now()}_${Math.random().toString(36).substring(7)}`;

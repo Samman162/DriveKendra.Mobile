@@ -9,6 +9,80 @@ import {
 
 export const bookingsRoute = new Hono();
 
+/**
+ * GET /api/bookings
+ * Retrieve user's booking history by userId or phoneNumber
+ */
+bookingsRoute.get('/', async (c) => {
+  const userId = c.req.query('userId');
+  const phoneNumber = c.req.query('phoneNumber');
+
+  if (!userId && !phoneNumber) {
+    throw new HttpError(400, 'Either userId or phoneNumber query parameter is required.');
+  }
+
+  const result = await withPublicClient(async (client) => {
+    return await client.query<{
+      booking_id: number;
+      user_id: number;
+      vehicle_type_id: number | null;
+      type_name: string | null;
+      pickup_location: string;
+      dropoff_location: string;
+      pickup_date: Date;
+      return_date: Date | null;
+      passenger_count: number;
+      trip_type: string;
+      booking_status: string;
+      assigned_driver_name: string | null;
+      assigned_driver_phone: string | null;
+      assigned_vehicle_plate: string | null;
+      flight_number: string | null;
+      flight_delay_minutes: number;
+      created_at: Date;
+    }>(
+      `SELECT b.booking_id, b.user_id, b.vehicle_type_id, vt.type_name,
+              b.pickup_location, b.dropoff_location, b.pickup_date, b.return_date,
+              b.passenger_count, b.trip_type, b.booking_status,
+              b.assigned_driver_name, b.assigned_driver_phone, b.assigned_vehicle_plate,
+              b.flight_number, b.flight_delay_minutes, b.created_at
+       FROM dka_bookings b
+       JOIN dka_users u ON b.user_id = u.user_id
+       LEFT JOIN dka_vehicle_types vt ON b.vehicle_type_id = vt.vehicle_type_id
+       WHERE ${userId ? 'b.user_id = $1' : 'u.phone_number = $1'}
+       ORDER BY b.created_at DESC`,
+      [userId ? Number(userId) : phoneNumber],
+    );
+  });
+
+  return c.json({
+    bookings: result.rows.map((row) => ({
+      bookingId: row.booking_id,
+      bookingRef: `DK-${new Date(row.created_at).getFullYear()}-${String(row.booking_id).padStart(4, '0')}`,
+      userId: row.user_id,
+      vehicleTypeId: row.vehicle_type_id,
+      vehicleTypeName: row.type_name,
+      pickupLocation: row.pickup_location,
+      dropoffLocation: row.dropoff_location,
+      pickupDate: row.pickup_date,
+      returnDate: row.return_date,
+      passengerCount: row.passenger_count,
+      tripType: row.trip_type,
+      status: row.booking_status,
+      assignedDriverName: row.assigned_driver_name,
+      assignedDriverPhone: row.assigned_driver_phone,
+      assignedVehiclePlate: row.assigned_vehicle_plate,
+      flightNumber: row.flight_number,
+      flightDelayMinutes: row.flight_delay_minutes,
+      createdAt: row.created_at,
+    })),
+  });
+});
+
+/**
+ * POST /api/bookings
+ * Submit a new booking and atomically tag user profile & idempotency key
+ */
 bookingsRoute.post('/', async (c) => {
   const rawIdempotencyKey = c.req.header('X-Idempotency-Key') || c.req.header('x-idempotency-key');
   const idempotencyKey = rawIdempotencyKey ? rawIdempotencyKey.trim() : null;
@@ -26,7 +100,7 @@ bookingsRoute.post('/', async (c) => {
         response_body: any;
       }>(
         `SELECT status, response_code, response_body
-         FROM cr_idempotency_keys
+         FROM dka_idempotency_keys
          WHERE idempotency_key = $1`,
         [idempotencyKey],
       );
@@ -51,7 +125,7 @@ bookingsRoute.post('/', async (c) => {
 
         // If previously failed, mark as processing to retry
         await client.query(
-          `UPDATE cr_idempotency_keys
+          `UPDATE dka_idempotency_keys
            SET status = 'processing',
                request_hash = $1,
                updated_at = NOW()
@@ -61,9 +135,9 @@ bookingsRoute.post('/', async (c) => {
       } else {
         // Record new in-flight idempotency key
         await client.query(
-          `INSERT INTO cr_idempotency_keys (idempotency_key, request_hash, endpoint, status, created_at, updated_at)
-           VALUES ($1, $2, '/api/bookings', 'processing', NOW(), NOW())`,
-          [idempotencyKey, requestHash],
+          `INSERT INTO dka_idempotency_keys (idempotency_key, user_id, request_hash, endpoint, status, created_at, updated_at)
+           VALUES ($1, $2, $3, '/api/bookings', 'processing', NOW(), NOW())`,
+          [idempotencyKey, booking.user_id || null, requestHash],
         );
       }
     }
@@ -71,32 +145,32 @@ bookingsRoute.post('/', async (c) => {
     // 2. Atomic Multi-Table Transaction
     await client.query('BEGIN');
     try {
-      // Step 1: Upsert customer
-      const customer = await client.query<{ customer_id: number }>(
-        `INSERT INTO cr_customers (full_name, phone_number, email)
+      // Step 1: Upsert user record
+      const userRes = await client.query<{ user_id: number }>(
+        `INSERT INTO dka_users (full_name, phone_number, email)
          VALUES ($1, $2, $3)
          ON CONFLICT (phone_number)
          DO UPDATE SET
              full_name = EXCLUDED.full_name,
-             email = COALESCE(NULLIF(EXCLUDED.email, ''), cr_customers.email),
+             email = COALESCE(NULLIF(EXCLUDED.email, ''), dka_users.email),
              updated_at = NOW()
-         RETURNING customer_id`,
+         RETURNING user_id`,
         [booking.full_name, booking.phone_number, booking.email],
       );
-      const customerId = customer.rows[0]?.customer_id;
-      if (!customerId) {
-        throw new HttpError(500, 'Failed to save customer details.');
+      const userId = userRes.rows[0]?.user_id;
+      if (!userId) {
+        throw new HttpError(500, 'Failed to save traveler details.');
       }
 
-      // Step 2: Insert booking
+      // Step 2: Insert booking tagged with user_id
       const bookingRecord = await client.query<{ booking_id: number; created_at: Date }>(
-        `INSERT INTO cr_bookings (
-            customer_id, vehicle_type_id, pickup_location, dropoff_location,
+        `INSERT INTO dka_bookings (
+            user_id, vehicle_type_id, pickup_location, dropoff_location,
             pickup_date, return_date, passenger_count, trip_type, additional_details, booking_status
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending')
          RETURNING booking_id, created_at`,
         [
-          customerId,
+          userId,
           booking.vehicle_type_id,
           booking.pickup_location,
           booking.dropoff_location,
@@ -112,37 +186,16 @@ bookingsRoute.post('/', async (c) => {
         throw new HttpError(500, 'Failed to create booking reservation.');
       }
 
-      // Step 3: Insert operational dispatch trip request
-      const trip = await client.query<{ trip_request_id: number }>(
-        `INSERT INTO cr_trip_requests (
-            booking_id, customer_id, vehicle_type_id, pickup_location, dropoff_location,
-            pickup_date, return_date, passenger_count, trip_type, additional_details, request_status
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'Pending')
-         RETURNING trip_request_id`,
-        [
-          bookingId,
-          customerId,
-          booking.vehicle_type_id,
-          booking.pickup_location,
-          booking.dropoff_location,
-          booking.pickup_date,
-          booking.return_date,
-          booking.passenger_count,
-          booking.trip_type,
-          booking.additional_details,
-        ],
-      );
-      const tripRequestId = trip.rows[0]?.trip_request_id;
-
-      // Step 4: Insert admin notification
+      // Step 3: Insert in-app alert/notification tagged with user_id
       await client.query(
-        `INSERT INTO cr_notifications (title, message, related_entity_id, notification_type, created_at, is_read)
-         VALUES ($1, $2, $3, $4, NOW(), false)`,
+        `INSERT INTO dka_notifications (user_id, title, message, related_entity_id, notification_type, created_at, is_read)
+         VALUES ($1, $2, $3, $4, $5, NOW(), false)`,
         [
-          'New Trip Request',
-          `New reservation received from ${booking.full_name} (${booking.pickup_location} ➔ ${booking.dropoff_location}) for ${booking.pickup_date.toISOString().slice(0, 10)}.`,
-          tripRequestId ?? null,
-          'TripRequest',
+          userId,
+          'Booking Received',
+          `Reservation received for ${booking.pickup_location} ➔ ${booking.dropoff_location} (${booking.pickup_date.toISOString().slice(0, 10)}).`,
+          bookingId,
+          'BookingReceived',
         ],
       );
 
@@ -151,21 +204,22 @@ bookingsRoute.post('/', async (c) => {
         success: true,
         message: 'Booking submitted successfully',
         bookingId,
-        tripRequestId,
         bookingRef,
+        userId,
         status: 'Pending',
       };
 
-      // Step 5: Save completed state to idempotency table
+      // Step 4: Save completed state to idempotency table
       if (idempotencyKey) {
         await client.query(
-          `UPDATE cr_idempotency_keys
+          `UPDATE dka_idempotency_keys
            SET status = 'completed',
+               user_id = $1,
                response_code = 201,
-               response_body = $1,
+               response_body = $2,
                updated_at = NOW()
-           WHERE idempotency_key = $2`,
-          [JSON.stringify(responseBody), idempotencyKey],
+           WHERE idempotency_key = $3`,
+          [userId, JSON.stringify(responseBody), idempotencyKey],
         );
       }
 
@@ -187,7 +241,7 @@ bookingsRoute.post('/', async (c) => {
       if (idempotencyKey) {
         try {
           await client.query(
-            `UPDATE cr_idempotency_keys
+            `UPDATE dka_idempotency_keys
              SET status = 'failed',
                  updated_at = NOW()
              WHERE idempotency_key = $1`,

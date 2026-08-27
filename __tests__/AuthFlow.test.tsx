@@ -95,3 +95,130 @@ describe('State, Security & Storage Test Suite', () => {
     });
   });
 });
+
+describe('AuthScreen Component UI Tests', () => {
+  const React = require('react');
+  const renderer = require('react-test-renderer');
+  const { AuthScreen } = require('../src/screens/AuthScreen');
+  const { AuthProvider } = require('../src/context/AuthContext');
+  const { ThemeProvider } = require('../src/theme/ThemeProvider');
+
+  const mockNavigation: any = {
+    navigate: jest.fn(),
+    reset: jest.fn(),
+    goBack: jest.fn(),
+    canGoBack: jest.fn(() => true),
+  };
+
+  const mockRoute: any = {
+    key: 'auth-key',
+    name: 'Auth',
+    params: { initialMode: 'signin' },
+  };
+
+  it('renders redesigned Login screen with MapPin badge, phone, password and login button', () => {
+    let tree: any = null;
+    renderer.act(() => {
+      tree = renderer.create(
+        React.createElement(
+          AuthProvider,
+          null,
+          React.createElement(
+            ThemeProvider,
+            null,
+            React.createElement(AuthScreen, {
+              navigation: mockNavigation,
+              route: mockRoute,
+            }),
+          ),
+        ),
+      );
+    });
+
+    const root = tree.root;
+    expect(root.findByProps({ testID: 'map-pin-brand-badge' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-phone-input' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-password-input' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-login-btn' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-goto-signup-btn' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-goto-forgot-btn' })).toBeTruthy();
+
+    renderer.act(() => {
+      tree?.unmount();
+    });
+  });
+
+  it('validates required fields on empty login submission', async () => {
+    let tree: any = null;
+    renderer.act(() => {
+      tree = renderer.create(
+        React.createElement(
+          AuthProvider,
+          null,
+          React.createElement(
+            ThemeProvider,
+            null,
+            React.createElement(AuthScreen, {
+              navigation: mockNavigation,
+              route: mockRoute,
+            }),
+          ),
+        ),
+      );
+    });
+
+    const root = tree.root;
+    const loginBtn = root.findByProps({ testID: 'auth-login-btn' });
+
+    await renderer.act(async () => {
+      loginBtn.props.onPress();
+    });
+
+    // Should stay on screen and show field errors
+    expect(root.findByProps({ testID: 'auth-phone-input' })).toBeTruthy();
+
+    renderer.act(() => {
+      tree?.unmount();
+    });
+  });
+
+  it('renders redesigned Signup screen with hero illustration, full name, phone, password and register button', () => {
+    const signupRoute: any = {
+      key: 'auth-signup-key',
+      name: 'Auth',
+      params: { initialMode: 'signup' },
+    };
+
+    let tree: any = null;
+    renderer.act(() => {
+      tree = renderer.create(
+        React.createElement(
+          AuthProvider,
+          null,
+          React.createElement(
+            ThemeProvider,
+            null,
+            React.createElement(AuthScreen, {
+              navigation: mockNavigation,
+              route: signupRoute,
+            }),
+          ),
+        ),
+      );
+    });
+
+    const root = tree.root;
+    expect(root.findByProps({ testID: 'signup-hero-illustration' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-signup-name-input' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-signup-phone-input' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-signup-password-input' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-signup-confirm-password-input' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-terms-checkbox' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-register-btn' })).toBeTruthy();
+    expect(root.findByProps({ testID: 'auth-goto-signin-btn' })).toBeTruthy();
+
+    renderer.act(() => {
+      tree?.unmount();
+    });
+  });
+});

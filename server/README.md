@@ -35,8 +35,8 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 - **🔒 Idempotent Booking Engine**: Eliminates duplicate charges/reservations caused by flaky mountain cellular networks using `X-Idempotency-Key` and database caching.
 - **📲 Push Notification Pipeline**: Real-time push alerts for booking confirmations, driver dispatch (with driver phone link and plate numbers), 24h reminders, and Tribhuvan International Airport (TIA) flight delay notices via `expo-server-sdk` (FCM v1 ready).
 - **🛡️ Strict Validation & Anti-Spam**: Zod schema validation, honeypot bot traps (`website_hp`), and Nepal phone number sanitization (`+977 98/97` or `01XXXXXXX`).
-- **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `cr_customers`, `cr_bookings`, `cr_trip_requests`, and `cr_notifications`.
-- **📊 Real-time Analytics**: Stored procedure `cr_get_public_stats()` aggregating active fleet counts, completed trips, cities covered, and customer ratings.
+- **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `dka_users`, `dka_bookings`, and `dka_notifications`.
+- **📊 Real-time Analytics**: Stored procedure `dka_get_public_stats()` aggregating active fleet counts, completed trips, cities covered, and customer ratings.
 
 ---
 
@@ -206,7 +206,7 @@ Completes password reset using verified OTP.
 ### 3. Bookings & Idempotency
 
 #### `POST /api/bookings`
-Submits a car or tour reservation. Executes an atomic PostgreSQL transaction across `cr_customers`, `cr_bookings`, `cr_trip_requests`, and `cr_notifications`.
+Submits a car or tour reservation. Executes an atomic PostgreSQL transaction across `dka_users`, `dka_bookings`, and `dka_notifications`.
 
 - **Headers**:
   - `X-Idempotency-Key` *(optional, recommended)*: UUID or client-generated unique string for retry deduplication.
@@ -370,7 +370,7 @@ Submits a customer review for moderation.
 ### 7. Platform Statistics
 
 #### `GET /api/stats`
-Calls stored procedure `cr_get_public_stats()` to retrieve real-time platform metrics.
+Calls stored procedure `dka_get_public_stats()` to retrieve real-time platform metrics.
 
 - **Response `200 OK`**:
 ```json

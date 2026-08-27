@@ -8,6 +8,7 @@ import {
   Calendar,
   Car,
   ChevronRight,
+  Compass,
   Fingerprint,
   Headphones,
   KeyRound,
@@ -18,6 +19,7 @@ import {
   User as UserIcon,
 } from 'lucide-react-native';
 
+import { BrandLogo } from '../components/ui/BrandLogo';
 import { Button } from '../components/ui/Button';
 import { Screen } from '../components/ui/Screen';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
@@ -74,9 +76,7 @@ export function ProfileScreen() {
     return (
       <Screen>
         <View style={styles.guestContainer}>
-          <View style={styles.guestAvatar}>
-            <UserIcon size={44} color={colors.accent} />
-          </View>
+          <BrandLogo size="lg" variant="card" style={{ marginBottom: spacing.md }} />
           <Text style={styles.guestTitle}>Welcome to Drive Kendra</Text>
           <Text style={styles.guestSubtitle}>
             Sign in or create an account to manage your car bookings, access discounted rates, and track your Himalayan tours.
@@ -244,6 +244,20 @@ export function ProfileScreen() {
           </View>
           <ThemeToggle variant="onSurface" />
         </View>
+
+        <Pressable
+          style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+          onPress={() => navigation.navigate('Onboarding')}
+        >
+          <View style={styles.menuIconWrap}>
+            <Compass size={18} color={colors.accent} />
+          </View>
+          <View style={styles.menuContent}>
+            <Text style={styles.menuLabel}>App Walkthrough & Intro</Text>
+            <Text style={styles.menuSub}>Review features, tour packages & logistics services</Text>
+          </View>
+          <ChevronRight size={18} color={colors.subtle} />
+        </Pressable>
       </View>
 
       {/* Logout Action */}
