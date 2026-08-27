@@ -49,11 +49,13 @@ function parseConnectionConfig(raw: string): PoolConfig {
   };
 }
 
-const connectionString = firstNonEmpty(process.env.DATABASE_URL, process.env.ConnectionStrings__DefaultConnection);
+const connectionString =
+  firstNonEmpty(process.env.DATABASE_URL, process.env.ConnectionStrings__DefaultConnection) ||
+  'postgresql://postgres:postgres@localhost:5432/drivekendra_db';
 
-if (!connectionString) {
-  throw new Error(
-    "DATABASE_URL is not configured. Set it to your PostgreSQL connection string in server/.env.",
+if (!process.env.DATABASE_URL && !process.env.ConnectionStrings__DefaultConnection) {
+  console.warn(
+    '[DB] DATABASE_URL is not configured in server/.env. Defaulting to local postgresql://postgres:postgres@localhost:5432/drivekendra_db',
   );
 }
 

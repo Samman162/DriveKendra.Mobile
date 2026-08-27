@@ -17,10 +17,11 @@ export type AuthParams = {
 };
 
 /**
- * Primary 3-Tab Bottom Navigation: Home, My Bookings, Profile
+ * Primary 4-Tab Bottom Navigation: Home, Booking, My Bookings, Profile
  */
 export type RootTabParamList = {
   Home: undefined;
+  Booking: BookParams | undefined;
   MyBookings: { bookingId?: string | number; openBookingModal?: boolean; initialParams?: BookParams } | undefined;
   Profile: undefined;
 };
@@ -42,4 +43,5 @@ export type RootStackParamList = {
   Auth: AuthParams | undefined;
   MyTrips: { bookingId?: string | number } | undefined;
   Profile: undefined;
+  Explore: undefined;
 };

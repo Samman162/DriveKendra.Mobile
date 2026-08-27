@@ -16,7 +16,9 @@ import {
   Car,
   CheckCircle2,
   Clock,
+  Edit3,
   Info,
+  Mail,
   MapPin,
   MessageCircle,
   Phone,
@@ -32,7 +34,9 @@ import { HoneypotField } from '../components/honeypot/HoneypotField';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { DateField } from '../components/ui/DateField';
+import { EmbeddedMapView } from '../components/ui/EmbeddedMapView';
 import { PickerSheet } from '../components/ui/PickerSheet';
+import { PromoCodeSheet } from '../components/ui/PromoCodeSheet';
 import { Screen } from '../components/ui/Screen';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { SegmentedControl } from '../components/ui/SegmentedControl';
@@ -40,8 +44,7 @@ import { Stepper } from '../components/ui/Stepper';
 import { SuccessModal } from '../components/ui/SuccessModal';
 import { TextField } from '../components/ui/TextField';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
-import { MapRoutePreview } from '../components/ui/MapRoutePreview';
-import { PromoCodeSheet } from '../components/ui/PromoCodeSheet';
+import { TimePickerField } from '../components/ui/TimePickerField';
 import { CONTACT_INFO } from '../constants/contact';
 import { LIMITS, NEPAL_PHONE_ERROR } from '../constants/validation';
 import { VEHICLE_TYPES } from '../constants/vehicles';
@@ -97,6 +100,7 @@ const emptyForm = {
   pickup_location: '',
   dropoff_location: '',
   pickup_date: null as Date | null,
+  pickup_time: '07:00 AM',
   return_date: null as Date | null,
   passenger_count: 1,
   trip_type: 'One Way' as TripType,
@@ -113,7 +117,7 @@ export function BookingScreen({
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  
+
   let routeParams: BookParams | undefined;
   try {
     const route = useRoute<RouteProp<RootStackParamList, 'BookingModal'>>();
@@ -131,6 +135,7 @@ export function BookingScreen({
   const [successVisible, setSuccessVisible] = useState(false);
   const [promoCode, setPromoCode] = useState<string | null>(null);
   const [discount, setDiscount] = useState<number>(0);
+  const [editingTraveler, setEditingTraveler] = useState(false);
 
   // Autofill user details if authenticated
   useEffect(() => {
@@ -182,6 +187,7 @@ export function BookingScreen({
     if (!form.pickup_location.trim()) next.pickup_location = 'Pickup location is required.';
     if (!form.dropoff_location.trim()) next.dropoff_location = 'Destination is required.';
     if (!form.pickup_date) next.pickup_date = 'Pickup date is required.';
+    if (!form.pickup_time.trim()) next.pickup_time = 'Pickup departure time is required.';
     if (form.trip_type === 'Round Trip' && !form.return_date) {
       next.return_date = 'Return date is required for round trips.';
     }
@@ -212,6 +218,8 @@ export function BookingScreen({
     try {
       const selectedVehicle = VEHICLE_TYPES.find((v) => v.id === form.vehicle_type_id);
       const vehicleName = selectedVehicle ? selectedVehicle.name : 'Scorpio 4WD';
+      const dateStr = toLocalDateOnly(form.pickup_date) ?? '';
+      const fullPickupDate = form.pickup_time ? `${dateStr} ${form.pickup_time}` : dateStr;
 
       await submitBooking({
         user_id: isAuthenticated && user ? user.id : undefined,
@@ -220,7 +228,7 @@ export function BookingScreen({
         email: emptyToNull(form.email),
         pickup_location: form.pickup_location.trim(),
         dropoff_location: form.dropoff_location.trim(),
-        pickup_date: toLocalDateOnly(form.pickup_date) ?? '',
+        pickup_date: fullPickupDate,
         return_date: form.trip_type === 'Round Trip' ? toLocalDateOnly(form.return_date) : null,
         passenger_count: form.passenger_count,
         trip_type: form.trip_type,
@@ -235,13 +243,13 @@ export function BookingScreen({
         bookingRef: `DK-2026-${randomRefNum}`,
         pickup: form.pickup_location.trim(),
         dropoff: form.dropoff_location.trim(),
-        date: toLocalDateOnly(form.pickup_date) ?? 'Tomorrow',
-        time: '7:00 AM',
+        date: dateStr || 'Tomorrow',
+        time: form.pickup_time || '7:00 AM',
         tripType: form.trip_type as 'One Way' | 'Round Trip',
         vehicleName: `${vehicleName} (AC)`,
         vehiclePlate: `Ba ${Math.floor(1 + Math.random() * 5)} Cha ${randomRefNum}`,
         driverName: 'Suman Shrestha (Kathmandu Dispatch)',
-        driverPhone: '+9779851363783',
+        driverPhone: CONTACT_INFO.phoneRaw,
         driverRating: 4.9,
         fare: discount > 0 ? `NPR ${(12000 - discount).toLocaleString('en-IN')}` : 'NPR 12,000',
         status: 'confirmed' as const,
@@ -308,7 +316,7 @@ export function BookingScreen({
           <View style={styles.stepNumBadge}>
             <Text style={styles.stepNumText}>1</Text>
           </View>
-          <Text style={styles.blockTitle}>Route & Trip Type</Text>
+          <Text style={styles.blockTitle}>Route & Departure Details</Text>
         </View>
 
         <SegmentedControl<TripType>
@@ -322,6 +330,14 @@ export function BookingScreen({
             { label: 'One Way', value: 'One Way' },
             { label: 'Round Trip', value: 'Round Trip' },
           ]}
+        />
+
+        {/* Embedded Interactive Real Route Map */}
+        <EmbeddedMapView
+          pickupLocation={form.pickup_location}
+          dropoffLocation={form.dropoff_location}
+          onSelectPickup={(loc) => update('pickup_location', loc)}
+          onSelectDropoff={(loc) => update('dropoff_location', loc)}
         />
 
         <TextField
@@ -344,7 +360,7 @@ export function BookingScreen({
 
         {/* Quick Destination Chips */}
         <View style={styles.quickChipsWrap}>
-          <Text style={styles.quickLabel}>Popular quick picks:</Text>
+          <Text style={styles.quickLabel}>Quick destinations:</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsRow}>
             {QUICK_LOCATIONS.map((loc) => (
               <Pressable
@@ -361,6 +377,7 @@ export function BookingScreen({
           </ScrollView>
         </View>
 
+        {/* Pickup Date & Pickup Time */}
         <View style={styles.dateRow}>
           <View style={styles.dateCol}>
             <DateField
@@ -383,13 +400,13 @@ export function BookingScreen({
           )}
         </View>
 
-        {/* Route Preview Simulation */}
-        <View style={{ marginTop: spacing.md }}>
-          <MapRoutePreview
-            pickup={form.pickup_location || 'Kathmandu Pickup'}
-            dropoff={form.dropoff_location || 'Destination'}
-          />
-        </View>
+        {/* Dedicated Pickup Departure Time Selector */}
+        <TimePickerField
+          label="Pickup Time *"
+          value={form.pickup_time}
+          onChange={(val) => update('pickup_time', val)}
+          error={errors.pickup_time}
+        />
       </Card>
 
       {/* STEP 2: VEHICLE & PASSENGERS */}
@@ -427,7 +444,7 @@ export function BookingScreen({
           label="Special Requests / Flight No. (Optional)"
           value={form.additional_details}
           onChangeText={(value) => update('additional_details', value)}
-          placeholder="e.g. Flight QR 650, child seat needed, luggage space"
+          placeholder="e.g. Flight QR 650, child seat needed, extra luggage"
           multiline
           maxLength={LIMITS.additionalDetails}
         />
@@ -442,36 +459,82 @@ export function BookingScreen({
           <Text style={styles.blockTitle}>Passenger Contact</Text>
         </View>
 
-        <TextField
-          label="Full Name *"
-          value={form.full_name}
-          onChangeText={(value) => update('full_name', value)}
-          placeholder="e.g. Aarav Sharma"
-          error={errors.full_name}
-          maxLength={LIMITS.bookingName}
-          autoCapitalize="words"
-        />
+        {/* Compact Traveler Summary if Logged In */}
+        {isAuthenticated && user && !editingTraveler ? (
+          <View style={styles.travelerCard}>
+            <View style={styles.travelerHeader}>
+              <View style={styles.travelerAvatar}>
+                <User size={18} color={colors.accent} />
+              </View>
+              <View style={styles.travelerInfo}>
+                <Text style={styles.travelerName}>{user.name || form.full_name}</Text>
+                <Text style={styles.travelerMeta}>
+                  <Phone size={11} color={colors.muted} /> {user.phone || form.phone_number}
+                  {user.email ? ` • ${user.email}` : ''}
+                </Text>
+              </View>
+            </View>
 
-        <TextField
-          label="Nepal Mobile Phone *"
-          value={form.phone_number}
-          onChangeText={(value) => update('phone_number', value)}
-          placeholder="e.g. 9851363783 or +977 9841..."
-          error={errors.phone_number}
-          keyboardType="phone-pad"
-          maxLength={LIMITS.phone}
-        />
+            <View style={styles.travelerFooter}>
+              <View style={styles.verifiedChip}>
+                <CheckCircle2 size={12} color={colors.success} />
+                <Text style={styles.verifiedChipText}>Auto-linked to your account</Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  hapticFeedback.light();
+                  setEditingTraveler(true);
+                }}
+                style={styles.changeTravelerBtn}
+              >
+                <Edit3 size={13} color={colors.accent} />
+                <Text style={styles.changeTravelerText}>Change</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.travelerForm}>
+            {isAuthenticated && user && (
+              <View style={styles.editingInfoBar}>
+                <Text style={styles.editingInfoText}>Booking for someone else?</Text>
+                <Pressable onPress={() => setEditingTraveler(false)}>
+                  <Text style={styles.revertTravelerText}>Use my profile</Text>
+                </Pressable>
+              </View>
+            )}
 
-        <TextField
-          label="Email Address"
-          value={form.email}
-          onChangeText={(value) => update('email', value)}
-          placeholder="e.g. aarav@example.com"
-          error={errors.email}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          maxLength={LIMITS.bookingEmail}
-        />
+            <TextField
+              label="Full Name *"
+              value={form.full_name}
+              onChangeText={(value) => update('full_name', value)}
+              placeholder="e.g. Aarav Sharma"
+              error={errors.full_name}
+              maxLength={LIMITS.bookingName}
+              autoCapitalize="words"
+            />
+
+            <TextField
+              label="Nepal Mobile Phone *"
+              value={form.phone_number}
+              onChangeText={(value) => update('phone_number', value)}
+              placeholder="e.g. 9851363783 or +977 9841..."
+              error={errors.phone_number}
+              keyboardType="phone-pad"
+              maxLength={LIMITS.phone}
+            />
+
+            <TextField
+              label="Email Address"
+              value={form.email}
+              onChangeText={(value) => update('email', value)}
+              placeholder="e.g. aarav@example.com"
+              error={errors.email}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              maxLength={LIMITS.bookingEmail}
+            />
+          </View>
+        )}
       </Card>
 
       {/* PROMO CODE & DISCOUNT SECTION */}
@@ -533,6 +596,7 @@ function createStyles(colors: ThemeColors) {
     },
     headerCopy: {
       flex: 1,
+      paddingRight: spacing.sm,
     },
     headerRightActions: {
       flexDirection: 'row',
@@ -544,17 +608,16 @@ function createStyles(colors: ThemeColors) {
       height: 36,
       borderRadius: 18,
       backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
       borderWidth: 1,
       borderColor: colors.border,
-      marginLeft: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     badgeTag: {
-      color: colors.accent,
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '800',
-      letterSpacing: 1,
+      color: colors.accent,
+      letterSpacing: 0.8,
       marginBottom: 2,
     },
     pageTitle: {
@@ -566,15 +629,14 @@ function createStyles(colors: ThemeColors) {
       fontSize: 13,
       color: colors.muted,
       marginTop: 2,
-      lineHeight: 18,
     },
     errorAlert: {
       backgroundColor: colors.errorSoft,
-      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.error,
       borderRadius: radius.md,
+      padding: spacing.md,
       marginBottom: spacing.md,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.error,
     },
     errorAlertText: {
       color: colors.error,
@@ -583,15 +645,13 @@ function createStyles(colors: ThemeColors) {
     },
     block: {
       marginBottom: spacing.md,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
+      gap: spacing.sm,
     },
     blockHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
-      marginBottom: spacing.md,
+      marginBottom: spacing.xs,
     },
     stepNumBadge: {
       width: 24,
@@ -612,30 +672,30 @@ function createStyles(colors: ThemeColors) {
       color: colors.text,
     },
     quickChipsWrap: {
-      marginBottom: spacing.md,
-      marginTop: -spacing.xs,
+      gap: 4,
+      marginTop: 2,
     },
     quickLabel: {
       fontSize: 11,
-      color: colors.subtle,
+      color: colors.muted,
       fontWeight: '600',
-      marginBottom: 4,
     },
     quickChipsRow: {
       gap: spacing.xs,
+      paddingVertical: 2,
     },
     quickChip: {
       backgroundColor: colors.elevated,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: radius.pill,
       borderWidth: 1,
       borderColor: colors.border,
+      borderRadius: radius.pill,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
     },
     quickChipText: {
       fontSize: 11,
-      color: colors.muted,
       fontWeight: '600',
+      color: colors.text,
     },
     dateRow: {
       flexDirection: 'row',
@@ -644,27 +704,111 @@ function createStyles(colors: ThemeColors) {
     dateCol: {
       flex: 1,
     },
-    perksCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      padding: spacing.md,
+    travelerCard: {
+      backgroundColor: colors.elevated,
       borderWidth: 1,
       borderColor: colors.border,
-      gap: spacing.xs + 2,
-      marginBottom: spacing.md,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: spacing.sm,
     },
-    perkRow: {
+    travelerHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8,
+      gap: spacing.sm,
     },
-    perkText: {
+    travelerAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    travelerInfo: {
+      flex: 1,
+    },
+    travelerName: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    travelerMeta: {
+      fontSize: 12,
+      color: colors.muted,
+      marginTop: 1,
+    },
+    travelerFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: spacing.xs + 2,
+    },
+    verifiedChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    verifiedChipText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.success,
+    },
+    changeTravelerBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    changeTravelerText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+    travelerForm: {
+      gap: spacing.sm,
+    },
+    editingInfoBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.elevated,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+    },
+    editingInfoText: {
       fontSize: 12,
       color: colors.muted,
       fontWeight: '600',
     },
+    revertTravelerText: {
+      fontSize: 12,
+      color: colors.accent,
+      fontWeight: '700',
+    },
+    perksCard: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: spacing.xs + 2,
+      marginBottom: spacing.lg,
+    },
+    perkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    perkText: {
+      fontSize: 12,
+      color: colors.text,
+      fontWeight: '600',
+    },
     submitSection: {
-      marginBottom: spacing.xl,
+      paddingBottom: 40,
     },
   });
 }

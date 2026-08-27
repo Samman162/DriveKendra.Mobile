@@ -13,6 +13,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import {
+  AlertTriangle,
   ArrowRight,
   Calendar,
   Car,
@@ -56,6 +57,9 @@ import {
   type OfflineVoucher,
 } from '../utils/offlineVoucherStorage';
 import { generateAndShareVoucher, type TripVoucherPdfData } from '../utils/pdfGenerator';
+import { getUserBookings } from '../api/bookings';
+import { EmergencySosModal } from '../components/ui/EmergencySosModal';
+import type { BookingRecordDto } from '../types/api';
 
 export interface TripRecord {
   id: string;
@@ -144,6 +148,40 @@ export function MyTripsScreen() {
   const [mountainModeManual, setMountainModeManual] = useState<boolean>(false);
   const [cachedVoucher, setCachedVoucher] = useState<OfflineVoucher | null>(null);
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
+  const [sosModalVisible, setSosModalVisible] = useState<boolean>(false);
+  const [sosTrip, setSosTrip] = useState<TripRecord | null>(null);
+
+  // Fetch live bookings from PostgreSQL backend when user is authenticated
+  useEffect(() => {
+    async function fetchLiveBookings() {
+      if (!user?.id && !user?.phone) return;
+      try {
+        const live = await getUserBookings({ userId: user?.id, phoneNumber: user?.phone });
+        if (live && live.length > 0) {
+          const formatted: TripRecord[] = live.map((b: BookingRecordDto) => ({
+            id: `trip_${b.bookingId}`,
+            bookingRef: b.bookingRef,
+            pickup: b.pickupLocation,
+            dropoff: b.dropoffLocation,
+            date: new Date(b.pickupDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
+            time: new Date(b.pickupDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            tripType: b.tripType,
+            vehicleName: b.vehicleTypeName || 'Mahindra Scorpio 4x4',
+            vehiclePlate: b.assignedVehiclePlate || 'Ba 2 Cha (TBD)',
+            driverName: b.assignedDriverName || 'Assigning Chauffeur...',
+            driverPhone: b.assignedDriverPhone || CONTACT_INFO.phoneRaw,
+            driverRating: 4.9,
+            fare: 'NPR 12,000',
+            status: b.status.toLowerCase() === 'completed' ? 'completed' : b.status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
+          }));
+          setTrips(formatted);
+        }
+      } catch (e) {
+        console.warn('[MyTrips] Offline or failed to sync live bookings:', e);
+      }
+    }
+    fetchLiveBookings();
+  }, [user]);
 
   // Booking Form Modal State
   const [bookingModalVisible, setBookingModalVisible] = useState<boolean>(false);
@@ -408,6 +446,20 @@ export function MyTripsScreen() {
                 {trip.status === 'confirmed' ? (
                   <View style={styles.confirmedActionsRow}>
                     <Pressable
+                      style={styles.sosTripBtn}
+                      onPress={() => {
+                        hapticFeedback.medium();
+                        setSosTrip(trip);
+                        setSosModalVisible(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Emergency SOS"
+                    >
+                      <AlertTriangle size={13} color="#FFF" />
+                      <Text style={styles.sosTripBtnText}>SOS</Text>
+                    </Pressable>
+
+                    <Pressable
                       style={styles.pdfDownloadBtn}
                       onPress={() => handleDownloadVoucher(trip)}
                       disabled={generatingPdfId === trip.id}
@@ -497,6 +549,18 @@ export function MyTripsScreen() {
           <Text style={styles.floatingNewBookingText}>New Booking</Text>
         </Pressable>
       </View>
+
+      {/* Emergency SOS Modal */}
+      <EmergencySosModal
+        visible={sosModalVisible}
+        onClose={() => {
+          setSosModalVisible(false);
+          setSosTrip(null);
+        }}
+        bookingRef={sosTrip?.bookingRef}
+        driverName={sosTrip?.driverName}
+        driverPhone={sosTrip?.driverPhone}
+      />
 
       {/* Booking Engine Animated Modal Dialog */}
       <Modal
@@ -810,7 +874,22 @@ function createStyles(colors: ThemeColors) {
     },
     confirmedActionsRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      gap: spacing.xs,
+    },
+    sosTripBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      backgroundColor: '#DC2626',
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 9,
+      borderRadius: radius.sm,
+    },
+    sosTripBtnText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: '#FFFFFF',
     },
     pdfDownloadBtn: {
       flex: 1.2,

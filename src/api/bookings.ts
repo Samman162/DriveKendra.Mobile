@@ -1,4 +1,4 @@
-import type { ApiMessageResponse, BookingEntryDto } from '../types/api';
+import type { ApiMessageResponse, BookingEntryDto, BookingRecordDto } from '../types/api';
 import { apiClient } from './client';
 import { offlineQueue, initOfflineQueueSync } from './offlineQueue';
 
@@ -53,5 +53,23 @@ export async function submitBooking(
       };
     }
     throw error;
+  }
+}
+
+/**
+ * Fetch booking history for the current user by userId or phoneNumber
+ */
+export async function getUserBookings(params: {
+  userId?: string | number;
+  phoneNumber?: string;
+}): Promise<BookingRecordDto[]> {
+  try {
+    const { data } = await apiClient.get<{ bookings: BookingRecordDto[] }>('/bookings', {
+      params,
+    });
+    return data.bookings || [];
+  } catch (error) {
+    console.warn('[BookingsApi] Failed to fetch user bookings:', error);
+    return [];
   }
 }

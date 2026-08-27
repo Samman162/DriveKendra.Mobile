@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { CalendarCheck, Home as HomeIcon, User as UserIcon } from 'lucide-react-native';
+import { CalendarCheck, Car, Home as HomeIcon, User as UserIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemeToggle } from '../components/ui/ThemeToggle';
@@ -9,6 +9,7 @@ import { AirportScreen } from '../screens/AirportScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BookingScreen } from '../screens/BookingScreen';
 import { ContactScreen } from '../screens/ContactScreen';
+import { ExploreScreen } from '../screens/ExploreScreen';
 import { FleetScreen } from '../screens/FleetScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { MyTripsScreen } from '../screens/MyTripsScreen';
@@ -85,10 +86,18 @@ function MainTabsNavigator() {
         }}
       />
       <Tab.Screen
+        name="Booking"
+        component={BookingScreen}
+        options={{
+          title: 'Book Ride',
+          tabBarIcon: ({ color, size }) => <Car color={color} size={size} />,
+        }}
+      />
+      <Tab.Screen
         name="MyBookings"
         component={MyTripsScreen}
         options={{
-          title: 'My Bookings',
+          title: 'My Trips',
           tabBarIcon: ({ color, size }) => <CalendarCheck color={color} size={size} />,
         }}
       />
@@ -192,6 +201,11 @@ export function AppNavigator({ initialRouteName = 'MainTabs' }: AppNavigatorProp
         name="Profile"
         component={ProfileScreen}
         options={stackScreenOptions(colors, 'Profile')}
+      />
+      <RootStack.Screen
+        name="Explore"
+        component={ExploreScreen}
+        options={stackScreenOptions(colors, 'Explore Services')}
       />
     </RootStack.Navigator>
   );

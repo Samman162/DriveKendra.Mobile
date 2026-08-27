@@ -23,7 +23,7 @@ const DEMO_USERS: User[] = [
 
 export async function loginUser(dto: LoginDto): Promise<AuthResponse> {
   try {
-    const response = await apiClient.post<AuthResponse>('/api/auth/login', dto);
+    const response = await apiClient.post<AuthResponse>('/auth/login', dto);
     return response.data;
   } catch (err: any) {
     // If backend is unreachable or not yet migrated, provide smooth fallback for demo
@@ -84,7 +84,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResp
 
 export async function requestPasswordReset(dto: ForgotPasswordDto): Promise<{ message: string; code?: string }> {
   try {
-    const response = await apiClient.post<{ message: string; code?: string }>('/api/auth/forgot-password', dto);
+    const response = await apiClient.post<{ message: string; code?: string }>('/auth/forgot-password', dto);
     return response.data;
   } catch {
     // Return mock verification code for seamless local testing
@@ -97,7 +97,7 @@ export async function requestPasswordReset(dto: ForgotPasswordDto): Promise<{ me
 
 export async function resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
   try {
-    const response = await apiClient.post<{ message: string }>('/api/auth/reset-password', dto);
+    const response = await apiClient.post<{ message: string }>('/auth/reset-password', dto);
     return response.data;
   } catch {
     return {

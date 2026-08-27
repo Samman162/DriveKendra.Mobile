@@ -157,8 +157,12 @@ export function usePushNotifications(): PushNotificationState {
     }
   }, [expoPushToken, isAuthenticated, syncTokenWithBackend]);
 
-  // Setup Notification Listeners
+  // Setup Notification Listeners (Native iOS & Android only)
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      return;
+    }
+
     // 1. Foreground notification received listener
     notificationListener.current = Notifications.addNotificationReceivedListener(
       (incoming: Notifications.Notification) => {
@@ -182,17 +186,19 @@ export function usePushNotifications(): PushNotificationState {
     );
 
     // 3. Cold-start check (app opened directly by tapping a notification when closed)
-    Notifications.getLastNotificationResponseAsync().then(
-      (response: Notifications.NotificationResponse | null) => {
-        if (response) {
-          const data = response.notification.request.content.data as {
-            screen?: string;
-            bookingId?: string | number;
-          } | undefined;
-          navigateToMyTrips(data?.bookingId);
-        }
-      },
-    );
+    if (Notifications.getLastNotificationResponseAsync) {
+      Notifications.getLastNotificationResponseAsync().then(
+        (response: Notifications.NotificationResponse | null) => {
+          if (response) {
+            const data = response.notification.request.content.data as {
+              screen?: string;
+              bookingId?: string | number;
+            } | undefined;
+            navigateToMyTrips(data?.bookingId);
+          }
+        },
+      ).catch(() => {});
+    }
 
     return () => {
       if (notificationListener.current) {

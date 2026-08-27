@@ -197,3 +197,18 @@ jest.mock('@shopify/flash-list', () => {
     FlashList: React.forwardRef((props: any, ref: any) => React.createElement(FlatList, { ...props, ref })),
   };
 });
+
+// Mock react-native-webview
+jest.mock('react-native-webview', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  return {
+    WebView: React.forwardRef((props: any, ref: any) => {
+      React.useImperativeHandle(ref, () => ({
+        injectJavaScript: jest.fn(),
+        reload: jest.fn(),
+      }));
+      return React.createElement(View, props);
+    }),
+  };
+});

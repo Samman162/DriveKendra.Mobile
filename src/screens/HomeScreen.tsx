@@ -15,8 +15,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowRightLeft,
+  Bell,
   Car,
   Compass,
   Crown,
@@ -35,9 +37,14 @@ import {
 
 import { getApprovedReviews } from '../api/reviews';
 import { getPublicStats } from '../api/stats';
+import { getUserNotifications, markNotificationAsRead } from '../api/notifications';
 import { BrandLogo } from '../components/ui/BrandLogo';
 import { Button } from '../components/ui/Button';
+import { EmergencySosModal } from '../components/ui/EmergencySosModal';
 import { FaqList } from '../components/ui/FaqList';
+import { HighwayStatusCard } from '../components/ui/HighwayStatusCard';
+import { MapRoutePreview } from '../components/ui/MapRoutePreview';
+import { NotificationModal } from '../components/ui/NotificationModal';
 import { ReviewCard } from '../components/ui/ReviewCard';
 import { Screen } from '../components/ui/Screen';
 import { SectionHeader } from '../components/ui/SectionHeader';
@@ -55,7 +62,7 @@ import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { radius, spacing } from '../theme/spacing';
-import type { PublicReviewDto, PublicStatsDto } from '../types/api';
+import type { InAppNotificationDto, PublicReviewDto, PublicStatsDto } from '../types/api';
 import { extractErrorMessage } from '../utils/errors';
 import { hapticFeedback } from '../utils/haptics';
 
@@ -88,9 +95,6 @@ type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<RootStackParamList>
 >;
 
-import { NotificationsModal } from '../components/ui/NotificationsModal';
-import { MapRoutePreview } from '../components/ui/MapRoutePreview';
-
 export function HomeScreen() {
   const navigation = useNavigation<Nav>();
   const { colors, isDark } = useTheme();
@@ -99,9 +103,11 @@ export function HomeScreen() {
 
   const [stats, setStats] = useState<PublicStatsDto>(emptyStats);
   const [reviews, setReviews] = useState<PublicReviewDto[]>([]);
+  const [notifications, setNotifications] = useState<InAppNotificationDto[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sosOpen, setSosOpen] = useState(false);
 
   // Interactive Quick Widget States
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -121,13 +127,18 @@ export function HomeScreen() {
         average_rating: Number(nextStats.average_rating) || emptyStats.average_rating,
       });
       setReviews(nextReviews.slice(0, 4));
+
+      if (user?.id) {
+        const notifs = await getUserNotifications(user.id);
+        setNotifications(notifs);
+      }
       setError('');
     } catch (err) {
       setError('');
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -185,13 +196,28 @@ export function HomeScreen() {
         <View style={styles.appBarActions}>
           <Pressable
             onPress={() => {
+              hapticFeedback.medium();
+              setSosOpen(true);
+            }}
+            style={({ pressed }) => [styles.sosHeaderBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Emergency SOS Hotline"
+          >
+            <AlertTriangle size={15} color="#FFFFFF" />
+            <Text style={styles.sosHeaderBtnText}>SOS</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
               hapticFeedback.light();
               setNotificationsOpen(true);
             }}
             style={({ pressed }) => [styles.iconBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="View Notifications"
           >
-            <View style={styles.notifBadgeDot} />
-            <Sparkles size={18} color={colors.text} />
+            {notifications.some((n) => !n.isRead) && <View style={styles.notifBadgeDot} />}
+            <Bell size={18} color={colors.text} />
           </Pressable>
 
           <Pressable
@@ -504,6 +530,11 @@ export function HomeScreen() {
         </View>
       </View>
 
+      {/* Live Mountain Highway Transit Advisory */}
+      <View style={styles.sectionContainer}>
+        <HighwayStatusCard />
+      </View>
+
       {/* Verified Reviews Section */}
       {reviews.length > 0 && (
         <View style={styles.sectionContainer}>
@@ -527,9 +558,29 @@ export function HomeScreen() {
         <FaqList items={HOME_FAQS} />
       </View>
 
-      <NotificationsModal
+      {/* In-App Notifications Modal */}
+      <NotificationModal
         visible={notificationsOpen}
+        notifications={notifications}
         onClose={() => setNotificationsOpen(false)}
+        onMarkAsRead={async (id) => {
+          await markNotificationAsRead(id);
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+          );
+        }}
+        onMarkAllAsRead={async () => {
+          for (const n of notifications.filter((x) => !x.isRead)) {
+            await markNotificationAsRead(n.id);
+          }
+          setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        }}
+      />
+
+      {/* 24/7 Roadside Emergency SOS Modal */}
+      <EmergencySosModal
+        visible={sosOpen}
+        onClose={() => setSosOpen(false)}
       />
     </Screen>
   );
@@ -573,7 +624,21 @@ function createStyles(colors: ThemeColors) {
     appBarActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
+      gap: spacing.xs,
+    },
+    sosHeaderBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#DC2626',
+      paddingHorizontal: spacing.xs + 2,
+      paddingVertical: 7,
+      borderRadius: radius.pill,
+      gap: 3,
+    },
+    sosHeaderBtnText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: '#FFFFFF',
     },
     iconBtn: {
       width: 38,
