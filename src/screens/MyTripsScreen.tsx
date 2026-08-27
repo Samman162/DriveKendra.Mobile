@@ -211,7 +211,7 @@ export function MyTripsScreen() {
 
   const filteredTrips = trips.filter((t) => {
     if (tab === 'upcoming') return t.status === 'confirmed';
-    return t.status === 'completed';
+    return t.status === 'completed' || t.status === 'cancelled';
   });
 
   const handleDownloadVoucher = async (trip: TripRecord) => {

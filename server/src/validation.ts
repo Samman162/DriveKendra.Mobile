@@ -36,12 +36,27 @@ export function isValidNepalPhone(value: string): boolean {
 
 export function parseDateOnly(value: string | null | undefined): Date | null {
   if (!value) return null;
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  const trimmed = value.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?)?/.exec(trimmed);
   if (!match) {
-    const parsed = new Date(value);
+    const parsed = new Date(trimmed);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
-  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  let hour = match[4] ? Number(match[4]) : 0;
+  const minute = match[5] ? Number(match[5]) : 0;
+  const second = match[6] ? Number(match[6]) : 0;
+  const meridiem = match[7]?.toUpperCase();
+
+  if (meridiem === 'PM' && hour < 12) {
+    hour += 12;
+  } else if (meridiem === 'AM' && hour === 12) {
+    hour = 0;
+  }
+
+  return new Date(Date.UTC(year, month, day, hour, minute, second));
 }
 
 function startOfUtcDay(date: Date): number {

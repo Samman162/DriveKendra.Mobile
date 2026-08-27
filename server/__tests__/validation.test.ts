@@ -57,6 +57,23 @@ describe('Booking Zod Validation & Honeypot', () => {
     expect(parsed.return_date).toBeNull();
   });
 
+  it('successfully parses pickup date containing departure time (e.g. 07:00 AM)', () => {
+    const raw = {
+      full_name: 'Aarav Sharma',
+      phone_number: '9851363783',
+      pickup_location: 'Kathmandu',
+      dropoff_location: 'Pokhara',
+      pickup_date: `${tomorrow} 07:30 AM`,
+      passenger_count: 2,
+      trip_type: 'One Way',
+      vehicle_type_id: 2,
+    };
+
+    const parsed = parseBooking(raw);
+    expect(parsed.pickup_date.getUTCHours()).toBe(7);
+    expect(parsed.pickup_date.getUTCMinutes()).toBe(30);
+  });
+
   it('successfully parses valid round-trip booking', () => {
     const raw = {
       full_name: 'Suman Shrestha',
