@@ -297,12 +297,12 @@ export function AuthScreen({
               <>
                 <MapPinBrandBadge size={92} style={{ marginBottom: spacing.sm }} />
                 <Text style={styles.brandHeadline}>
-                  <Text style={styles.brandOrange}>Travel </Text>
+                  <Text style={styles.brandOrange}>Drive </Text>
                   <Text style={styles.brandNavy}>Kendra</Text>
                 </Text>
                 <Text style={styles.welcomeHeading}>Welcome Back!</Text>
                 <Text style={styles.welcomeSub}>
-                  Welcome to Travel Kendra! Please sign in to continue.
+                  Welcome to Drive Kendra! Please sign in to continue.
                 </Text>
               </>
             )}
@@ -315,7 +315,7 @@ export function AuthScreen({
                   style={{ marginBottom: spacing.xs }}
                 />
                 <Text style={styles.brandHeadline}>
-                  <Text style={styles.brandOrange}>Travel </Text>
+                  <Text style={styles.brandOrange}>Drive </Text>
                   <Text style={styles.brandNavy}>Kendra</Text>
                 </Text>
               </>
@@ -325,7 +325,7 @@ export function AuthScreen({
               <>
                 <MapPinBrandBadge size={80} style={{ marginBottom: spacing.sm }} />
                 <Text style={styles.brandHeadline}>
-                  <Text style={styles.brandOrange}>Travel </Text>
+                  <Text style={styles.brandOrange}>Drive </Text>
                   <Text style={styles.brandNavy}>Kendra</Text>
                 </Text>
                 <Text style={styles.welcomeHeading}>Reset Password</Text>
@@ -477,20 +477,8 @@ export function AuthScreen({
                   </Pressable>
                 </View>
 
-                {/* Quick Demo Fill & Social Login */}
-                <SocialAuthButtons
-                  onQuickDemoFill={handleQuickDemoFill}
-                  onGooglePress={() => {
-                    setIdentifier('9851363783');
-                    setPassword('password123');
-                    Alert.alert('Google Sign In', 'Connected via Google account.');
-                  }}
-                  onApplePress={() => {
-                    setIdentifier('9841234567');
-                    setPassword('password123');
-                    Alert.alert('Apple Sign In', 'Connected via Apple ID.');
-                  }}
-                />
+                {/* Quick Demo Fill */}
+                <SocialAuthButtons onQuickDemoFill={handleQuickDemoFill} />
               </View>
             )}
 

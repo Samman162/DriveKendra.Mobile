@@ -81,7 +81,7 @@ export function MapPinBrandBadge({
           source={BRAND_IMAGE}
           style={{ width: logoImageSize, height: logoImageSize }}
           resizeMode="contain"
-          accessibilityLabel="Travel Kendra Brand Logo"
+          accessibilityLabel="Drive Kendra Brand Logo"
         />
       </View>
     </View>

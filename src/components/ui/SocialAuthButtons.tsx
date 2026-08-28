@@ -20,31 +20,40 @@ export function SocialAuthButtons({
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
 
+  const hasSocial = Boolean(onGooglePress || onApplePress);
   return (
     <View style={styles.container}>
-      <View style={styles.dividerRow}>
-        <View style={styles.divider} />
-        <Text style={styles.dividerText}>or continue with</Text>
-        <View style={styles.divider} />
-      </View>
+      {hasSocial && (
+        <>
+          <View style={styles.dividerRow}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.divider} />
+          </View>
 
-      <View style={styles.buttonRow}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onGooglePress}
-          style={({ pressed }) => [styles.socialBtn, pressed && styles.btnPressed]}
-        >
-          <Text style={styles.socialBtnText}>Google</Text>
-        </Pressable>
+          <View style={styles.buttonRow}>
+            {onGooglePress && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onGooglePress}
+                style={({ pressed }) => [styles.socialBtn, pressed && styles.btnPressed]}
+              >
+                <Text style={styles.socialBtnText}>Google</Text>
+              </Pressable>
+            )}
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={onApplePress}
-          style={({ pressed }) => [styles.socialBtn, pressed && styles.btnPressed]}
-        >
-          <Text style={styles.socialBtnText}>Apple</Text>
-        </Pressable>
-      </View>
+            {onApplePress && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={onApplePress}
+                style={({ pressed }) => [styles.socialBtn, pressed && styles.btnPressed]}
+              >
+                <Text style={styles.socialBtnText}>Apple</Text>
+              </Pressable>
+            )}
+          </View>
+        </>
+      )}
 
       {onQuickDemoFill && (
         <View style={styles.demoBox}>

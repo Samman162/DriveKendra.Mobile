@@ -1,12 +1,12 @@
 import React, { useRef, useState } from 'react';
 import {
-  Dimensions,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,8 +26,6 @@ import { radius, spacing } from '../theme/spacing';
 import { setCompletedOnboarding } from '../utils/onboardingStorage';
 import { hapticFeedback } from '../utils/haptics';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 interface OnboardingSlide {
   id: string;
   titlePrefix: string;
@@ -41,10 +39,10 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
   {
     id: 'slide-booking',
     titlePrefix: 'Welcome to ',
-    titleHighlight: 'Travel ',
+    titleHighlight: 'Drive ',
     titleSuffix: 'Kendra',
     description:
-      'Welcome to Travel Kendra, You can rent vehicle and delivery / dhuwani service as per your requirement and budget.',
+      'Welcome to Drive Kendra, You can rent vehicle and delivery / dhuwani service as per your requirement and budget.',
     renderIllustration: (size) => <BookingIllustration size={size} />,
   },
   {
@@ -53,7 +51,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     titleHighlight: 'Himalayan ',
     titleSuffix: 'Tours',
     description:
-      'Plan scenic expeditions to Muktinath, Manakamana, and Pokhara with certified mountain driving experts.',
+      'Plan scenic road trips to Muktinath, Pokhara, Mustang, and Chitwan with certified mountain driving experts.',
     renderIllustration: (size) => <MountainTourIllustration size={size} />,
   },
   {
@@ -62,7 +60,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     titleHighlight: 'Transparent ',
     titleSuffix: 'Tariffs',
     description:
-      'Official government-compliant rates with zero hidden surcharges and offline digital vouchers for off-grid travel.',
+      'Official government-approved rates with zero hidden charges, instant booking confirmation, and digital vouchers.',
     renderIllustration: (size) => <TariffVoucherIllustration size={size} />,
   },
   {
@@ -71,7 +69,7 @@ const ONBOARDING_SLIDES: OnboardingSlide[] = [
     titleHighlight: 'Dhuwani & ',
     titleSuffix: 'Logistics',
     description:
-      'Reliable goods transportation, parcel delivery, and commercial fleet rentals across all 7 provinces of Nepal.',
+      'Reliable parcel delivery, goods transportation, and commercial fleet rentals across all 7 provinces of Nepal.',
     renderIllustration: (size) => <LogisticsIllustration size={size} />,
   },
 ];
@@ -82,12 +80,15 @@ export function OnboardingScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
 
+  const [containerWidth, setContainerWidth] = useState(windowWidth || 360);
   const [activeIndex, setActiveIndex] = useState(0);
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
 
   const isLastSlide = activeIndex === ONBOARDING_SLIDES.length - 1;
-  const illustrationSize = Math.min(Math.round(SCREEN_WIDTH * 0.72), 290);
+  const slideWidth = containerWidth > 0 ? containerWidth : windowWidth;
+  const illustrationSize = Math.min(Math.round(slideWidth * 0.72), 280);
 
   const handleFinish = async () => {
     hapticFeedback.success();
@@ -101,17 +102,22 @@ export function OnboardingScreen({ navigation }: Props) {
     });
   };
 
+  const goToSlide = (index: number) => {
+    if (index >= 0 && index < ONBOARDING_SLIDES.length) {
+      hapticFeedback.selection();
+      setActiveIndex(index);
+      flatListRef.current?.scrollToOffset({
+        offset: index * slideWidth,
+        animated: true,
+      });
+    }
+  };
+
   const handleNext = () => {
     if (isLastSlide) {
       handleFinish();
     } else {
-      hapticFeedback.selection();
-      const nextIndex = activeIndex + 1;
-      flatListRef.current?.scrollToIndex({
-        index: nextIndex,
-        animated: true,
-      });
-      setActiveIndex(nextIndex);
+      goToSlide(activeIndex + 1);
     }
   };
 
@@ -121,7 +127,7 @@ export function OnboardingScreen({ navigation }: Props) {
 
   const onMomentumScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = e.nativeEvent.contentOffset.x;
-    const index = Math.round(offsetX / SCREEN_WIDTH);
+    const index = Math.round(offsetX / (slideWidth || 1));
     if (index !== activeIndex && index >= 0 && index < ONBOARDING_SLIDES.length) {
       setActiveIndex(index);
       hapticFeedback.light();
@@ -130,7 +136,7 @@ export function OnboardingScreen({ navigation }: Props) {
 
   const renderSlideItem = ({ item }: { item: OnboardingSlide }) => {
     return (
-      <View style={[styles.slideContainer, { width: SCREEN_WIDTH }]}>
+      <View style={[styles.slideContainer, { width: slideWidth }]}>
         {/* Top Circular Illustration */}
         <View style={styles.illustrationWrapper}>
           {item.renderIllustration(illustrationSize)}
@@ -159,6 +165,12 @@ export function OnboardingScreen({ navigation }: Props) {
           paddingBottom: Math.max(insets.bottom, 16),
         },
       ]}
+      onLayout={(e) => {
+        const layoutWidth = e.nativeEvent.layout.width;
+        if (layoutWidth > 0 && layoutWidth !== containerWidth) {
+          setContainerWidth(layoutWidth);
+        }
+      }}
       testID="onboarding-screen"
     >
       {/* Horizontal Carousel */}
@@ -172,6 +184,11 @@ export function OnboardingScreen({ navigation }: Props) {
         showsHorizontalScrollIndicator={false}
         bounces={false}
         onMomentumScrollEnd={onMomentumScrollEnd}
+        getItemLayout={(_, index) => ({
+          length: slideWidth,
+          offset: slideWidth * index,
+          index,
+        })}
         style={styles.flatList}
       />
 
@@ -196,13 +213,19 @@ export function OnboardingScreen({ navigation }: Props) {
           {ONBOARDING_SLIDES.map((slide, index) => {
             const isActive = index === activeIndex;
             return (
-              <View
+              <Pressable
                 key={slide.id}
-                style={[
-                  styles.dot,
-                  isActive ? styles.dotActive : styles.dotInactive,
-                ]}
-              />
+                onPress={() => goToSlide(index)}
+                hitSlop={8}
+                accessibilityLabel={`Go to slide ${index + 1}`}
+              >
+                <View
+                  style={[
+                    styles.dot,
+                    isActive ? styles.dotActive : styles.dotInactive,
+                  ]}
+                />
+              </Pressable>
             );
           })}
         </View>
