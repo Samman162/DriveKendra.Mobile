@@ -63,7 +63,7 @@ export function EmergencySosModal({
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <View style={styles.sosIconCircle}>
-                <AlertTriangle size={22} color="#FFFFFF" />
+                <AlertTriangle size={22} color={colors.onNavy} />
               </View>
               <View>
                 <Text style={styles.sheetTitle}>Emergency SOS Assistance</Text>
@@ -92,13 +92,13 @@ export function EmergencySosModal({
               onPress={() => dialNumber(CONTACT_INFO.phoneRaw)}
             >
               <View style={styles.cardIconBox}>
-                <Headphones size={24} color="#FFF" />
+                <Headphones size={24} color={colors.onNavy} />
               </View>
               <View style={styles.cardTextBox}>
                 <Text style={styles.cardTitlePrimary}>Drive Kendra 24/7 Hotline</Text>
                 <Text style={styles.cardSubtitlePrimary}>Direct Chauffeur & Roadside Command</Text>
               </View>
-              <PhoneCall size={20} color="#FFF" />
+              <PhoneCall size={20} color={colors.onNavy} />
             </Pressable>
 
             {/* 2. Driver Quick Call (if assigned) */}
@@ -248,14 +248,14 @@ function createStyles(colors: ThemeColors) {
       gap: spacing.md,
     },
     sosCardPrimary: {
-      backgroundColor: '#DC2626',
-      borderColor: '#B91C1C',
+      backgroundColor: colors.error,
+      borderColor: colors.error,
     },
     cardIconBox: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: '#B91C1C',
+      backgroundColor: colors.overlay,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -283,11 +283,12 @@ function createStyles(colors: ThemeColors) {
     cardTitlePrimary: {
       fontSize: 14,
       fontWeight: '700',
-      color: '#FFF',
+      color: colors.onNavy,
     },
     cardSubtitlePrimary: {
       fontSize: 12,
-      color: '#FEE2E2',
+      color: colors.onNavy,
+      opacity: 0.9,
       marginTop: 2,
     },
     cancelBtn: {

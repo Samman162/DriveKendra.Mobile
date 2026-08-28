@@ -17,7 +17,8 @@ usersRoute.post('/push-token', async (c) => {
     throw new HttpError(400, result.error.issues[0]?.message || 'Invalid push token payload.');
   }
 
-  const { pushToken, customerId, phoneNumber, email, devicePlatform } = result.data;
+  const { pushToken, customerId, userId, phoneNumber, email, devicePlatform } = result.data;
+  const effectiveUserId = userId || customerId;
 
   if (!Expo.isExpoPushToken(pushToken)) {
     throw new HttpError(400, 'The provided token is not a valid Expo push token.');
@@ -26,8 +27,8 @@ usersRoute.post('/push-token', async (c) => {
   let updated = false;
 
   await withPublicClient(async (client) => {
-    // 1. If explicit user ID provided (customerId in payload maps to user_id)
-    if (customerId) {
+    // 1. If explicit user ID provided (userId or customerId in payload)
+    if (effectiveUserId) {
       const res = await client.query(
         `UPDATE dka_users 
          SET push_token = $1, 
@@ -35,7 +36,7 @@ usersRoute.post('/push-token', async (c) => {
              push_token_updated_at = NOW(),
              updated_at = NOW()
          WHERE user_id = $3`,
-        [pushToken, devicePlatform || null, customerId],
+        [pushToken, devicePlatform || null, effectiveUserId],
       );
       if (res.rowCount && res.rowCount > 0) {
         updated = true;

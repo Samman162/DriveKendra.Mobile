@@ -57,7 +57,8 @@ export function TourDetailScreen() {
   const styles = useThemedStyles(createStyles);
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'TourDetail'>>();
-  const tour = TOUR_PACKAGES.find((item) => item.detailId === route.params.tourId);
+  const tourId = route.params?.tourId;
+  const tour = TOUR_PACKAGES.find((item) => item.detailId === tourId);
 
   const [mode, setMode] = useState<ManakamanaMode>('same_day');
   const [optionId, setOptionId] = useState('scorpio');
@@ -67,17 +68,17 @@ export function TourDetailScreen() {
   const option = MANAKAMANA_OPTIONS.find((item) => item.id === optionId) ?? MANAKAMANA_OPTIONS[2];
   const paxRates =
     vehicle === 'scorpio'
-      ? route.params.tourId === 'kalinchowk'
+      ? tourId === 'kalinchowk'
         ? KALINCHOWK_SCORPIO
         : MUKTINATH_SCORPIO
-      : route.params.tourId === 'kalinchowk'
+      : tourId === 'kalinchowk'
       ? KALINCHOWK_EV_VAN
       : MUKTINATH_EV_VAN;
 
   const selectedPax = paxRates.find((item) => item.pax === pax) ?? paxRates[0];
 
   const quote = useMemo(() => {
-    if (route.params.tourId === 'manakamana') {
+    if (tourId === 'manakamana') {
       const price = manakamanaPrice(option, mode);
       return price ? { amount: price, note: `${option.name} • ${mode.replace('_', ' ')}` } : null;
     }
@@ -85,7 +86,7 @@ export function TourDetailScreen() {
       amount: selectedPax.perPersonRate * selectedPax.pax,
       note: `${selectedPax.pax} passengers • ${formatNprAmount(selectedPax.perPersonRate)} per person`,
     };
-  }, [mode, option, route.params.tourId, selectedPax]);
+  }, [mode, option, tourId, selectedPax]);
 
   if (!tour) {
     return (

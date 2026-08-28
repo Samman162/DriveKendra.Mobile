@@ -87,7 +87,8 @@ export const nepalPhoneSchema = z
 // Trip Booking Zod Schema
 export const bookingZodSchema = z
   .object({
-    user_id: z.coerce.number().int().positive().optional().nullable(),
+    user_id: z
+      .preprocess((val) => (typeof val === 'string' && isNaN(Number(val)) ? undefined : val), z.coerce.number().int().positive().optional().nullable()),
     full_name: z.string().trim().min(1, 'Full name is required.').max(100, 'Full name is too long.'),
     phone_number: nepalPhoneSchema,
     email: z
@@ -194,7 +195,8 @@ export function parseBooking(body: unknown): BookingInput {
 
 // Review Zod Schema
 export const reviewZodSchema = z.object({
-  user_id: z.coerce.number().int().positive().optional().nullable(),
+  user_id: z
+    .preprocess((val) => (typeof val === 'string' && isNaN(Number(val)) ? undefined : val), z.coerce.number().int().positive().optional().nullable()),
   customer_name: z.string().trim().min(1, 'Your name is required.').max(100, 'Name is too long.'),
   rating: z.coerce.number().int().min(1, 'Rating must be between 1 and 5.').max(5, 'Rating must be between 1 and 5.'),
   comment: z.string().trim().min(1, 'Review comment is required.').max(2000, 'Review comment is too long.'),

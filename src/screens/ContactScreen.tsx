@@ -57,8 +57,9 @@ export function ContactScreen() {
     }
     setSubmitting(true);
     try {
+      const numericUserId = isAuthenticated && user?.id && !isNaN(Number(user.id)) ? Number(user.id) : undefined;
       await submitReview({
-        user_id: isAuthenticated && user ? user.id : undefined,
+        user_id: numericUserId,
         customer_name: name.trim(),
         comment: comment.trim(),
         rating,

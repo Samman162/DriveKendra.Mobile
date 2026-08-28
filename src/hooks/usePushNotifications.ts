@@ -123,8 +123,10 @@ export function usePushNotifications(): PushNotificationState {
   const syncTokenWithBackend = useCallback(
     async (token: string) => {
       try {
+        const numericCustomerId = user?.id && !isNaN(Number(user.id)) ? Number(user.id) : undefined;
         const res = await registerPushToken({
           pushToken: token,
+          customerId: numericCustomerId,
           phoneNumber: user?.phone,
           email: user?.email,
           devicePlatform: Platform.OS as 'ios' | 'android' | 'web',
@@ -138,7 +140,7 @@ export function usePushNotifications(): PushNotificationState {
         console.warn('[PushNotifications] Token synchronization failed:', err);
       }
     },
-    [user?.phone, user?.email],
+    [user?.id, user?.phone, user?.email],
   );
 
   // Initial registration on mount

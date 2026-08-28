@@ -229,7 +229,7 @@ const createStyles = (theme: ThemeColors) =>
   StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: theme.background === '#F1F5F9' ? '#FFFFFF' : theme.background,
+      backgroundColor: theme.surface,
     },
     flatList: {
       flex: 1,
@@ -309,7 +309,7 @@ const createStyles = (theme: ThemeColors) =>
     },
     dotInactive: {
       width: 8,
-      backgroundColor: '#CBD5E1',
+      backgroundColor: theme.border,
     },
     pressed: {
       opacity: 0.6,

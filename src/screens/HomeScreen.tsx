@@ -203,7 +203,7 @@ export function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Emergency SOS Hotline"
           >
-            <AlertTriangle size={15} color="#FFFFFF" />
+            <AlertTriangle size={15} color={colors.onNavy} />
             <Text style={styles.sosHeaderBtnText}>SOS</Text>
           </Pressable>
 
@@ -629,7 +629,7 @@ function createStyles(colors: ThemeColors) {
     sosHeaderBtn: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#DC2626',
+      backgroundColor: colors.error,
       paddingHorizontal: spacing.xs + 2,
       paddingVertical: 7,
       borderRadius: radius.pill,
@@ -638,7 +638,7 @@ function createStyles(colors: ThemeColors) {
     sosHeaderBtnText: {
       fontSize: 11,
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: colors.onNavy,
     },
     iconBtn: {
       width: 38,

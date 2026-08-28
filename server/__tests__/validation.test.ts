@@ -139,6 +139,18 @@ describe('Review Zod Validation', () => {
     expect(parsed.rating).toBe(5);
   });
 
+  it('safely handles non-numeric user_id strings without throwing', () => {
+    const review = {
+      user_id: 'usr_demo_123',
+      customer_name: 'Pooja Thapa',
+      rating: 5,
+      comment: 'Excellent ride!',
+    };
+
+    const parsed = parseReview(review);
+    expect(parsed.user_id).toBeUndefined();
+  });
+
   it('rejects invalid star ratings', () => {
     const invalid = {
       customer_name: 'Traveler',
@@ -147,5 +159,44 @@ describe('Review Zod Validation', () => {
     };
 
     expect(() => parseReview(invalid)).toThrow('Rating must be between 1 and 5');
+  });
+});
+
+describe('User & Push Token Schema Validation', () => {
+  it('safely parses booking with non-numeric demo user ID', () => {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const booking = {
+      user_id: 'usr_demo_test',
+      full_name: 'Demo Traveler',
+      phone_number: '9851363783',
+      pickup_location: 'Kathmandu',
+      dropoff_location: 'Pokhara',
+      pickup_date: tomorrow,
+      passenger_count: 2,
+      trip_type: 'One Way',
+      vehicle_type_id: 1,
+    };
+
+    const parsed = parseBooking(booking);
+    expect(parsed.user_id).toBeUndefined();
+    expect(parsed.full_name).toBe('Demo Traveler');
+  });
+
+  it('safely parses booking with numeric user ID', () => {
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const booking = {
+      user_id: 42,
+      full_name: 'Demo Traveler',
+      phone_number: '9851363783',
+      pickup_location: 'Kathmandu',
+      dropoff_location: 'Pokhara',
+      pickup_date: tomorrow,
+      passenger_count: 2,
+      trip_type: 'One Way',
+      vehicle_type_id: 1,
+    };
+
+    const parsed = parseBooking(booking);
+    expect(parsed.user_id).toBe(42);
   });
 });

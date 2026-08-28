@@ -455,7 +455,7 @@ export function MyTripsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Emergency SOS"
                     >
-                      <AlertTriangle size={13} color="#FFF" />
+                      <AlertTriangle size={13} color={colors.onNavy} />
                       <Text style={styles.sosTripBtnText}>SOS</Text>
                     </Pressable>
 
@@ -881,7 +881,7 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 4,
-      backgroundColor: '#DC2626',
+      backgroundColor: colors.error,
       paddingHorizontal: spacing.sm,
       paddingVertical: 9,
       borderRadius: radius.sm,
@@ -889,7 +889,7 @@ function createStyles(colors: ThemeColors) {
     sosTripBtnText: {
       fontSize: 11,
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: colors.onNavy,
     },
     pdfDownloadBtn: {
       flex: 1.2,
@@ -921,7 +921,7 @@ function createStyles(colors: ThemeColors) {
     whatsappBtnText: {
       fontSize: 12,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: colors.onNavy,
     },
     pastActionsRow: {
       flexDirection: 'row',

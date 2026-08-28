@@ -20,8 +20,9 @@ app.use(
   '*',
   cors({
     origin: '*',
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
-    allowHeaders: ['Content-Type', 'Accept'],
+    allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-Idempotency-Key', 'x-idempotency-key'],
+    exposeHeaders: ['X-Cache-Lookup'],
   }),
 );
 

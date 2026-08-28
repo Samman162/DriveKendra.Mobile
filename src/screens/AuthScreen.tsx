@@ -38,6 +38,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { extractErrorMessage } from '../utils/errors';
 import { hapticFeedback } from '../utils/haptics';
+import { isValidNepalPhone } from '../utils/phone';
+import { NEPAL_PHONE_ERROR } from '../constants/validation';
 
 export type AuthMode = 'signin' | 'signup' | 'forgot';
 
@@ -147,6 +149,10 @@ export function AuthScreen({
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'Please enter your full name.';
     if (!phone.trim()) newErrors.phone = 'Please enter your mobile phone number.';
+    else if (!isValidNepalPhone(phone)) newErrors.phone = NEPAL_PHONE_ERROR;
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = 'Please enter a valid email address.';
+    }
     if (!password || password.length < 6) newErrors.password = 'Password must be at least 6 characters.';
     if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match.';
     if (!agreeTerms) newErrors.terms = 'Please accept terms & conditions to continue.';

@@ -220,9 +220,10 @@ export function BookingScreen({
       const vehicleName = selectedVehicle ? selectedVehicle.name : 'Scorpio 4WD';
       const dateStr = toLocalDateOnly(form.pickup_date) ?? '';
       const fullPickupDate = form.pickup_time ? `${dateStr} ${form.pickup_time}` : dateStr;
+      const numericUserId = isAuthenticated && user?.id && !isNaN(Number(user.id)) ? Number(user.id) : undefined;
 
       await submitBooking({
-        user_id: isAuthenticated && user ? user.id : undefined,
+        user_id: numericUserId,
         full_name: form.full_name.trim(),
         phone_number: normalizeNepalPhone(form.phone_number),
         email: emptyToNull(form.email),
