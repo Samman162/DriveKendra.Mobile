@@ -21,7 +21,6 @@ import {
   Car,
   Check,
   ChevronRight,
-  Clock,
   CreditCard,
   FileText,
   Info,
@@ -32,8 +31,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Sun,
-  Sunrise,
   Users,
   X,
 } from 'lucide-react-native';
@@ -45,7 +42,6 @@ import { LocationPickerModal } from '../components/ui/LocationPickerModal';
 import { Screen } from '../components/ui/Screen';
 import { SlideDrawerModal } from '../components/ui/SlideDrawerModal';
 import { SuccessModal } from '../components/ui/SuccessModal';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { TimePickerField } from '../components/ui/TimePickerField';
 import { CONTACT_INFO } from '../constants/contact';
 import { LIMITS } from '../constants/validation';
@@ -68,15 +64,6 @@ const VEHICLE_META: Record<number, { subtitle: string; capacity: string; tag: st
   3: { subtitle: 'Toyota HiAce (Spacious High-Roof Cabin)', capacity: '👥 14 Seats • ❄️ Full AC', tag: 'Groups & Family' },
   4: { subtitle: 'Tourist Coaster / Deluxe Bus (Luxury Coach)', capacity: '👥 35 Seats • 🚌 Reclining', tag: 'Large Expeditions' },
 };
-
-const POPULAR_TIME_SLOTS = [
-  '06:00 AM',
-  '07:30 AM',
-  '09:00 AM',
-  '12:00 PM',
-  '02:30 PM',
-  '05:00 PM',
-];
 
 type BookingErrors = Partial<Record<string, string>>;
 
@@ -345,8 +332,6 @@ export function BookingScreen({
         >
           <ArrowLeft size={20} color={colors.text} />
         </Pressable>
-
-        <ThemeToggle variant="onSurface" />
       </View>
 
       <ScrollView
@@ -776,44 +761,8 @@ export function BookingScreen({
               error={errors.pickup_date}
             />
 
-            {/* Departure Time Slots */}
-            <View style={styles.timeSectionWrap}>
-              <View style={styles.timeSectionHeader}>
-                <Clock size={15} color={colors.accent} style={{ marginRight: 6 }} />
-                <Text style={styles.timeSectionLabel}>Preferred Departure Time</Text>
-              </View>
-
-              <View style={styles.timeChipsGrid}>
-                {POPULAR_TIME_SLOTS.map((timeSlot) => {
-                  const isTimeSelected = form.pickup_time === timeSlot;
-                  return (
-                    <Pressable
-                      key={timeSlot}
-                      onPress={() => {
-                        hapticFeedback.selection();
-                        update('pickup_time', timeSlot);
-                      }}
-                      style={[
-                        styles.timeChip,
-                        isTimeSelected && styles.timeChipActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.timeChipText,
-                          isTimeSelected && styles.timeChipTextActive,
-                        ]}
-                      >
-                        {timeSlot}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
             <TimePickerField
-              label="Custom Time (Optional)"
+              label="Pickup Time *"
               value={form.pickup_time}
               onChange={(val) => update('pickup_time', val)}
               error={errors.pickup_time}
@@ -1369,45 +1318,6 @@ function createStyles(colors: ThemeColors) {
       color: colors.text,
     },
     quickDayChipTextActive: {
-      color: '#FFFFFF',
-    },
-    timeSectionWrap: {
-      marginTop: spacing.xs,
-      marginBottom: spacing.sm,
-    },
-    timeSectionHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacing.xs,
-    },
-    timeSectionLabel: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    timeChipsGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.xs,
-    },
-    timeChip: {
-      backgroundColor: colors.elevated,
-      borderRadius: radius.md,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    timeChipActive: {
-      backgroundColor: colors.accent,
-      borderColor: colors.accent,
-    },
-    timeChipText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.text,
-    },
-    timeChipTextActive: {
       color: '#FFFFFF',
     },
     dialogDoneBtn: {

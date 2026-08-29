@@ -2,23 +2,22 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import {
   AlertTriangle,
-  ArrowRight,
   Calendar,
   Car,
-  CheckCircle2,
-  ChevronRight,
   Clock,
   Download,
   FileText,
@@ -26,29 +25,25 @@ import {
   MessageCircle,
   Mountain,
   Phone,
-  Plus,
   RotateCcw,
-  ShieldCheck,
   Star,
-  User,
-  Wifi,
   WifiOff,
 } from 'lucide-react-native';
 
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
+import { getUserBookings } from '../api/bookings';
+import { EmergencySosModal } from '../components/ui/EmergencySosModal';
 import { EmergencyTripCard } from '../components/ui/EmergencyTripCard';
 import { Screen } from '../components/ui/Screen';
-import { SectionHeader } from '../components/ui/SectionHeader';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { CONTACT_INFO } from '../constants/contact';
 import { useAuth } from '../context/AuthContext';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
-import type { BookParams, RootTabParamList } from '../navigation/types';
-import { BookingScreen } from './BookingScreen';
+import type { RootStackParamList, RootTabParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { radius, spacing } from '../theme/spacing';
+import type { BookingRecordDto } from '../types/api';
 import { hapticFeedback } from '../utils/haptics';
 import {
   formatToOfflineVoucher,
@@ -57,9 +52,6 @@ import {
   type OfflineVoucher,
 } from '../utils/offlineVoucherStorage';
 import { generateAndShareVoucher, type TripVoucherPdfData } from '../utils/pdfGenerator';
-import { getUserBookings } from '../api/bookings';
-import { EmergencySosModal } from '../components/ui/EmergencySosModal';
-import type { BookingRecordDto } from '../types/api';
 
 export interface TripRecord {
   id: string;
@@ -129,19 +121,17 @@ const INITIAL_TRIPS: TripRecord[] = [
   },
 ];
 
+type Nav = CompositeNavigationProp<
+  BottomTabNavigationProp<RootTabParamList, 'MyBookings'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
+
 export function MyTripsScreen() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const { isOffline } = useNetworkStatus();
-
-  let routeParams: RootTabParamList['MyBookings'];
-  try {
-    const route = useRoute<RouteProp<RootTabParamList, 'MyBookings'>>();
-    routeParams = route.params;
-  } catch {
-    routeParams = undefined;
-  }
 
   const [trips, setTrips] = useState<TripRecord[]>(INITIAL_TRIPS);
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
@@ -183,10 +173,6 @@ export function MyTripsScreen() {
     fetchLiveBookings();
   }, [user]);
 
-  // Booking Form Modal State
-  const [bookingModalVisible, setBookingModalVisible] = useState<boolean>(false);
-  const [prefillParams, setPrefillParams] = useState<BookParams | undefined>(undefined);
-
   // Auto-cache trips to local storage for offline / mountain road access
   useEffect(() => {
     saveOfflineVouchers(trips);
@@ -199,20 +185,11 @@ export function MyTripsScreen() {
     });
   }, [trips]);
 
-  // Handle external trigger to open modal with parameters
-  useEffect(() => {
-    if (routeParams?.openBookingModal) {
-      setPrefillParams(routeParams.initialParams);
-      setBookingModalVisible(true);
-    }
-  }, [routeParams]);
-
   const shouldShowEmergencyVoucher = isOffline || mountainModeManual;
 
-  const filteredTrips = trips.filter((t) => {
-    if (tab === 'upcoming') return t.status === 'confirmed';
-    return t.status === 'completed' || t.status === 'cancelled';
-  });
+  const upcomingTrips = trips.filter((t) => t.status === 'confirmed');
+  const pastTrips = trips.filter((t) => t.status === 'completed' || t.status === 'cancelled');
+  const filteredTrips = tab === 'upcoming' ? upcomingTrips : pastTrips;
 
   const handleDownloadVoucher = async (trip: TripRecord) => {
     hapticFeedback.medium();
@@ -250,45 +227,71 @@ export function MyTripsScreen() {
     }
   };
 
-  const handleNewBookingCreated = (newTrip: TripRecord) => {
-    setTrips((prev) => [newTrip, ...prev]);
-    setTab('upcoming');
-    setBookingModalVisible(false);
+  const handleRebook = (trip: TripRecord) => {
+    hapticFeedback.medium();
+    navigation.navigate('Booking', {
+      pickupLocation: trip.pickup,
+      dropoffLocation: trip.dropoff,
+    });
   };
 
   return (
-    <View style={styles.outerContainer}>
-      <Screen>
-        <SectionHeader
-          tag="MY RESERVATIONS"
-          title="Trip & Ride History"
-          subtitle="Manage upcoming driver pickups, view assigned chauffeurs & download tax receipts."
-        />
+    <Screen padded={false}>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
 
-        {/* Mountain Emergency Mode Quick Action Bar */}
-        <View style={styles.mountainBar}>
+      {/* Top Bar matching Home & Book Ride Screens */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
+          <Text style={styles.categoryLabel}>MY RESERVATIONS</Text>
+          <Text style={styles.screenTitle}>My Trips</Text>
+        </View>
+        <ThemeToggle variant="onSurface" />
+      </View>
+
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.screenSubtitle}>
+          Track chauffeur assignments, access offline vouchers, and view past expedition receipts.
+        </Text>
+
+        {/* Mountain Emergency Mode Bar */}
+        <View style={[styles.mountainBar, shouldShowEmergencyVoucher && styles.mountainBarActive]}>
           <View style={styles.mountainBarLeft}>
-            <View style={[styles.mountainIconDot, shouldShowEmergencyVoucher && styles.mountainIconDotActive]}>
+            <View style={[styles.mountainIconCircle, shouldShowEmergencyVoucher && styles.mountainIconCircleActive]}>
               {isOffline ? (
-                <WifiOff size={14} color={colors.error} />
+                <WifiOff size={16} color={colors.error} />
               ) : (
-                <Mountain size={14} color={shouldShowEmergencyVoucher ? colors.accent : colors.subtle} />
+                <Mountain size={16} color={shouldShowEmergencyVoucher ? colors.accent : colors.subtle} />
               )}
             </View>
-            <View>
-              <Text style={styles.mountainBarTitle}>
-                {isOffline ? 'Offline Mountain Mode' : 'Mountain Emergency Mode'}
-              </Text>
+            <View style={styles.mountainTextCol}>
+              <View style={styles.mountainTitleRow}>
+                <Text style={styles.mountainBarTitle}>
+                  {isOffline ? 'Offline Mountain Mode' : 'Mountain Emergency Mode'}
+                </Text>
+                {shouldShowEmergencyVoucher && (
+                  <View style={styles.liveBadge}>
+                    <Text style={styles.liveBadgeText}>ACTIVE</Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.mountainBarSub}>
                 {isOffline
-                  ? 'Cellular lost. Offline SOS & Voucher active.'
-                  : 'Muktinath, Jomsom & remote 4x4 routes.'}
+                  ? 'Cellular lost. Offline SOS & Voucher available.'
+                  : 'Instant SOS for Muktinath, Jomsom & remote 4x4 passes.'}
               </Text>
             </View>
           </View>
 
           <Pressable
-            style={[styles.mountainToggleBtn, shouldShowEmergencyVoucher && styles.mountainToggleBtnActive]}
+            style={({ pressed }) => [
+              styles.mountainTogglePill,
+              shouldShowEmergencyVoucher && styles.mountainTogglePillActive,
+              pressed && styles.pressed,
+            ]}
             onPress={() => {
               hapticFeedback.selection();
               setMountainModeManual(!mountainModeManual);
@@ -296,157 +299,299 @@ export function MyTripsScreen() {
             accessibilityRole="button"
             accessibilityLabel="Toggle Mountain Emergency Mode"
           >
-            <Text style={[styles.mountainToggleText, shouldShowEmergencyVoucher && styles.mountainToggleTextActive]}>
-              {shouldShowEmergencyVoucher ? 'Active (SOS)' : 'Enable SOS'}
+            <Text
+              style={[
+                styles.mountainToggleText,
+                shouldShowEmergencyVoucher && styles.mountainToggleTextActive,
+              ]}
+            >
+              {shouldShowEmergencyVoucher ? 'SOS Active' : 'Enable SOS'}
             </Text>
           </Pressable>
         </View>
 
-        {/* Prominent Offline Mountain Emergency Mode Card */}
+        {/* Prominent Offline Mountain Emergency Mode Card (When Active) */}
         {shouldShowEmergencyVoucher && cachedVoucher && (
-          <EmergencyTripCard
-            voucher={cachedVoucher}
-            isOffline={isOffline}
-          />
+          <View style={styles.emergencyCardContainer}>
+            <EmergencyTripCard voucher={cachedVoucher} isOffline={isOffline} />
+          </View>
         )}
 
-        {/* Segmented Tab Switcher */}
-        <View style={styles.tabSwitcher}>
+        {/* Segmented Tab Switcher (Matching Book Ride pill tabs) */}
+        <View style={styles.segmentedTabContainer}>
           <Pressable
             onPress={() => {
               hapticFeedback.selection();
               setTab('upcoming');
             }}
-            style={[styles.tabBtn, tab === 'upcoming' && styles.tabBtnActive]}
+            style={[styles.segmentBtn, tab === 'upcoming' && styles.segmentBtnActive]}
+            accessibilityRole="button"
+            accessibilityLabel={`Upcoming Trips (${upcomingTrips.length})`}
           >
-            <Text style={[styles.tabBtnText, tab === 'upcoming' && styles.tabBtnTextActive]}>
-              Upcoming ({trips.filter((t) => t.status === 'confirmed').length})
+            <Text style={[styles.segmentBtnText, tab === 'upcoming' && styles.segmentBtnTextActive]}>
+              Upcoming
             </Text>
+            <View
+              style={[
+                styles.countBadge,
+                tab === 'upcoming' ? styles.countBadgeActive : styles.countBadgeInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countBadgeText,
+                  tab === 'upcoming' && styles.countBadgeTextActive,
+                ]}
+              >
+                {upcomingTrips.length}
+              </Text>
+            </View>
           </Pressable>
+
           <Pressable
             onPress={() => {
               hapticFeedback.selection();
               setTab('past');
             }}
-            style={[styles.tabBtn, tab === 'past' && styles.tabBtnActive]}
+            style={[styles.segmentBtn, tab === 'past' && styles.segmentBtnActive]}
+            accessibilityRole="button"
+            accessibilityLabel={`Past Trips (${pastTrips.length})`}
           >
-            <Text style={[styles.tabBtnText, tab === 'past' && styles.tabBtnTextActive]}>
-              Past Trips ({trips.filter((t) => t.status === 'completed').length})
+            <Text style={[styles.segmentBtnText, tab === 'past' && styles.segmentBtnTextActive]}>
+              Past Trips
             </Text>
+            <View
+              style={[
+                styles.countBadge,
+                tab === 'past' ? styles.countBadgeActive : styles.countBadgeInactive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countBadgeText,
+                  tab === 'past' && styles.countBadgeTextActive,
+                ]}
+              >
+                {pastTrips.length}
+              </Text>
+            </View>
           </Pressable>
         </View>
 
         {/* Trips List */}
         {filteredTrips.length === 0 ? (
-          <Card style={styles.emptyCard}>
-            <Car size={36} color={colors.subtle} style={{ marginBottom: spacing.sm }} />
-            <Text style={styles.emptyTitle}>No {tab} trips found</Text>
+          <View style={styles.emptyStateCard}>
+            <View style={styles.emptyIconCircle}>
+              <Car size={32} color={colors.accent} />
+            </View>
+            <Text style={styles.emptyTitle}>
+              {tab === 'upcoming' ? 'No Upcoming Reservations' : 'No Past Journeys Yet'}
+            </Text>
             <Text style={styles.emptySubtitle}>
               {tab === 'upcoming'
-                ? 'Ready for your next Himalayan tour or airport transfer?'
-                : 'Your completed journey receipts will appear here.'}
+                ? 'Ready for your next Himalayan tour or airport transfer? Book a comfortable 4x4 or sedan.'
+                : 'Your completed journey receipts and tax invoices will appear here once finished.'}
             </Text>
             {tab === 'upcoming' && (
-              <View style={{ marginTop: spacing.md, width: '100%' }}>
-                <Button
-                  label="Book a Vehicle Now"
-                  onPress={() => {
-                    hapticFeedback.medium();
-                    setPrefillParams(undefined);
-                    setBookingModalVisible(true);
-                  }}
-                  variant="primary"
-                />
-              </View>
+              <Pressable
+                onPress={() => {
+                  hapticFeedback.medium();
+                  navigation.navigate('Booking', undefined);
+                }}
+                style={({ pressed }) => [styles.emptyBookBtn, pressed && styles.pressed]}
+                accessibilityRole="button"
+                accessibilityLabel="Book a Ride Now"
+              >
+                <Car size={18} color="#FFFFFF" />
+                <Text style={styles.emptyBookBtnText}>Book a Ride Now</Text>
+              </Pressable>
             )}
-          </Card>
+          </View>
         ) : (
           filteredTrips.map((trip) => (
-            <Card key={trip.id} style={styles.tripCard}>
-              {/* Card Header Status */}
-              <View style={styles.cardHeader}>
-                <View style={styles.bookingRefRow}>
-                  <Text style={styles.bookingRefText}>REF: {trip.bookingRef}</Text>
+            <View key={trip.id} style={styles.tripCard}>
+              {/* Card Header: Reference & Status Pill */}
+              <View style={styles.cardHeaderRow}>
+                <View style={styles.refPill}>
+                  <Text style={styles.refText}>REF: {trip.bookingRef}</Text>
                 </View>
                 <View
                   style={[
-                    styles.statusBadge,
-                    trip.status === 'confirmed' ? styles.statusConfirmed : styles.statusCompleted,
+                    styles.statusPill,
+                    trip.status === 'confirmed'
+                      ? styles.statusPillConfirmed
+                      : trip.status === 'completed'
+                      ? styles.statusPillCompleted
+                      : styles.statusPillCancelled,
                   ]}
                 >
                   <Text
                     style={[
-                      styles.statusText,
-                      trip.status === 'confirmed' ? styles.statusTextConfirmed : styles.statusTextCompleted,
+                      styles.statusPillText,
+                      trip.status === 'confirmed'
+                        ? styles.statusPillTextConfirmed
+                        : trip.status === 'completed'
+                        ? styles.statusPillTextCompleted
+                        : styles.statusPillTextCancelled,
                     ]}
                   >
-                    {trip.status === 'confirmed' ? '🟢 Driver Assigned' : '✓ Completed'}
+                    {trip.status === 'confirmed'
+                      ? '🟢 Driver Assigned'
+                      : trip.status === 'completed'
+                      ? '✓ Completed'
+                      : '✕ Cancelled'}
                   </Text>
                 </View>
               </View>
 
-              {/* Route Section */}
-              <View style={styles.routeBox}>
-                <View style={styles.pointRow}>
-                  <View style={[styles.pointDot, { backgroundColor: colors.accent }]} />
-                  <Text style={styles.pointText}>{trip.pickup}</Text>
+              {/* Connected Route Visual Track (Matching Book Ride Screen) */}
+              <View style={styles.routeSection}>
+                <View style={styles.routeTrackCol}>
+                  <View style={styles.pickupCircleRing} />
+                  <View style={styles.dottedLine}>
+                    <View style={styles.dot} />
+                    <View style={styles.dot} />
+                    <View style={styles.dot} />
+                  </View>
+                  <MapPin size={16} color="#EF4444" style={styles.destPinIcon} />
                 </View>
-                <View style={styles.routeLine} />
-                <View style={styles.pointRow}>
-                  <View style={[styles.pointDot, { backgroundColor: colors.success }]} />
-                  <Text style={styles.pointText}>{trip.dropoff}</Text>
+
+                <View style={styles.routeDetailsCol}>
+                  {/* Pickup Destination */}
+                  <View style={styles.locationBlock}>
+                    <Text style={styles.locationLabel}>PICKUP</Text>
+                    <Text style={styles.locationValue} numberOfLines={2}>
+                      {trip.pickup}
+                    </Text>
+                  </View>
+
+                  <View style={styles.locationDivider} />
+
+                  {/* Dropoff Destination */}
+                  <View style={styles.locationBlock}>
+                    <Text style={styles.locationLabel}>DESTINATION</Text>
+                    <Text style={styles.locationValue} numberOfLines={2}>
+                      {trip.dropoff}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
-              {/* Date & Fare Bar */}
-              <View style={styles.detailsGrid}>
-                <View style={styles.detailItem}>
-                  <Calendar size={13} color={colors.subtle} />
-                  <Text style={styles.detailLabel}>{trip.date} • {trip.time}</Text>
+              {/* Metadata Divider */}
+              <View style={styles.cardDivider} />
+
+              {/* Trip Schedule & Fare Meta */}
+              <View style={styles.metaRow}>
+                <View style={styles.metaLeft}>
+                  <View style={styles.scheduleItem}>
+                    <Calendar size={14} color={colors.accent} />
+                    <Text style={styles.scheduleText}>{trip.date}</Text>
+                  </View>
+                  <View style={styles.scheduleItem}>
+                    <Clock size={14} color={colors.muted} />
+                    <Text style={styles.scheduleText}>{trip.time}</Text>
+                  </View>
+                  <View style={styles.tripTypeTag}>
+                    <Text style={styles.tripTypeTagText}>{trip.tripType}</Text>
+                  </View>
                 </View>
-                <Text style={styles.fareAmount}>{trip.fare}</Text>
+
+                <View style={styles.metaRight}>
+                  <Text style={styles.fareAmount}>{trip.fare}</Text>
+                </View>
               </View>
 
-              {/* Driver & Vehicle Box */}
-              <View style={styles.driverBox}>
+              {/* Assigned Chauffeur & Vehicle Container */}
+              <View style={styles.driverCard}>
                 <View style={styles.driverAvatar}>
-                  <Text style={styles.driverInitial}>{trip.driverName.slice(0, 1)}</Text>
+                  <Text style={styles.driverInitialText}>
+                    {trip.driverName ? trip.driverName.charAt(0).toUpperCase() : 'D'}
+                  </Text>
                 </View>
-                <View style={styles.driverInfo}>
-                  <View style={styles.driverNameRow}>
-                    <Text style={styles.driverName}>{trip.driverName}</Text>
-                    <View style={styles.ratingChip}>
-                      <Star size={10} color={colors.highlight} fill={colors.highlight} />
-                      <Text style={styles.ratingVal}>{trip.driverRating}</Text>
+
+                <View style={styles.driverInfoCol}>
+                  <View style={styles.driverTitleRow}>
+                    <Text style={styles.driverName} numberOfLines={1}>
+                      {trip.driverName}
+                    </Text>
+                    <View style={styles.ratingBadge}>
+                      <Star size={11} color={colors.highlight} fill={colors.highlight} />
+                      <Text style={styles.ratingText}>{trip.driverRating}</Text>
                     </View>
                   </View>
-                  <Text style={styles.vehicleInfo}>
-                    {trip.vehicleName} • <Text style={styles.plate}>{trip.vehiclePlate}</Text>
-                  </Text>
+
+                  <View style={styles.vehicleRow}>
+                    <Car size={12} color={colors.muted} />
+                    <Text style={styles.vehicleText} numberOfLines={1}>
+                      {trip.vehicleName}
+                    </Text>
+                    <View style={styles.plateTag}>
+                      <Text style={styles.plateText}>{trip.vehiclePlate}</Text>
+                    </View>
+                  </View>
                 </View>
 
-                {/* Quick Call Driver Button for Upcoming */}
+                {/* Quick Call Chauffeur Icon */}
                 {trip.status === 'confirmed' && (
                   <Pressable
                     onPress={() => {
                       hapticFeedback.light();
                       Linking.openURL(`tel:${trip.driverPhone}`);
                     }}
-                    style={styles.callDriverBtn}
+                    style={({ pressed }) => [styles.phoneBtn, pressed && styles.pressed]}
                     accessibilityRole="button"
                     accessibilityLabel="Call Assigned Driver"
                   >
-                    <Phone size={16} color={colors.onAccent} />
+                    <Phone size={15} color={colors.onAccent} />
                   </Pressable>
                 )}
               </View>
 
-              {/* Bottom Actions */}
-              <View style={styles.cardFooter}>
+              {/* Action Buttons Bar */}
+              <View style={styles.actionsRow}>
                 {trip.status === 'confirmed' ? (
-                  <View style={styles.confirmedActionsRow}>
+                  <>
                     <Pressable
-                      style={styles.sosTripBtn}
+                      style={({ pressed }) => [
+                        styles.actionBtnSecondary,
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() => handleDownloadVoucher(trip)}
+                      disabled={generatingPdfId === trip.id}
+                      accessibilityRole="button"
+                      accessibilityLabel="Download Trip Voucher PDF"
+                    >
+                      {generatingPdfId === trip.id ? (
+                        <ActivityIndicator size="small" color={colors.accent} />
+                      ) : (
+                        <Download size={14} color={colors.accent} />
+                      )}
+                      <Text style={styles.actionBtnSecondaryText}>
+                        {generatingPdfId === trip.id ? 'Generating...' : 'Voucher PDF'}
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionBtnWhatsApp,
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() => {
+                        hapticFeedback.light();
+                        Linking.openURL(CONTACT_INFO.whatsappLink);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Chat on WhatsApp Dispatch"
+                    >
+                      <MessageCircle size={14} color="#FFFFFF" />
+                      <Text style={styles.actionBtnWhatsAppText}>WhatsApp</Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionBtnSos,
+                        pressed && styles.pressed,
+                      ]}
                       onPress={() => {
                         hapticFeedback.medium();
                         setSosTrip(trip);
@@ -455,46 +600,19 @@ export function MyTripsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Emergency SOS"
                     >
-                      <AlertTriangle size={13} color={colors.onNavy} />
-                      <Text style={styles.sosTripBtnText}>SOS</Text>
+                      <AlertTriangle size={13} color="#FFFFFF" />
+                      <Text style={styles.actionBtnSosText}>SOS</Text>
                     </Pressable>
-
-                    <Pressable
-                      style={styles.pdfDownloadBtn}
-                      onPress={() => handleDownloadVoucher(trip)}
-                      disabled={generatingPdfId === trip.id}
-                      accessibilityRole="button"
-                      accessibilityLabel="Download Trip Voucher and Tax Receipt PDF"
-                    >
-                      {generatingPdfId === trip.id ? (
-                        <ActivityIndicator size="small" color={colors.accent} />
-                      ) : (
-                        <Download size={14} color={colors.accent} />
-                      )}
-                      <Text style={styles.pdfDownloadBtnText}>
-                        {generatingPdfId === trip.id ? 'Generating...' : 'Voucher PDF'}
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      style={styles.whatsappBtn}
-                      onPress={() => {
-                        hapticFeedback.light();
-                        Linking.openURL(CONTACT_INFO.whatsappLink);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Chat with Driver Dispatch on WhatsApp"
-                    >
-                      <MessageCircle size={14} color={colors.onAccent} />
-                      <Text style={styles.whatsappBtnText}>WhatsApp</Text>
-                    </Pressable>
-                  </View>
+                  </>
                 ) : (
-                  <View style={styles.pastActionsRow}>
+                  <>
                     <Pressable
                       onPress={() => handleDownloadVoucher(trip)}
                       disabled={generatingPdfId === trip.id}
-                      style={styles.invoiceBtn}
+                      style={({ pressed }) => [
+                        styles.actionBtnSecondary,
+                        pressed && styles.pressed,
+                      ]}
                       accessibilityRole="button"
                       accessibilityLabel="Download Official Tax Receipt PDF"
                     >
@@ -503,52 +621,32 @@ export function MyTripsScreen() {
                       ) : (
                         <FileText size={14} color={colors.accent} />
                       )}
-                      <Text style={styles.invoiceBtnText}>
+                      <Text style={styles.actionBtnSecondaryText}>
                         {generatingPdfId === trip.id ? 'Generating...' : 'Tax Receipt (PDF)'}
                       </Text>
                     </Pressable>
+
                     <Pressable
-                      onPress={() => {
-                        hapticFeedback.selection();
-                        setPrefillParams({
-                          pickupLocation: trip.pickup,
-                          dropoffLocation: trip.dropoff,
-                        });
-                        setBookingModalVisible(true);
-                      }}
-                      style={styles.rebookBtn}
+                      onPress={() => handleRebook(trip)}
+                      style={({ pressed }) => [
+                        styles.actionBtnPrimary,
+                        pressed && styles.pressed,
+                      ]}
                       accessibilityRole="button"
                       accessibilityLabel="Rebook this route"
                     >
                       <RotateCcw size={14} color={colors.onAccent} />
-                      <Text style={styles.rebookBtnText}>Book Again</Text>
+                      <Text style={styles.actionBtnPrimaryText}>Book Again</Text>
                     </Pressable>
-                  </View>
+                  </>
                 )}
               </View>
-            </Card>
+            </View>
           ))
         )}
 
-        <View style={{ height: 80 }} />
-      </Screen>
-
-      {/* Sticky / Floating "New Booking" CTA Button */}
-      <View style={styles.floatingButtonContainer}>
-        <Pressable
-          style={({ pressed }) => [styles.floatingNewBookingBtn, pressed && styles.floatingBtnPressed]}
-          onPress={() => {
-            hapticFeedback.medium();
-            setPrefillParams(undefined);
-            setBookingModalVisible(true);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="Create New Vehicle Booking"
-        >
-          <Plus size={20} color={colors.onAccent} />
-          <Text style={styles.floatingNewBookingText}>New Booking</Text>
-        </Pressable>
-      </View>
+        <View style={{ height: 40 }} />
+      </ScrollView>
 
       {/* Emergency SOS Modal */}
       <EmergencySosModal
@@ -561,159 +659,227 @@ export function MyTripsScreen() {
         driverName={sosTrip?.driverName}
         driverPhone={sosTrip?.driverPhone}
       />
-
-      {/* Booking Engine Animated Modal Dialog */}
-      <Modal
-        visible={bookingModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setBookingModalVisible(false)}
-      >
-        <BookingScreen
-          isModal
-          initialParams={prefillParams}
-          onClose={() => setBookingModalVisible(false)}
-          onSuccess={handleNewBookingCreated}
-        />
-      </Modal>
-    </View>
+    </Screen>
   );
 }
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    outerContainer: {
-      flex: 1,
-      backgroundColor: colors.background,
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm,
     },
+    topBarLeft: {
+      flex: 1,
+    },
+    categoryLabel: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.subtle,
+      letterSpacing: 1.2,
+      marginBottom: 2,
+    },
+    screenTitle: {
+      fontSize: 30,
+      fontWeight: '900',
+      color: colors.text,
+      letterSpacing: -0.5,
+    },
+    scrollContainer: {
+      flex: 1,
+    },
+    scrollContent: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xl,
+    },
+    screenSubtitle: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.muted,
+      lineHeight: 18,
+      marginBottom: spacing.md,
+    },
+
+    // Mountain Emergency Bar
     mountainBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      paddingHorizontal: spacing.sm + 4,
-      paddingVertical: spacing.sm,
-      marginBottom: spacing.sm,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      marginBottom: spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
       shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 1 },
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.05,
-      shadowRadius: 3,
+      shadowRadius: 6,
       elevation: 2,
+    },
+    mountainBarActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
     },
     mountainBarLeft: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
       flex: 1,
+      marginRight: spacing.xs,
     },
-    mountainIconDot: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+    mountainIconCircle: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       backgroundColor: colors.elevated,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 1,
       borderColor: colors.border,
     },
-    mountainIconDotActive: {
-      backgroundColor: colors.accentSoft,
+    mountainIconCircleActive: {
+      backgroundColor: colors.surface,
       borderColor: colors.accent,
     },
+    mountainTextCol: {
+      flex: 1,
+    },
+    mountainTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
     mountainBarTitle: {
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: '800',
       color: colors.text,
     },
-    mountainBarSub: {
-      fontSize: 10,
-      color: colors.subtle,
-      fontWeight: '500',
+    liveBadge: {
+      backgroundColor: colors.error,
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: radius.pill,
     },
-    mountainToggleBtn: {
+    liveBadgeText: {
+      fontSize: 9,
+      fontWeight: '900',
+      color: '#FFFFFF',
+      letterSpacing: 0.5,
+    },
+    mountainBarSub: {
+      fontSize: 11,
+      color: colors.muted,
+      marginTop: 2,
+      lineHeight: 15,
+    },
+    mountainTogglePill: {
       backgroundColor: colors.elevated,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-      borderRadius: radius.sm,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: radius.pill,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    mountainToggleBtnActive: {
+    mountainTogglePillActive: {
       backgroundColor: colors.accent,
       borderColor: colors.accent,
     },
     mountainToggleText: {
       fontSize: 11,
-      fontWeight: '700',
+      fontWeight: '800',
       color: colors.subtle,
     },
     mountainToggleTextActive: {
-      color: colors.onAccent,
+      color: '#FFFFFF',
     },
-    tabSwitcher: {
+    emergencyCardContainer: {
+      marginBottom: spacing.md,
+    },
+
+    // Segmented Tab Switcher (Pill style matching Book Ride form radios)
+    segmentedTabContainer: {
       flexDirection: 'row',
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
+      borderRadius: radius.pill,
       padding: 4,
-      marginBottom: spacing.md,
+      marginBottom: spacing.lg,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    tabBtn: {
+    segmentBtn: {
       flex: 1,
-      paddingVertical: 10,
+      flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: radius.sm,
+      justifyContent: 'center',
+      paddingVertical: 10,
+      borderRadius: radius.pill,
+      gap: 6,
     },
-    tabBtnActive: {
-      backgroundColor: colors.navy,
+    segmentBtnActive: {
+      backgroundColor: colors.accent,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 3,
     },
-    tabBtnText: {
+    segmentBtnText: {
       fontSize: 13,
       fontWeight: '700',
       color: colors.muted,
     },
-    tabBtnTextActive: {
-      color: colors.onNavy,
-    },
-    tripCard: {
-      marginBottom: spacing.md,
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: spacing.md,
-    },
-    emptyCard: {
-      padding: spacing.xl,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: radius.lg,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginVertical: spacing.md,
-    },
-    emptyTitle: {
-      fontSize: 16,
+    segmentBtnTextActive: {
+      color: '#FFFFFF',
       fontWeight: '800',
-      color: colors.text,
-      marginBottom: 4,
     },
-    emptySubtitle: {
-      fontSize: 13,
+    countBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 1,
+      borderRadius: radius.pill,
+    },
+    countBadgeActive: {
+      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    },
+    countBadgeInactive: {
+      backgroundColor: colors.elevated,
+    },
+    countBadgeText: {
+      fontSize: 11,
+      fontWeight: '800',
       color: colors.muted,
-      textAlign: 'center',
-      lineHeight: 18,
     },
-    cardHeader: {
+    countBadgeTextActive: {
+      color: '#FFFFFF',
+    },
+
+    // Trip Card Container
+    tripCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md + 2,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      elevation: 3,
+    },
+    cardHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: spacing.sm,
+      marginBottom: spacing.md,
     },
-    bookingRefRow: {
+    refPill: {
       backgroundColor: colors.elevated,
       paddingHorizontal: 8,
       paddingVertical: 3,
@@ -721,273 +887,401 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    bookingRefText: {
+    refText: {
       fontSize: 11,
       fontWeight: '800',
       color: colors.subtle,
       letterSpacing: 0.5,
     },
-    statusBadge: {
-      paddingHorizontal: 8,
+    statusPill: {
+      paddingHorizontal: 9,
       paddingVertical: 3,
       borderRadius: radius.pill,
     },
-    statusConfirmed: {
+    statusPillConfirmed: {
       backgroundColor: colors.successSoft,
     },
-    statusCompleted: {
+    statusPillCompleted: {
       backgroundColor: colors.accentSoft,
     },
-    statusText: {
+    statusPillCancelled: {
+      backgroundColor: colors.errorSoft,
+    },
+    statusPillText: {
       fontSize: 11,
       fontWeight: '800',
     },
-    statusTextConfirmed: {
+    statusPillTextConfirmed: {
       color: colors.success,
     },
-    statusTextCompleted: {
+    statusPillTextCompleted: {
       color: colors.accent,
     },
-    routeBox: {
+    statusPillTextCancelled: {
+      color: colors.error,
+    },
+
+    // Connected Route Track Visual
+    routeSection: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.sm,
+    },
+    routeTrackCol: {
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 2,
+      marginRight: spacing.sm + 2,
+      width: 18,
+    },
+    pickupCircleRing: {
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      borderWidth: 3,
+      borderColor: colors.accent,
+      backgroundColor: colors.surface,
+    },
+    dottedLine: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'space-evenly',
+      marginVertical: 3,
+    },
+    dot: {
+      width: 2.5,
+      height: 2.5,
+      borderRadius: 1.25,
+      backgroundColor: colors.subtle,
+    },
+    destPinIcon: {
+      marginTop: 1,
+    },
+    routeDetailsCol: {
+      flex: 1,
+      justifyContent: 'space-between',
+    },
+    locationBlock: {
+      justifyContent: 'center',
+    },
+    locationLabel: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: colors.subtle,
+      letterSpacing: 0.8,
+      marginBottom: 2,
+    },
+    locationValue: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+      lineHeight: 17,
+    },
+    locationDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 6,
+    },
+
+    // Card Divider
+    cardDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: spacing.xs + 2,
+    },
+
+    // Meta Row (Schedule & Fare)
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginVertical: spacing.xs,
+    },
+    metaLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      flexWrap: 'wrap',
+    },
+    scheduleItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    scheduleText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    tripTypeTag: {
+      backgroundColor: colors.elevated,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tripTypeTagText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: colors.muted,
+    },
+    metaRight: {},
+    fareAmount: {
+      fontSize: 16,
+      fontWeight: '900',
+      color: colors.text,
+    },
+
+    // Chauffeur & Vehicle Box
+    driverCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
       backgroundColor: colors.elevated,
       borderRadius: radius.md,
       padding: spacing.sm + 2,
       borderWidth: 1,
       borderColor: colors.border,
-      marginBottom: spacing.sm,
-    },
-    pointRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8,
-    },
-    pointDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-    },
-    pointText: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.text,
-      flex: 1,
-    },
-    routeLine: {
-      width: 1.5,
-      height: 10,
-      backgroundColor: colors.border,
-      marginLeft: 3.5,
-      marginVertical: 2,
-    },
-    detailsGrid: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: spacing.sm,
-      paddingHorizontal: 2,
-    },
-    detailItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    detailLabel: {
-      fontSize: 12,
-      color: colors.muted,
-      fontWeight: '600',
-    },
-    fareAmount: {
-      fontSize: 15,
-      fontWeight: '900',
-      color: colors.text,
-    },
-    driverBox: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      padding: spacing.sm,
-      borderRadius: radius.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginBottom: spacing.sm,
+      marginVertical: spacing.sm,
       gap: spacing.sm,
     },
     driverAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.navy,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    driverInitial: {
-      color: colors.onNavy,
-      fontSize: 14,
-      fontWeight: '800',
+    driverInitialText: {
+      fontSize: 16,
+      fontWeight: '900',
+      color: colors.onAccent,
     },
-    driverInfo: {
+    driverInfoCol: {
       flex: 1,
     },
-    driverNameRow: {
+    driverTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
+      marginBottom: 2,
     },
     driverName: {
       fontSize: 13,
       fontWeight: '800',
       color: colors.text,
+      flexShrink: 1,
     },
-    ratingChip: {
+    ratingBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 2,
-      backgroundColor: colors.elevated,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 5,
+      paddingVertical: 1,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    ratingText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    vehicleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      flexWrap: 'wrap',
+    },
+    vehicleText: {
+      fontSize: 11,
+      color: colors.muted,
+      fontWeight: '500',
+      flexShrink: 1,
+    },
+    plateTag: {
+      backgroundColor: colors.surface,
       paddingHorizontal: 4,
       paddingVertical: 1,
       borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
-    ratingVal: {
+    plateText: {
       fontSize: 10,
       fontWeight: '700',
       color: colors.text,
     },
-    vehicleInfo: {
-      fontSize: 11,
-      color: colors.muted,
-      marginTop: 2,
-    },
-    plate: {
-      fontWeight: '700',
-      color: colors.text,
-    },
-    callDriverBtn: {
+    phoneBtn: {
       width: 36,
       height: 36,
       borderRadius: 18,
       backgroundColor: colors.accent,
       alignItems: 'center',
       justifyContent: 'center',
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    cardFooter: {
-      marginTop: 2,
-    },
-    confirmedActionsRow: {
+
+    // Action Buttons Bar
+    actionsRow: {
       flexDirection: 'row',
-      gap: spacing.xs,
+      alignItems: 'center',
+      gap: spacing.xs + 2,
+      marginTop: spacing.xs,
     },
-    sosTripBtn: {
+    actionBtnPrimary: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 4,
-      backgroundColor: colors.error,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 9,
-      borderRadius: radius.sm,
+      gap: 6,
+      backgroundColor: colors.accent,
+      paddingVertical: 10,
+      borderRadius: radius.pill,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    sosTripBtnText: {
-      fontSize: 11,
+    actionBtnPrimaryText: {
+      fontSize: 12,
       fontWeight: '800',
-      color: colors.onNavy,
+      color: colors.onAccent,
     },
-    pdfDownloadBtn: {
+    actionBtnSecondary: {
       flex: 1.2,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
       backgroundColor: colors.accentSoft,
-      paddingVertical: 9,
-      borderRadius: radius.sm,
+      paddingVertical: 10,
+      borderRadius: radius.pill,
       borderWidth: 1,
       borderColor: colors.accent,
     },
-    pdfDownloadBtnText: {
+    actionBtnSecondaryText: {
       fontSize: 12,
-      fontWeight: '700',
+      fontWeight: '800',
       color: colors.accent,
     },
-    whatsappBtn: {
-      flex: 0.8,
+    actionBtnWhatsApp: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      backgroundColor: colors.navySoft,
-      paddingVertical: 9,
-      borderRadius: radius.sm,
+      backgroundColor: '#25D366',
+      paddingVertical: 10,
+      borderRadius: radius.pill,
+      shadowColor: '#25D366',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    whatsappBtnText: {
+    actionBtnWhatsAppText: {
       fontSize: 12,
-      fontWeight: '700',
-      color: colors.onNavy,
+      fontWeight: '800',
+      color: '#FFFFFF',
     },
-    pastActionsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    invoiceBtn: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
-      backgroundColor: colors.accentSoft,
-      paddingVertical: 8,
-      borderRadius: radius.sm,
-    },
-    invoiceBtnText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.accent,
-    },
-    rebookBtn: {
-      flex: 1,
+    actionBtnSos: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 4,
-      backgroundColor: colors.accent,
-      paddingVertical: 8,
-      borderRadius: radius.sm,
+      backgroundColor: colors.error,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: radius.pill,
+      shadowColor: colors.error,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    rebookBtnText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.onAccent,
+    actionBtnSosText: {
+      fontSize: 11,
+      fontWeight: '900',
+      color: '#FFFFFF',
     },
-    floatingButtonContainer: {
-      position: 'absolute',
-      bottom: 20,
-      right: 20,
-      zIndex: 99,
-      elevation: 8,
+
+    // Empty State Card
+    emptyStateCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.xl,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginVertical: spacing.md,
       shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
       shadowRadius: 8,
+      elevation: 2,
     },
-    floatingNewBookingBtn: {
+    emptyIconCircle: {
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    emptyTitle: {
+      fontSize: 17,
+      fontWeight: '900',
+      color: colors.text,
+      marginBottom: 6,
+      textAlign: 'center',
+    },
+    emptySubtitle: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.muted,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: spacing.lg,
+      maxWidth: 280,
+    },
+    emptyBookBtn: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'center',
       gap: 8,
       backgroundColor: colors.accent,
-      paddingHorizontal: 18,
-      paddingVertical: 13,
+      paddingVertical: 12,
+      paddingHorizontal: 28,
       borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.2)',
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 6,
+      elevation: 3,
     },
-    floatingBtnPressed: {
-      opacity: 0.9,
-      transform: [{ scale: 0.97 }],
-    },
-    floatingNewBookingText: {
-      color: colors.onAccent,
+    emptyBookBtnText: {
       fontSize: 14,
       fontWeight: '800',
-      letterSpacing: 0.3,
+      color: '#FFFFFF',
+    },
+    pressed: {
+      opacity: 0.85,
+      transform: [{ scale: 0.98 }],
     },
   });
 }

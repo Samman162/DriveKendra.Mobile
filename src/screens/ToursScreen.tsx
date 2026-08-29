@@ -20,7 +20,6 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { TourCard } from '../components/ui/TourCard';
 import { TOUR_PACKAGES, type TourPackage } from '../content/tours';
 import type { RootStackParamList, RootTabParamList } from '../navigation/types';
@@ -92,7 +91,7 @@ export function ToursScreen() {
   const renderHeader = useCallback(
     () => (
       <View style={styles.headerContainer}>
-        {/* Header with Title & Theme Toggle */}
+        {/* Header with Title */}
         <View style={styles.headerRow}>
           <View style={styles.headerCopy}>
             <Text style={styles.badgeTag}>CURATED EXPEDITIONS</Text>
@@ -101,7 +100,6 @@ export function ToursScreen() {
               All-inclusive private vehicles, fuel & mountain chauffeurs.
             </Text>
           </View>
-          <ThemeToggle variant="onSurface" />
         </View>
 
         {/* Search Bar */}

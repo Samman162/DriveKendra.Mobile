@@ -23,7 +23,6 @@ import { Screen } from '../components/ui/Screen';
 import { SectionHeader } from '../components/ui/SectionHeader';
 import { SuccessModal } from '../components/ui/SuccessModal';
 import { TextField } from '../components/ui/TextField';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { CONTACT_INFO } from '../constants/contact';
 import { LIMITS } from '../constants/validation';
 import { HOME_FAQS } from '../content/faqs';
@@ -90,7 +89,6 @@ export function ContactScreen() {
             Direct dispatch line, WhatsApp support & roadside assistance across Nepal.
           </Text>
         </View>
-        <ThemeToggle variant="onSurface" />
       </View>
 
       <HoneypotField />

@@ -21,7 +21,6 @@ import { BrandLogo } from '../components/ui/BrandLogo';
 import { Card } from '../components/ui/Card';
 import { Screen } from '../components/ui/Screen';
 import { SectionHeader } from '../components/ui/SectionHeader';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 import type { RootStackParamList } from '../navigation/types';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
@@ -83,7 +82,6 @@ export function ExploreScreen() {
             Full range of transport solutions across Kathmandu and all 7 provinces of Nepal.
           </Text>
         </View>
-        <ThemeToggle variant="onSurface" />
       </View>
 
       {/* Featured Services Cards */}

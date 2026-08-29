@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CalendarCheck, Car, Home as HomeIcon, User as UserIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { AirportScreen } from '../screens/AirportScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BookingScreen } from '../screens/BookingScreen';
@@ -37,7 +36,6 @@ function stackScreenOptions(colors: ReturnType<typeof useTheme>['colors'], title
     headerTintColor: colors.text,
     headerTitleStyle: { fontWeight: '800' as const },
     headerShadowVisible: false,
-    headerRight: () => <ThemeToggle variant="onSurface" />,
   };
 }
 
