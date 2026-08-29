@@ -43,6 +43,8 @@ function createStyles(colors: ThemeColors) {
     },
     card: {
       width: '100%',
+      maxWidth: 420,
+      alignSelf: 'center',
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
       borderWidth: 1,

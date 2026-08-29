@@ -173,8 +173,13 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       backgroundColor: colors.overlay,
       justifyContent: 'flex-end',
+      alignItems: 'center',
+      width: '100%',
     },
     sheet: {
+      width: '100%',
+      maxWidth: 540,
+      alignSelf: 'center',
       backgroundColor: colors.surface,
       borderTopLeftRadius: radius.xl,
       borderTopRightRadius: radius.xl,

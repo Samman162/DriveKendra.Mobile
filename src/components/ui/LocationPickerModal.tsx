@@ -419,9 +419,13 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       backgroundColor: 'rgba(0, 0, 0, 0.45)',
       justifyContent: 'flex-end',
+      alignItems: 'center',
+      width: '100%',
     },
     sheetCard: {
       width: '100%',
+      maxWidth: 540,
+      alignSelf: 'center',
       height: '78%',
       backgroundColor: colors.surface,
       borderTopLeftRadius: 24,

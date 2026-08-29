@@ -157,9 +157,12 @@ const createStyles = (colors: ThemeColors) =>
       flex: 1,
       backgroundColor: 'rgba(0, 0, 0, 0.45)',
       justifyContent: 'flex-end',
+      alignItems: 'center',
     },
     sheetCard: {
       width: '100%',
+      maxWidth: 500,
+      alignSelf: 'center',
       maxHeight: '90%',
       backgroundColor: colors.surface,
       borderTopLeftRadius: 24,
@@ -190,7 +193,7 @@ const createStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
     },
     titleText: {
@@ -209,8 +212,8 @@ const createStyles = (colors: ThemeColors) =>
       justifyContent: 'center',
     },
     contentContainer: {
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
       paddingTop: spacing.xs,
-      paddingBottom: spacing.xl,
+      paddingBottom: spacing.xxl,
     },
   });
