@@ -198,7 +198,7 @@ CREATE TABLE IF NOT EXISTS dka_notifications (
 ```
 
 ### 2. Test via Server API
-Dispatch an automated driver assignment alert via curl or Postman:
+Dispatch an automated driver assignment alert via curl:
 ```bash
 curl -X POST http://localhost:8787/api/notifications/dispatch-driver-assigned \
   -H "Content-Type: application/json" \

@@ -25,7 +25,7 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
   - [6. Reviews & Testimonials](#6-reviews--testimonials)
   - [7. Platform Statistics](#7-platform-statistics)
 - [Database Security & Row-Level Security (RLS)](#-database-security--row-level-security-rls)
-- [Testing & Quality Assurance](#-testing--quality-assurance)
+- [Testing & Quality Assurance (14 Tests)](#-testing--quality-assurance-14-tests)
 
 ---
 
@@ -395,7 +395,7 @@ This isolates unauthenticated public requests from administrative operations and
 
 ---
 
-## 🧪 Testing & Quality Assurance
+## 🧪 Testing & Quality Assurance (14 Tests)
 
 ### Run Unit Tests
 ```bash

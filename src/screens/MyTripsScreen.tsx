@@ -68,7 +68,7 @@ export interface TripRecord {
   dropoff: string;
   date: string;
   time: string;
-  tripType: 'One Way' | 'Round Trip';
+  tripType: 'One Way' | 'Return' | 'Round Trip';
   vehicleName: string;
   vehiclePlate: string;
   driverName: string;

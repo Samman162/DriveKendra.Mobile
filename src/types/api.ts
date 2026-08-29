@@ -1,4 +1,4 @@
-export type TripType = 'One Way' | 'Round Trip';
+export type TripType = 'One Way' | 'Return' | 'Round Trip';
 
 export interface BookingEntryDto {
   user_id?: number | string | null;
@@ -27,7 +27,7 @@ export interface BookingRecordDto {
   pickupDate: string;
   returnDate: string | null;
   passengerCount: number;
-  tripType: 'One Way' | 'Round Trip';
+  tripType: 'One Way' | 'Return' | 'Round Trip';
   status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
   assignedDriverName: string | null;
   assignedDriverPhone: string | null;

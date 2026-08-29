@@ -104,7 +104,7 @@ export const bookingZodSchema = z
     pickup_date: z.string().min(1, 'Pickup date is required.'),
     return_date: z.string().optional().nullable().or(z.literal('')),
     passenger_count: z.coerce.number().int().min(1, 'Passenger count must be at least 1.').max(50, 'Passenger count max 50.'),
-    trip_type: z.enum(['One Way', 'Round Trip', 'one way', 'round trip', 'One-Way', 'Round-Trip']),
+    trip_type: z.enum(['One Way', 'Return', 'Round Trip', 'return', 'one way', 'round trip', 'One-Way', 'Round-Trip']),
     vehicle_type_id: z.coerce.number().int().min(1, 'Select a valid vehicle type.').max(4, 'Select a valid vehicle type.'),
     additional_details: z.string().max(2000, 'Additional details too long.').optional().nullable(),
     website_hp: honeypotValidator,
@@ -129,13 +129,13 @@ export const bookingZodSchema = z
       });
     }
 
-    const isRound = data.trip_type.toLowerCase().includes('round');
+    const isRound = data.trip_type.toLowerCase().includes('round') || data.trip_type.toLowerCase().includes('return');
     if (isRound) {
       if (!data.return_date) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['return_date'],
-          message: 'Return date is required for a round trip.',
+          message: 'Return date is required for a return trip.',
         });
       } else {
         const ret = parseDateOnly(data.return_date);
@@ -173,7 +173,7 @@ export function parseBooking(body: unknown): BookingInput {
   }
 
   const valid = result.data;
-  const isRound = valid.trip_type.toLowerCase().includes('round');
+  const isRound = valid.trip_type.toLowerCase().includes('round') || valid.trip_type.toLowerCase().includes('return');
   const pickupDate = parseDateOnly(valid.pickup_date)!;
   const returnDate = isRound && valid.return_date ? parseDateOnly(valid.return_date) : null;
 

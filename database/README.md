@@ -31,7 +31,7 @@ This directory contains the canonical PostgreSQL database schema, stored procedu
   - [6. `dka_idempotency_keys`](#6-dka_idempotency_keys)
 - [Stored Functions & Procedures](#-stored-functions--procedures)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
-- [Initializing Database from Scratch](#initializing-database-from-scratch)
+- [Initializing Database from Scratch](#-initializing-database-from-scratch)
 
 ---
 
@@ -212,7 +212,7 @@ SELECT * FROM dka_get_public_stats();
 
 ---
 
-## Initializing Database from Scratch
+## 🚀 Initializing Database from Scratch
 
 ```bash
 psql -U postgres -d car_rental_db -f database/database.sql

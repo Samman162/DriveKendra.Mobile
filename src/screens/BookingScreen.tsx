@@ -1,52 +1,54 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  ArrowRight,
+  ArrowLeft,
+  ArrowUpDown,
   Calendar,
   Car,
-  CheckCircle2,
+  Check,
+  ChevronRight,
   Clock,
-  Edit3,
+  CreditCard,
+  FileText,
   Info,
-  Mail,
   MapPin,
-  MessageCircle,
-  Phone,
+  Minus,
+  Navigation as NavigationIcon,
+  Plus,
+  Search,
   ShieldCheck,
   Sparkles,
-  User,
+  Sun,
+  Sunrise,
   Users,
   X,
 } from 'lucide-react-native';
 
 import { submitBooking } from '../api/bookings';
 import { HoneypotField } from '../components/honeypot/HoneypotField';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
 import { DateField } from '../components/ui/DateField';
-import { EmbeddedMapView } from '../components/ui/EmbeddedMapView';
-import { PickerSheet } from '../components/ui/PickerSheet';
-import { PromoCodeSheet } from '../components/ui/PromoCodeSheet';
+import { LocationPickerModal } from '../components/ui/LocationPickerModal';
 import { Screen } from '../components/ui/Screen';
-import { SectionHeader } from '../components/ui/SectionHeader';
-import { SegmentedControl } from '../components/ui/SegmentedControl';
-import { Stepper } from '../components/ui/Stepper';
+import { SlideDrawerModal } from '../components/ui/SlideDrawerModal';
 import { SuccessModal } from '../components/ui/SuccessModal';
-import { TextField } from '../components/ui/TextField';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { TimePickerField } from '../components/ui/TimePickerField';
 import { CONTACT_INFO } from '../constants/contact';
-import { LIMITS, NEPAL_PHONE_ERROR } from '../constants/validation';
+import { LIMITS } from '../constants/validation';
 import { VEHICLE_TYPES } from '../constants/vehicles';
 import { useAuth } from '../context/AuthContext';
 import type { BookParams, RootStackParamList } from '../navigation/types';
@@ -58,7 +60,23 @@ import type { TripType } from '../types/api';
 import { isSameOrAfterDay, startOfToday, toLocalDateOnly } from '../utils/dates';
 import { emptyToNull, extractErrorMessage } from '../utils/errors';
 import { hapticFeedback } from '../utils/haptics';
-import { isValidNepalPhone, normalizeNepalPhone } from '../utils/phone';
+import { normalizeNepalPhone } from '../utils/phone';
+
+const VEHICLE_META: Record<number, { subtitle: string; capacity: string; tag: string }> = {
+  1: { subtitle: 'Swift, Dzire, Etios (AC & Sedan Comfort)', capacity: '👥 4 Seats • 🧳 2 Bags', tag: 'City & Highway' },
+  2: { subtitle: 'Mahindra Scorpio (High Clearance 4WD)', capacity: '👥 7 Seats • 🏔️ 4x4 Off-road', tag: 'Himalayan Ready' },
+  3: { subtitle: 'Toyota HiAce (Spacious High-Roof Cabin)', capacity: '👥 14 Seats • ❄️ Full AC', tag: 'Groups & Family' },
+  4: { subtitle: 'Tourist Coaster / Deluxe Bus (Luxury Coach)', capacity: '👥 35 Seats • 🚌 Reclining', tag: 'Large Expeditions' },
+};
+
+const POPULAR_TIME_SLOTS = [
+  '06:00 AM',
+  '07:30 AM',
+  '09:00 AM',
+  '12:00 PM',
+  '02:30 PM',
+  '05:00 PM',
+];
 
 type BookingErrors = Partial<Record<string, string>>;
 
@@ -71,7 +89,7 @@ export interface BookingScreenProps {
     dropoff: string;
     date: string;
     time: string;
-    tripType: 'One Way' | 'Round Trip';
+    tripType: 'One Way' | 'Return' | 'Round Trip';
     vehicleName: string;
     vehiclePlate: string;
     driverName: string;
@@ -84,15 +102,6 @@ export interface BookingScreenProps {
   initialParams?: BookParams;
 }
 
-const QUICK_LOCATIONS = [
-  'TIA Airport',
-  'Pokhara Lakeside',
-  'Manakamana Cable Car',
-  'Chitwan Sauraha',
-  'Nagarkot Viewpoint',
-  'Bhaktapur Durbar Sq',
-];
-
 const emptyForm = {
   full_name: '',
   phone_number: '',
@@ -100,11 +109,11 @@ const emptyForm = {
   pickup_location: '',
   dropoff_location: '',
   pickup_date: null as Date | null,
-  pickup_time: '07:00 AM',
+  pickup_time: '',
   return_date: null as Date | null,
   passenger_count: 1,
   trip_type: 'One Way' as TripType,
-  vehicle_type_id: 1 as number | null,
+  vehicle_type_id: null as number | null,
   additional_details: '',
 };
 
@@ -114,7 +123,7 @@ export function BookingScreen({
   isModal,
   initialParams,
 }: BookingScreenProps = {}) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -128,14 +137,22 @@ export function BookingScreen({
 
   const { user, isAuthenticated } = useAuth();
 
+  const [selectedTripMode, setSelectedTripMode] = useState<'One Way' | 'Return'>('One Way');
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<BookingErrors>({});
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [successVisible, setSuccessVisible] = useState(false);
-  const [promoCode, setPromoCode] = useState<string | null>(null);
-  const [discount, setDiscount] = useState<number>(0);
-  const [editingTraveler, setEditingTraveler] = useState(false);
+  const [budget, setBudget] = useState<string>('');
+  const [tempBudget, setTempBudget] = useState<string>('');
+  const [budgetModalVisible, setBudgetModalVisible] = useState(false);
+
+  // Modals
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationModalMode, setLocationModalMode] = useState<'pickup' | 'dropoff'>('pickup');
+  const [dateTimeModalVisible, setDateTimeModalVisible] = useState(false);
+  const [dateModalMode, setDateModalMode] = useState<'pickup' | 'return'>('pickup');
+  const [vehiclePickerVisible, setVehiclePickerVisible] = useState(false);
 
   // Autofill user details if authenticated
   useEffect(() => {
@@ -168,6 +185,10 @@ export function BookingScreen({
       passenger_count: params.passengerCount ?? current.passenger_count,
       return_date: params.tripType === 'Round Trip' ? current.return_date : null,
     }));
+
+    if (params.tripType === 'Return' || params.tripType === 'Round Trip') {
+      setSelectedTripMode('Return');
+    }
   }, [initialParams, routeParams]);
 
   const update = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
@@ -175,21 +196,48 @@ export function BookingScreen({
     setErrors((current) => ({ ...current, [key]: undefined }));
   };
 
+  const handleTripModeChange = (mode: 'One Way' | 'Return') => {
+    hapticFeedback.selection();
+    setSelectedTripMode(mode);
+    if (mode === 'Return') {
+      update('trip_type', 'Return');
+    } else {
+      update('trip_type', 'One Way');
+    }
+  };
+
+  const openLocationPicker = (mode: 'pickup' | 'dropoff') => {
+    hapticFeedback.selection();
+    setLocationModalMode(mode);
+    setLocationModalVisible(true);
+  };
+
+  const handleLocationSelected = (locationName: string) => {
+    if (locationModalMode === 'pickup') {
+      update('pickup_location', locationName);
+    } else {
+      update('dropoff_location', locationName);
+    }
+  };
+
+  const swapLocations = () => {
+    hapticFeedback.selection();
+    setForm((current) => ({
+      ...current,
+      pickup_location: current.dropoff_location,
+      dropoff_location: current.pickup_location,
+    }));
+  };
+
   const validate = (): boolean => {
     const next: BookingErrors = {};
-    if (!form.full_name.trim()) next.full_name = 'Full name is required.';
-    if (!form.phone_number.trim()) next.phone_number = 'Phone number is required.';
-    else if (!isValidNepalPhone(form.phone_number)) next.phone_number = NEPAL_PHONE_ERROR;
-    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      next.email = 'Please enter a valid email address.';
-    }
     if (!form.vehicle_type_id) next.vehicle_type_id = 'Select a vehicle type.';
     if (!form.pickup_location.trim()) next.pickup_location = 'Pickup location is required.';
     if (!form.dropoff_location.trim()) next.dropoff_location = 'Destination is required.';
     if (!form.pickup_date) next.pickup_date = 'Pickup date is required.';
     if (!form.pickup_time.trim()) next.pickup_time = 'Pickup departure time is required.';
-    if (form.trip_type === 'Round Trip' && !form.return_date) {
-      next.return_date = 'Return date is required for round trips.';
+    if (selectedTripMode === 'Return' && !form.return_date) {
+      next.return_date = 'Return date is required for return trips.';
     }
     if (form.pickup_date && form.return_date && !isSameOrAfterDay(form.return_date, form.pickup_date)) {
       next.return_date = 'Return date must be after pickup date.';
@@ -221,20 +269,30 @@ export function BookingScreen({
       const dateStr = toLocalDateOnly(form.pickup_date) ?? '';
       const fullPickupDate = form.pickup_time ? `${dateStr} ${form.pickup_time}` : dateStr;
       const numericUserId = isAuthenticated && user?.id && !isNaN(Number(user.id)) ? Number(user.id) : undefined;
+      const passengerName = (user?.name || form.full_name || 'Passenger').trim();
+      const passengerPhone = normalizeNepalPhone(user?.phone || form.phone_number || '9841234567');
+      const passengerEmail = emptyToNull(user?.email || form.email);
+
+      const combinedDetails = [
+        budget.trim() ? `[Target Budget: ${budget.trim()}]` : null,
+        form.additional_details?.trim() || null,
+      ]
+        .filter(Boolean)
+        .join(' | ');
 
       await submitBooking({
         user_id: numericUserId,
-        full_name: form.full_name.trim(),
-        phone_number: normalizeNepalPhone(form.phone_number),
-        email: emptyToNull(form.email),
+        full_name: passengerName,
+        phone_number: passengerPhone,
+        email: passengerEmail,
         pickup_location: form.pickup_location.trim(),
         dropoff_location: form.dropoff_location.trim(),
         pickup_date: fullPickupDate,
-        return_date: form.trip_type === 'Round Trip' ? toLocalDateOnly(form.return_date) : null,
+        return_date: selectedTripMode === 'Return' ? toLocalDateOnly(form.return_date) : null,
         passenger_count: form.passenger_count,
         trip_type: form.trip_type,
         vehicle_type_id: form.vehicle_type_id,
-        additional_details: emptyToNull(form.additional_details),
+        additional_details: emptyToNull(combinedDetails),
         website_hp: '',
       });
 
@@ -246,13 +304,13 @@ export function BookingScreen({
         dropoff: form.dropoff_location.trim(),
         date: dateStr || 'Tomorrow',
         time: form.pickup_time || '7:00 AM',
-        tripType: form.trip_type as 'One Way' | 'Round Trip',
+        tripType: form.trip_type as 'One Way' | 'Return' | 'Round Trip',
         vehicleName: `${vehicleName} (AC)`,
         vehiclePlate: `Ba ${Math.floor(1 + Math.random() * 5)} Cha ${randomRefNum}`,
         driverName: 'Suman Shrestha (Kathmandu Dispatch)',
         driverPhone: CONTACT_INFO.phoneRaw,
         driverRating: 4.9,
-        fare: discount > 0 ? `NPR ${(12000 - discount).toLocaleString('en-IN')}` : 'NPR 12,000',
+        fare: budget.trim() ? budget.trim() : 'NPR 12,000',
         status: 'confirmed' as const,
       };
 
@@ -272,316 +330,659 @@ export function BookingScreen({
     }
   };
 
-  const handleSuccessClose = () => {
-    setSuccessVisible(false);
-    handleDismiss();
-  };
+  const selectedVehicleObj = VEHICLE_TYPES.find((v) => v.id === form.vehicle_type_id);
+  const selectedVehicleLabel = selectedVehicleObj ? selectedVehicleObj.name : 'Preferred Vehicle Type';
 
   return (
-    <Screen>
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.badgeTag}>ONLINE RESERVATION</Text>
-          <Text style={styles.pageTitle}>Book Vehicle & Driver</Text>
-          <Text style={styles.pageSubtitle}>
-            Instant booking with verified mountain drivers & upfront rates.
-          </Text>
-        </View>
+    <Screen scroll={false} padded={false}>
+      {/* MINIMAL TOP NAV BAR */}
+      <View style={styles.topNavRow}>
+        <Pressable
+          onPress={handleDismiss}
+          style={styles.backArrowBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <ArrowLeft size={20} color={colors.text} />
+        </Pressable>
 
-        <View style={styles.headerRightActions}>
-          <ThemeToggle variant="onSurface" />
-          {(isModal || onClose || navigation.canGoBack()) && (
-            <Pressable
-              onPress={handleDismiss}
-              style={styles.closeBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Close Booking Form Dialog"
-            >
-              <X size={20} color={colors.text} />
-            </Pressable>
-          )}
-        </View>
+        <ThemeToggle variant="onSurface" />
       </View>
 
-      <HoneypotField />
+      <ScrollView
+        style={styles.scrollBody}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        <HoneypotField />
 
-      {formError ? (
-        <View style={styles.errorAlert}>
-          <Text style={styles.errorAlertText}>{formError}</Text>
-        </View>
-      ) : null}
-
-      {/* STEP 1: ROUTE & TRIP TYPE */}
-      <Card style={styles.block}>
-        <View style={styles.blockHeader}>
-          <View style={styles.stepNumBadge}>
-            <Text style={styles.stepNumText}>1</Text>
+        {formError ? (
+          <View style={styles.errorAlert}>
+            <Text style={styles.errorAlertText}>{formError}</Text>
           </View>
-          <Text style={styles.blockTitle}>Route & Departure Details</Text>
-        </View>
+        ) : null}
 
-        <SegmentedControl<TripType>
-          label="Trip Type"
-          value={form.trip_type}
-          onChange={(value) => {
-            hapticFeedback.selection();
-            update('trip_type', value);
-          }}
-          options={[
-            { label: 'One Way', value: 'One Way' },
-            { label: 'Round Trip', value: 'Round Trip' },
-          ]}
-        />
+        {/* MAIN SLEEK FORM CARD (CENTERED) */}
+        <View style={styles.mainFormCard}>
+          {/* TRIP TYPE RADIO PILLS */}
+          <View style={styles.tripRadioRow}>
+            {(['One Way', 'Return'] as const).map((modeOption) => {
+              const isSelected = selectedTripMode === modeOption;
+              return (
+                <Pressable
+                  key={modeOption}
+                  onPress={() => handleTripModeChange(modeOption)}
+                  style={styles.radioOption}
+                >
+                  <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
+                    {isSelected && <View style={styles.radioDot} />}
+                  </View>
+                  <Text style={[styles.radioLabel, isSelected && styles.radioLabelActive]}>
+                    {modeOption}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        {/* Embedded Interactive Real Route Map */}
-        <EmbeddedMapView
-          pickupLocation={form.pickup_location}
-          dropoffLocation={form.dropoff_location}
-          onSelectPickup={(loc) => update('pickup_location', loc)}
-          onSelectDropoff={(loc) => update('dropoff_location', loc)}
-        />
+          {/* PICKUP & DESTINATION CONNECTED TRACK */}
+          <View style={styles.routeContainer}>
+            {/* Left Track Graphic */}
+            <View style={styles.routeTrackCol}>
+              <View style={styles.pickupCircleRing} />
+              <View style={styles.dottedLine}>
+                <View style={styles.dot} />
+                <View style={styles.dot} />
+                <View style={styles.dot} />
+              </View>
+              <MapPin size={18} color="#EF4444" style={styles.destPinIcon} />
+            </View>
 
-        <TextField
-          label="Pickup Location *"
-          value={form.pickup_location}
-          onChangeText={(value) => update('pickup_location', value)}
-          placeholder="e.g. Kathmandu (Hotel, Airport, Home)"
-          error={errors.pickup_location}
-          maxLength={LIMITS.location}
-        />
-
-        <TextField
-          label="Drop-off Destination *"
-          value={form.dropoff_location}
-          onChangeText={(value) => update('dropoff_location', value)}
-          placeholder="e.g. Pokhara, Chitwan, Manakamana"
-          error={errors.dropoff_location}
-          maxLength={LIMITS.location}
-        />
-
-        {/* Quick Destination Chips */}
-        <View style={styles.quickChipsWrap}>
-          <Text style={styles.quickLabel}>Quick destinations:</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChipsRow}>
-            {QUICK_LOCATIONS.map((loc) => (
+            {/* Right Input Fields */}
+            <View style={styles.routeInputsCol}>
+              {/* Pickup Row */}
               <Pressable
-                key={loc}
+                onPress={() => openLocationPicker('pickup')}
+                style={styles.formRowInput}
+                accessibilityRole="button"
+                accessibilityLabel="Select Pickup Location"
+              >
+                <Text style={styles.fieldSubLabel}>Pickup Location</Text>
+                <Text
+                  style={[
+                    styles.fieldMainValue,
+                    !form.pickup_location && styles.fieldPlaceholder,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {form.pickup_location || 'Select Pickup Location'}
+                </Text>
+              </Pressable>
+              {errors.pickup_location ? (
+                <Text style={styles.rowErrorText}>{errors.pickup_location}</Text>
+              ) : null}
+
+              <View style={styles.rowDivider} />
+
+              {/* Destination Row */}
+              <Pressable
+                onPress={() => openLocationPicker('dropoff')}
+                style={styles.formRowInput}
+                accessibilityRole="button"
+                accessibilityLabel="Select Destination Location"
+              >
+                <Text style={styles.fieldSubLabel}>Destination Location</Text>
+                <Text
+                  style={[
+                    styles.fieldMainValue,
+                    !form.dropoff_location && styles.fieldPlaceholder,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {form.dropoff_location || 'Select Destination Location'}
+                </Text>
+              </Pressable>
+              {errors.dropoff_location ? (
+                <Text style={styles.rowErrorText}>{errors.dropoff_location}</Text>
+              ) : null}
+            </View>
+
+            {/* Swap Button on Right */}
+            <Pressable onPress={swapLocations} style={styles.swapBtn} accessibilityLabel="Swap Route">
+              <ArrowUpDown size={14} color={colors.accent} />
+            </Pressable>
+          </View>
+
+          <View style={styles.rowDivider} />
+
+          {/* PICKUP DATE & TIME ROW */}
+          <Pressable
+            onPress={() => {
+              hapticFeedback.selection();
+              setDateModalMode('pickup');
+              setDateTimeModalVisible(true);
+            }}
+            style={styles.linearFormRow}
+            accessibilityRole="button"
+            accessibilityLabel="Select Pickup Date and Time"
+          >
+            <Calendar size={18} color={colors.muted} style={styles.rowLeftIcon} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.linearRowValue,
+                  !form.pickup_date && styles.fieldPlaceholder,
+                ]}
+                numberOfLines={1}
+              >
+                {form.pickup_date
+                  ? `${toLocalDateOnly(form.pickup_date)}${form.pickup_time ? ' • ' + form.pickup_time : ''}`
+                  : 'Select Pickup Date'}
+              </Text>
+            </View>
+            <ChevronRight size={16} color={colors.subtle} />
+          </Pressable>
+          {errors.pickup_date ? (
+            <Text style={styles.rowErrorText}>{errors.pickup_date}</Text>
+          ) : null}
+
+          {/* RETURN DATE ROW (IF RETURN SELECTED) */}
+          {selectedTripMode === 'Return' && (
+            <>
+              <View style={styles.rowDivider} />
+              <Pressable
                 onPress={() => {
                   hapticFeedback.selection();
-                  update('dropoff_location', loc);
+                  setDateModalMode('return');
+                  setDateTimeModalVisible(true);
                 }}
-                style={styles.quickChip}
+                style={styles.linearFormRow}
+                accessibilityRole="button"
+                accessibilityLabel="Select Return Date"
               >
-                <Text style={styles.quickChipText}>{loc}</Text>
+                <Calendar size={18} color={colors.accent} style={styles.rowLeftIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.linearRowValue,
+                      !form.return_date && styles.fieldPlaceholder,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {form.return_date ? `Return: ${toLocalDateOnly(form.return_date)}` : 'Select Return Date'}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={colors.subtle} />
               </Pressable>
-            ))}
-          </ScrollView>
-        </View>
+              {errors.return_date ? (
+                <Text style={styles.rowErrorText}>{errors.return_date}</Text>
+              ) : null}
+            </>
+          )}
 
-        {/* Pickup Date & Pickup Time */}
-        <View style={styles.dateRow}>
-          <View style={styles.dateCol}>
+          <View style={styles.rowDivider} />
+
+          {/* NUMBER OF PASSENGERS ROW */}
+          <View style={styles.linearFormRow}>
+            <Users size={18} color={colors.muted} style={styles.rowLeftIcon} />
+            <Text style={styles.linearRowValue}>
+              {form.passenger_count} {form.passenger_count === 1 ? 'Passenger' : 'Passengers'}
+            </Text>
+            <View style={styles.inlineStepper}>
+              <Pressable
+                onPress={() => {
+                  hapticFeedback.light();
+                  if (form.passenger_count > 1) {
+                    update('passenger_count', form.passenger_count - 1);
+                  }
+                }}
+                style={styles.stepperBtn}
+              >
+                <Minus size={14} color={colors.text} />
+              </Pressable>
+              <Text style={styles.stepperNum}>{form.passenger_count}</Text>
+              <Pressable
+                onPress={() => {
+                  hapticFeedback.light();
+                  if (form.passenger_count < 35) {
+                    update('passenger_count', form.passenger_count + 1);
+                  }
+                }}
+                style={styles.stepperBtn}
+              >
+                <Plus size={14} color={colors.text} />
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.rowDivider} />
+
+          {/* PREFERRED VEHICLE TYPE ROW */}
+          <Pressable
+            onPress={() => {
+              hapticFeedback.selection();
+              setVehiclePickerVisible(true);
+            }}
+            style={styles.linearFormRow}
+            accessibilityRole="button"
+            accessibilityLabel="Preferred Vehicle Type"
+          >
+            <Car size={18} color={colors.muted} style={styles.rowLeftIcon} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.linearRowValue,
+                  !selectedVehicleObj && styles.fieldPlaceholder,
+                ]}
+                numberOfLines={1}
+              >
+                {selectedVehicleLabel}
+              </Text>
+            </View>
+            <ChevronRight size={16} color={colors.subtle} />
+          </Pressable>
+          {errors.vehicle_type_id ? (
+            <Text style={styles.rowErrorText}>{errors.vehicle_type_id}</Text>
+          ) : null}
+
+          <View style={styles.rowDivider} />
+
+          {/* ADDITIONAL DETAILS (OPTIONAL) ROW */}
+          <View style={styles.linearFormRow}>
+            <FileText size={18} color={colors.muted} style={styles.rowLeftIcon} />
+            <TextInput
+              value={form.additional_details}
+              onChangeText={(val) => update('additional_details', val)}
+              placeholder="Additional Details (Optional)"
+              placeholderTextColor={colors.subtle}
+              style={styles.inlineTextInput}
+              maxLength={LIMITS.additionalDetails}
+            />
+          </View>
+
+          <View style={styles.rowDivider} />
+
+          {/* YOUR BUDGET (OPTIONAL) ROW */}
+          <Pressable
+            onPress={() => {
+              hapticFeedback.selection();
+              setTempBudget(budget);
+              setBudgetModalVisible(true);
+            }}
+            style={styles.linearFormRow}
+            accessibilityRole="button"
+            accessibilityLabel="Enter Your Budget"
+          >
+            <CreditCard size={18} color={colors.muted} style={styles.rowLeftIcon} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={[
+                  styles.linearRowValue,
+                  !budget && styles.fieldPlaceholder,
+                ]}
+                numberOfLines={1}
+              >
+                {budget ? `Your Budget: ${budget}` : 'Your Budget (Optional)'}
+              </Text>
+            </View>
+            <ChevronRight size={16} color={colors.subtle} />
+          </Pressable>
+
+          {/* GET OFFER / SUBMIT BUTTON */}
+          <View style={styles.btnWrap}>
+            <Pressable
+              onPress={onSubmit}
+              style={({ pressed }) => [
+                styles.getOfferBtn,
+                pressed && styles.getOfferBtnPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Get Offer"
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.getOfferBtnText}>Get Offer</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* LOCATION PICKER MODAL */}
+      <LocationPickerModal
+        visible={locationModalVisible}
+        mode={locationModalMode}
+        currentValue={locationModalMode === 'pickup' ? form.pickup_location : form.dropoff_location}
+        onSelect={handleLocationSelected}
+        onClose={() => setLocationModalVisible(false)}
+      />
+
+      {/* VEHICLE PICKER DRAWER */}
+      <SlideDrawerModal
+        visible={vehiclePickerVisible}
+        title="Choose Vehicle Category"
+        onClose={() => setVehiclePickerVisible(false)}
+      >
+        <View style={styles.vehicleOptionsList}>
+          {VEHICLE_TYPES.map((v) => {
+            const isSelected = form.vehicle_type_id === v.id;
+            const meta = VEHICLE_META[v.id] || {
+              subtitle: 'Comfortable air-conditioned transport',
+              capacity: '👥 Passengers & Luggage',
+              tag: 'Standard',
+            };
+
+            return (
+              <Pressable
+                key={v.id}
+                onPress={() => {
+                  hapticFeedback.selection();
+                  update('vehicle_type_id', v.id);
+                  setVehiclePickerVisible(false);
+                }}
+                style={[
+                  styles.vehicleCardItem,
+                  isSelected && styles.vehicleCardItemActive,
+                ]}
+              >
+                <View style={styles.vehicleCardTopRow}>
+                  <View style={[styles.vehicleIconBadge, isSelected && styles.vehicleIconBadgeActive]}>
+                    <Car size={22} color={isSelected ? colors.onAccent : colors.accent} />
+                  </View>
+
+                  <View style={styles.vehicleCardTitleWrap}>
+                    <View style={styles.vehicleNameRow}>
+                      <Text style={[styles.vehicleCardTitle, isSelected && styles.vehicleCardTitleActive]}>
+                        {v.name}
+                      </Text>
+                      <View style={[styles.vehicleTagPill, isSelected && styles.vehicleTagPillActive]}>
+                        <Text style={[styles.vehicleTagText, isSelected && styles.vehicleTagTextActive]}>
+                          {meta.tag}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.vehicleCardSubtitle} numberOfLines={1}>
+                      {meta.subtitle}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.vehicleRadioCircle, isSelected && styles.vehicleRadioCircleActive]}>
+                    {isSelected && <Check size={14} color="#FFFFFF" />}
+                  </View>
+                </View>
+
+                <View style={styles.vehicleCardBottomRow}>
+                  <Text style={styles.vehicleCapacityText}>{meta.capacity}</Text>
+                  <Text style={styles.vehicleRateHint}>Fixed Rates</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </SlideDrawerModal>
+
+      {/* DATE & TIME SELECTION DRAWER */}
+      <SlideDrawerModal
+        visible={dateTimeModalVisible}
+        title={dateModalMode === 'pickup' ? 'Select Pickup Schedule' : 'Select Return Schedule'}
+        onClose={() => setDateTimeModalVisible(false)}
+      >
+        {dateModalMode === 'pickup' ? (
+          <>
+            {/* Quick Day Chips */}
+            <View style={styles.quickDayChipsRow}>
+              {[
+                { label: 'Today', days: 0 },
+                { label: 'Tomorrow', days: 1 },
+                { label: '+2 Days', days: 2 },
+                { label: '+3 Days', days: 3 },
+              ].map((chip) => {
+                const targetDate = new Date(Date.now() + chip.days * 86400000);
+                const isCurrent =
+                  form.pickup_date &&
+                  toLocalDateOnly(form.pickup_date) === toLocalDateOnly(targetDate);
+
+                return (
+                  <Pressable
+                    key={chip.label}
+                    onPress={() => {
+                      hapticFeedback.selection();
+                      update('pickup_date', targetDate);
+                    }}
+                    style={[
+                      styles.quickDayChip,
+                      isCurrent && styles.quickDayChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.quickDayChipText,
+                        isCurrent && styles.quickDayChipTextActive,
+                      ]}
+                    >
+                      {chip.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <DateField
               label="Pickup Date *"
               value={form.pickup_date}
               onChange={(value) => update('pickup_date', value)}
               error={errors.pickup_date}
             />
-          </View>
-          {form.trip_type === 'Round Trip' && (
-            <View style={styles.dateCol}>
-              <DateField
-                label="Return Date *"
-                value={form.return_date}
-                onChange={(value) => update('return_date', value)}
-                minimumDate={minReturn}
-                error={errors.return_date}
-              />
-            </View>
-          )}
-        </View>
 
-        {/* Dedicated Pickup Departure Time Selector */}
-        <TimePickerField
-          label="Pickup Time *"
-          value={form.pickup_time}
-          onChange={(val) => update('pickup_time', val)}
-          error={errors.pickup_time}
-        />
-      </Card>
-
-      {/* STEP 2: VEHICLE & PASSENGERS */}
-      <Card style={styles.block}>
-        <View style={styles.blockHeader}>
-          <View style={styles.stepNumBadge}>
-            <Text style={styles.stepNumText}>2</Text>
-          </View>
-          <Text style={styles.blockTitle}>Vehicle & Passengers</Text>
-        </View>
-
-        <PickerSheet
-          label="Select Vehicle Type *"
-          value={form.vehicle_type_id}
-          onChange={(value) => {
-            hapticFeedback.selection();
-            update('vehicle_type_id', value);
-          }}
-          options={VEHICLE_TYPES}
-          error={errors.vehicle_type_id}
-        />
-
-        <Stepper
-          label="Number of Passengers"
-          value={form.passenger_count}
-          min={1}
-          max={35}
-          onChange={(value) => {
-            hapticFeedback.selection();
-            update('passenger_count', value);
-          }}
-        />
-
-        <TextField
-          label="Special Requests / Flight No. (Optional)"
-          value={form.additional_details}
-          onChangeText={(value) => update('additional_details', value)}
-          placeholder="e.g. Flight QR 650, child seat needed, extra luggage"
-          multiline
-          maxLength={LIMITS.additionalDetails}
-        />
-      </Card>
-
-      {/* STEP 3: PASSENGER CONTACT DETAILS */}
-      <Card style={styles.block}>
-        <View style={styles.blockHeader}>
-          <View style={styles.stepNumBadge}>
-            <Text style={styles.stepNumText}>3</Text>
-          </View>
-          <Text style={styles.blockTitle}>Passenger Contact</Text>
-        </View>
-
-        {/* Compact Traveler Summary if Logged In */}
-        {isAuthenticated && user && !editingTraveler ? (
-          <View style={styles.travelerCard}>
-            <View style={styles.travelerHeader}>
-              <View style={styles.travelerAvatar}>
-                <User size={18} color={colors.accent} />
+            {/* Departure Time Slots */}
+            <View style={styles.timeSectionWrap}>
+              <View style={styles.timeSectionHeader}>
+                <Clock size={15} color={colors.accent} style={{ marginRight: 6 }} />
+                <Text style={styles.timeSectionLabel}>Preferred Departure Time</Text>
               </View>
-              <View style={styles.travelerInfo}>
-                <Text style={styles.travelerName}>{user.name || form.full_name}</Text>
-                <Text style={styles.travelerMeta}>
-                  <Phone size={11} color={colors.muted} /> {user.phone || form.phone_number}
-                  {user.email ? ` • ${user.email}` : ''}
-                </Text>
+
+              <View style={styles.timeChipsGrid}>
+                {POPULAR_TIME_SLOTS.map((timeSlot) => {
+                  const isTimeSelected = form.pickup_time === timeSlot;
+                  return (
+                    <Pressable
+                      key={timeSlot}
+                      onPress={() => {
+                        hapticFeedback.selection();
+                        update('pickup_time', timeSlot);
+                      }}
+                      style={[
+                        styles.timeChip,
+                        isTimeSelected && styles.timeChipActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.timeChipText,
+                          isTimeSelected && styles.timeChipTextActive,
+                        ]}
+                      >
+                        {timeSlot}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
 
-            <View style={styles.travelerFooter}>
-              <View style={styles.verifiedChip}>
-                <CheckCircle2 size={12} color={colors.success} />
-                <Text style={styles.verifiedChipText}>Auto-linked to your account</Text>
-              </View>
-              <Pressable
-                onPress={() => {
-                  hapticFeedback.light();
-                  setEditingTraveler(true);
-                }}
-                style={styles.changeTravelerBtn}
-              >
-                <Edit3 size={13} color={colors.accent} />
-                <Text style={styles.changeTravelerText}>Change</Text>
-              </Pressable>
-            </View>
-          </View>
+            <TimePickerField
+              label="Custom Time (Optional)"
+              value={form.pickup_time}
+              onChange={(val) => update('pickup_time', val)}
+              error={errors.pickup_time}
+            />
+          </>
         ) : (
-          <View style={styles.travelerForm}>
-            {isAuthenticated && user && (
-              <View style={styles.editingInfoBar}>
-                <Text style={styles.editingInfoText}>Booking for someone else?</Text>
-                <Pressable onPress={() => setEditingTraveler(false)}>
-                  <Text style={styles.revertTravelerText}>Use my profile</Text>
-                </Pressable>
-              </View>
-            )}
+          <>
+            {/* Quick Return Offset Chips */}
+            <View style={styles.quickDayChipsRow}>
+              {[
+                { label: 'Same Day', days: 0 },
+                { label: '+1 Day', days: 1 },
+                { label: '+2 Days', days: 2 },
+                { label: '+5 Days', days: 5 },
+              ].map((chip) => {
+                const baseDate = form.pickup_date || new Date();
+                const targetDate = new Date(baseDate.getTime() + chip.days * 86400000);
+                const isCurrent =
+                  form.return_date &&
+                  toLocalDateOnly(form.return_date) === toLocalDateOnly(targetDate);
 
-            <TextField
-              label="Full Name *"
-              value={form.full_name}
-              onChangeText={(value) => update('full_name', value)}
-              placeholder="e.g. Aarav Sharma"
-              error={errors.full_name}
-              maxLength={LIMITS.bookingName}
-              autoCapitalize="words"
-            />
+                return (
+                  <Pressable
+                    key={chip.label}
+                    onPress={() => {
+                      hapticFeedback.selection();
+                      update('return_date', targetDate);
+                    }}
+                    style={[
+                      styles.quickDayChip,
+                      isCurrent && styles.quickDayChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.quickDayChipText,
+                        isCurrent && styles.quickDayChipTextActive,
+                      ]}
+                    >
+                      {chip.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-            <TextField
-              label="Nepal Mobile Phone *"
-              value={form.phone_number}
-              onChangeText={(value) => update('phone_number', value)}
-              placeholder="e.g. 9851363783 or +977 9841..."
-              error={errors.phone_number}
-              keyboardType="phone-pad"
-              maxLength={LIMITS.phone}
+            <DateField
+              label="Return Date *"
+              value={form.return_date}
+              onChange={(value) => update('return_date', value)}
+              minimumDate={minReturn}
+              error={errors.return_date}
             />
-
-            <TextField
-              label="Email Address"
-              value={form.email}
-              onChangeText={(value) => update('email', value)}
-              placeholder="e.g. aarav@example.com"
-              error={errors.email}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              maxLength={LIMITS.bookingEmail}
-            />
-          </View>
+          </>
         )}
-      </Card>
 
-      {/* PROMO CODE & DISCOUNT SECTION */}
-      <PromoCodeSheet
-        appliedCode={promoCode}
-        onApplyPromo={(code, disc) => {
-          setPromoCode(code);
-          setDiscount(disc);
-        }}
-        onRemovePromo={() => {
-          setPromoCode(null);
-          setDiscount(0);
-        }}
-      />
+        <Pressable
+          onPress={() => {
+            hapticFeedback.selection();
+            setDateTimeModalVisible(false);
+          }}
+          style={styles.dialogDoneBtn}
+        >
+          <Text style={styles.dialogDoneBtnText}>
+            {dateModalMode === 'pickup' ? 'Confirm Pickup Schedule' : 'Confirm Return Schedule'}
+          </Text>
+        </Pressable>
+      </SlideDrawerModal>
 
-      {/* INCLUDED PERKS BADGE */}
-      <View style={styles.perksCard}>
-        <View style={styles.perkRow}>
-          <ShieldCheck size={16} color={colors.success} />
-          <Text style={styles.perkText}>Dedicated chauffeur & fuel included</Text>
+      {/* BUDGET ENTRY DRAWER */}
+      <SlideDrawerModal
+        visible={budgetModalVisible}
+        title="Set Your Target Budget"
+        onClose={() => setBudgetModalVisible(false)}
+      >
+        <Text style={styles.budgetDialogSub}>
+          Have an expected rate for this trip? Enter your budget in Nepalese Rupees.
+        </Text>
+
+        <View style={styles.budgetDisplayCard}>
+          <Text style={styles.budgetCurrencyBadge}>NPR</Text>
+          <TextInput
+            value={tempBudget.replace(/[^0-9]/g, '')}
+            onChangeText={(val) => {
+              if (!val) {
+                setTempBudget('');
+              } else {
+                const num = parseInt(val, 10);
+                setTempBudget(isNaN(num) ? '' : `Rs. ${num.toLocaleString('en-IN')}`);
+              }
+            }}
+            placeholder="e.g. 12,000"
+            placeholderTextColor={colors.subtle}
+            keyboardType="numeric"
+            style={styles.budgetAmountInput}
+            autoFocus
+          />
         </View>
-        <View style={styles.perkRow}>
-          <Clock size={16} color={colors.success} />
-          <Text style={styles.perkText}>24/7 Dispatch confirmation via call/WhatsApp</Text>
-        </View>
-        <View style={styles.perkRow}>
-          <Sparkles size={16} color={colors.success} />
-          <Text style={styles.perkText}>Free cancellation up to 24h before pickup</Text>
-        </View>
-      </View>
 
-      {/* CONFIRM BUTTON */}
-      <View style={styles.submitSection}>
-        <Button
-          label={submitting ? 'Confirming Reservation...' : 'Submit Booking Request'}
-          onPress={onSubmit}
-          loading={submitting}
-          variant="primary"
-        />
-      </View>
+        {/* Quick Stepper Adjustments */}
+        <View style={styles.budgetSteppersRow}>
+          {[
+            { label: '- 1,000', delta: -1000 },
+            { label: '+ 1,000', delta: 1000 },
+            { label: '+ 5,000', delta: 5000 },
+          ].map((step) => (
+            <Pressable
+              key={step.label}
+              onPress={() => {
+                hapticFeedback.selection();
+                const rawNum = parseInt(tempBudget.replace(/[^0-9]/g, ''), 10) || 12000;
+                const nextVal = Math.max(1000, rawNum + step.delta);
+                setTempBudget(`Rs. ${nextVal.toLocaleString('en-IN')}`);
+              }}
+              style={styles.budgetStepperBtn}
+            >
+              <Text style={styles.budgetStepperBtnText}>{step.label}</Text>
+            </Pressable>
+          ))}
+        </View>
 
+        {/* Informative Guidance */}
+        <View style={styles.budgetGuideCard}>
+          <ShieldCheck size={16} color={colors.accent} style={{ marginRight: 8 }} />
+          <Text style={styles.budgetGuideText}>
+            Includes dedicated driver, fuel, highway tolls & passenger insurance.
+          </Text>
+        </View>
+
+        <View style={styles.budgetDialogActions}>
+          <Pressable
+            onPress={() => {
+              hapticFeedback.light();
+              setBudget('');
+              setTempBudget('');
+              setBudgetModalVisible(false);
+            }}
+            style={styles.budgetClearBtn}
+          >
+            <Text style={styles.budgetClearBtnText}>Clear</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              hapticFeedback.selection();
+              const trimmed = tempBudget.trim();
+              if (trimmed) {
+                setBudget(trimmed.startsWith('Rs.') || trimmed.startsWith('NPR') ? trimmed : `Rs. ${trimmed}`);
+              } else {
+                setBudget('');
+              }
+              setBudgetModalVisible(false);
+            }}
+            style={styles.budgetSaveBtn}
+          >
+            <Text style={styles.budgetSaveBtnText}>Set Target Budget</Text>
+          </Pressable>
+        </View>
+      </SlideDrawerModal>
+
+      {/* SUCCESS CONFIRMATION MODAL */}
       <SuccessModal
         visible={successVisible}
         title="Booking Request Received!"
         message="Thank you! Our Kathmandu 24/7 dispatch desk will call or WhatsApp you within 15 minutes to confirm driver and vehicle details."
-        onClose={handleSuccessClose}
+        onClose={() => {
+          setSuccessVisible(false);
+          handleDismiss();
+        }}
       />
     </Screen>
   );
@@ -589,227 +990,552 @@ export function BookingScreen({
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    headerRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      marginBottom: spacing.md,
-    },
-    headerCopy: {
-      flex: 1,
-      paddingRight: spacing.sm,
-    },
-    headerRightActions: {
+    topNavRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.xs,
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xs,
     },
-    closeBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+    backArrowBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    badgeTag: {
-      fontSize: 10,
-      fontWeight: '800',
-      color: colors.accent,
-      letterSpacing: 0.8,
-      marginBottom: 2,
+    scrollBody: {
+      flex: 1,
+      backgroundColor: colors.background,
     },
-    pageTitle: {
-      fontSize: 22,
-      fontWeight: '900',
+    scrollContent: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.xs,
+      paddingBottom: spacing.xl,
+    },
+    mainFormCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 24,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+    tripRadioRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      gap: spacing.xl,
+      paddingBottom: spacing.sm + 4,
+      marginBottom: 4,
+    },
+    radioOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+    },
+    radioCircle: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 2,
+      borderColor: colors.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radioCircleActive: {
+      borderColor: colors.accent,
+    },
+    radioDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
+    },
+    radioLabel: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.muted,
+    },
+    radioLabelActive: {
+      color: colors.text,
+      fontWeight: '700',
+    },
+    routeContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.xs,
+    },
+    routeTrackCol: {
+      width: 24,
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 6,
+    },
+    pickupCircleRing: {
+      width: 14,
+      height: 14,
+      borderRadius: 7,
+      borderWidth: 3,
+      borderColor: '#3B82F6',
+    },
+    dottedLine: {
+      height: 24,
+      justifyContent: 'space-evenly',
+      alignItems: 'center',
+    },
+    dot: {
+      width: 3,
+      height: 3,
+      borderRadius: 1.5,
+      backgroundColor: colors.subtle,
+    },
+    destPinIcon: {
+      marginTop: 2,
+    },
+    routeInputsCol: {
+      flex: 1,
+      paddingLeft: spacing.xs,
+    },
+    formRowInput: {
+      paddingVertical: 6,
+    },
+    fieldSubLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.subtle,
+      marginBottom: 1,
+    },
+    fieldMainValue: {
+      fontSize: 14,
+      fontWeight: '700',
       color: colors.text,
     },
-    pageSubtitle: {
+    fieldPlaceholder: {
+      color: colors.subtle,
+      fontWeight: '500',
+    },
+    swapBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: spacing.xs,
+    },
+    rowDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: spacing.xs + 2,
+    },
+    linearFormRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    rowLeftIcon: {
+      marginRight: 12,
+    },
+    linearRowValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      flex: 1,
+    },
+    inlineStepper: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      backgroundColor: colors.elevated,
+      borderRadius: radius.pill,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    stepperBtn: {
+      padding: 3,
+    },
+    stepperNum: {
       fontSize: 13,
-      color: colors.muted,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    inlineTextInput: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+      paddingVertical: 0,
+    },
+    rowErrorText: {
+      fontSize: 11,
+      color: colors.error,
+      fontWeight: '600',
       marginTop: 2,
+    },
+    btnWrap: {
+      marginTop: spacing.lg,
+      alignItems: 'center',
+    },
+    getOfferBtn: {
+      backgroundColor: colors.accent,
+      borderRadius: radius.pill,
+      paddingVertical: 14,
+      paddingHorizontal: 48,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 180,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+      elevation: 6,
+    },
+    getOfferBtnPressed: {
+      opacity: 0.9,
+      transform: [{ scale: 0.98 }],
+    },
+    getOfferBtnText: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: '#FFFFFF',
     },
     errorAlert: {
       backgroundColor: colors.errorSoft,
-      borderWidth: 1,
-      borderColor: colors.error,
+      padding: spacing.sm,
       borderRadius: radius.md,
-      padding: spacing.md,
       marginBottom: spacing.md,
     },
     errorAlertText: {
-      color: colors.error,
       fontSize: 13,
       fontWeight: '600',
+      color: colors.error,
+      textAlign: 'center',
     },
-    block: {
-      marginBottom: spacing.md,
+    // Vehicle Drawer Styles
+    vehicleOptionsList: {
       gap: spacing.sm,
+      marginTop: spacing.xs,
     },
-    blockHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginBottom: spacing.xs,
-    },
-    stepNumBadge: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: colors.accent,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    stepNumText: {
-      color: colors.onAccent,
-      fontSize: 12,
-      fontWeight: '800',
-    },
-    blockTitle: {
-      fontSize: 16,
-      fontWeight: '800',
-      color: colors.text,
-    },
-    quickChipsWrap: {
-      gap: 4,
-      marginTop: 2,
-    },
-    quickLabel: {
-      fontSize: 11,
-      color: colors.muted,
-      fontWeight: '600',
-    },
-    quickChipsRow: {
-      gap: spacing.xs,
-      paddingVertical: 2,
-    },
-    quickChip: {
+    vehicleCardItem: {
       backgroundColor: colors.elevated,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.pill,
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-    },
-    quickChipText: {
-      fontSize: 11,
-      fontWeight: '600',
-      color: colors.text,
-    },
-    dateRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-    },
-    dateCol: {
-      flex: 1,
-    },
-    travelerCard: {
-      backgroundColor: colors.elevated,
-      borderWidth: 1,
-      borderColor: colors.border,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       padding: spacing.md,
-      gap: spacing.sm,
+      borderWidth: 1.5,
+      borderColor: colors.border,
     },
-    travelerHeader: {
+    vehicleCardItemActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+    },
+    vehicleCardTopRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.sm,
     },
-    travelerAvatar: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.accentSoft,
+    vehicleIconBadge: {
+      width: 44,
+      height: 44,
+      borderRadius: radius.md,
+      backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginRight: spacing.sm,
     },
-    travelerInfo: {
+    vehicleIconBadgeActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    vehicleCardTitleWrap: {
       flex: 1,
     },
-    travelerName: {
-      fontSize: 14,
+    vehicleNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 2,
+    },
+    vehicleCardTitle: {
+      fontSize: 15,
       fontWeight: '800',
       color: colors.text,
     },
-    travelerMeta: {
-      fontSize: 12,
-      color: colors.muted,
-      marginTop: 1,
+    vehicleCardTitleActive: {
+      color: colors.accent,
     },
-    travelerFooter: {
+    vehicleTagPill: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    vehicleTagPillActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    vehicleTagText: {
+      fontSize: 9,
+      fontWeight: '700',
+      color: colors.muted,
+    },
+    vehicleTagTextActive: {
+      color: '#FFFFFF',
+    },
+    vehicleCardSubtitle: {
+      fontSize: 11,
+      color: colors.muted,
+    },
+    vehicleRadioCircle: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: spacing.xs,
+    },
+    vehicleRadioCircleActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
+    },
+    vehicleCardBottomRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
+      marginTop: spacing.sm,
+      paddingTop: spacing.xs,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingTop: spacing.xs + 2,
     },
-    verifiedChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
+    vehicleCapacityText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.text,
     },
-    verifiedChipText: {
+    vehicleRateHint: {
       fontSize: 11,
-      fontWeight: '600',
-      color: colors.success,
-    },
-    changeTravelerBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    changeTravelerText: {
-      fontSize: 12,
       fontWeight: '700',
       color: colors.accent,
     },
-    travelerForm: {
-      gap: spacing.sm,
-    },
-    editingInfoBar: {
+
+    // Date & Time Drawer Styles
+    quickDayChipsRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      gap: spacing.xs,
+      marginBottom: spacing.sm,
+    },
+    quickDayChip: {
+      flex: 1,
       backgroundColor: colors.elevated,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 6,
-      borderRadius: radius.sm,
-    },
-    editingInfoText: {
-      fontSize: 12,
-      color: colors.muted,
-      fontWeight: '600',
-    },
-    revertTravelerText: {
-      fontSize: 12,
-      color: colors.accent,
-      fontWeight: '700',
-    },
-    perksCard: {
-      backgroundColor: colors.surface,
+      borderRadius: radius.pill,
+      paddingVertical: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    quickDayChipActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    quickDayChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    quickDayChipTextActive: {
+      color: '#FFFFFF',
+    },
+    timeSectionWrap: {
+      marginTop: spacing.xs,
+      marginBottom: spacing.sm,
+    },
+    timeSectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    timeSectionLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    timeChipsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+    },
+    timeChip: {
+      backgroundColor: colors.elevated,
       borderRadius: radius.md,
-      padding: spacing.md,
-      gap: spacing.xs + 2,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    timeChipActive: {
+      backgroundColor: colors.accent,
+      borderColor: colors.accent,
+    },
+    timeChipText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    timeChipTextActive: {
+      color: '#FFFFFF',
+    },
+    dialogDoneBtn: {
+      backgroundColor: colors.accent,
+      borderRadius: radius.pill,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.md,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    dialogDoneBtnText: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+
+    // Budget Drawer Styles
+    budgetDialogSub: {
+      fontSize: 13,
+      color: colors.muted,
+      marginBottom: spacing.md,
+      lineHeight: 18,
+    },
+    budgetDisplayCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.elevated,
+      borderRadius: radius.lg,
+      borderWidth: 2,
+      borderColor: colors.accent,
+      paddingHorizontal: spacing.md,
+      height: 60,
+      marginBottom: spacing.sm,
+    },
+    budgetCurrencyBadge: {
+      fontSize: 15,
+      fontWeight: '900',
+      color: colors.accent,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.sm,
+      marginRight: spacing.sm,
+    },
+    budgetAmountInput: {
+      flex: 1,
+      fontSize: 22,
+      fontWeight: '900',
+      color: colors.text,
+      paddingVertical: 0,
+    },
+    budgetSteppersRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginBottom: spacing.md,
+    },
+    budgetStepperBtn: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderRadius: radius.pill,
+      paddingVertical: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    budgetStepperBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    budgetGuideCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accentSoft,
+      borderRadius: radius.md,
+      padding: spacing.sm,
       marginBottom: spacing.lg,
     },
-    perkRow: {
+    budgetGuideText: {
+      fontSize: 11,
+      color: colors.text,
+      fontWeight: '600',
+      flex: 1,
+      lineHeight: 15,
+    },
+    budgetDialogActions: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.sm,
     },
-    perkText: {
-      fontSize: 12,
-      color: colors.text,
-      fontWeight: '600',
+    budgetClearBtn: {
+      paddingVertical: 14,
+      paddingHorizontal: 20,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
-    submitSection: {
-      paddingBottom: 40,
+    budgetClearBtnText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.muted,
+    },
+    budgetSaveBtn: {
+      flex: 1,
+      backgroundColor: colors.accent,
+      paddingVertical: 14,
+      borderRadius: radius.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    budgetSaveBtnText: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: '#FFFFFF',
     },
   });
 }

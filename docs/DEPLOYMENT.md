@@ -208,8 +208,8 @@ The repository includes a fully configured workflow in [`.github/workflows/ci-cd
    - `npm run typecheck` (Client TypeScript check)
    - `npm run typecheck --prefix server` (Server TypeScript check)
 2. **Automated Unit & Integration Tests**:
-   - `npm test` (Client Jest test suites)
-   - `npm test --prefix server` (Server Jest test suites)
+   - `npm test` (Client Jest test suites - 7 suites / 43 tests)
+   - `npm test --prefix server` (Server Jest test suites - 1 suite / 14 tests)
 3. **EAS Build Verification**:
    - Verifies `eas.json` schema configuration on release branch commits.
 

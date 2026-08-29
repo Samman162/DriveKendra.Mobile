@@ -14,6 +14,8 @@ This document details the high-level system design, data flows, security boundar
 - [High-Level System Topology](#-high-level-system-topology)
 - [Client Architecture (React Native / Expo)](#-client-architecture-react-native--expo)
   - [Navigation Architecture](#navigation-architecture)
+  - [Interactive Mapping & Geocoding Subsystem](#interactive-mapping--geocoding-subsystem)
+  - [Highway Status & Mountain Safety Subsystem](#highway-status--mountain-safety-subsystem)
   - [State & Context Architecture](#state--context-architecture)
   - [Theme Engine](#theme-engine)
   - [Hardware & Native API Bridges](#hardware--native-api-bridges)
@@ -37,12 +39,12 @@ This document details the high-level system design, data flows, security boundar
 │                                                                         │
 │  ┌───────────────────────┐ ┌──────────────────────┐ ┌────────────────┐ │
 │  │ React Navigation v7   │ │ Theme & UI System    │ │ Auth & Bio SDK │ │
-│  │ (Tabs, Stacks, Modal) │ │ (useThemedStyles)    │ │ (SecureStore)  │ │
+│  │ (4-Tabs, Stacks, Mod) │ │ (useThemedStyles)    │ │ (SecureStore)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐ ┌──────────────────────┐ ┌────────────────┐ │
-│  │ Offline Cache & Queue │ │ Push Notification    │ │ PDF & QR Code  │ │
-│  │ (Encrypted Vouchers)  │ │ Listener (Expo Push) │ │ Engine         │ │
+│  │ Offline Cache & Queue │ │ Push Notification    │ │ OpenStreetMap  │ │
+│  │ (Encrypted Vouchers)  │ │ Listener (Expo Push) │ │ Leaflet Engine │ │
 │  └───────────────────────┘ └──────────────────────┘ └────────────────┘ │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ HTTPS / JSON (Axios + Headers)
@@ -80,21 +82,41 @@ Drive Kendra uses `@react-navigation/native` v7 structured with a nested tab and
 
 ```
 RootStackNavigator
-├── MainTabs (BottomTabNavigator)
-│   ├── HomeTab (HomeScreen)
-│   ├── ExploreTab (ExploreScreen)
-│   ├── BookingsTab (BookingScreen)
-│   ├── MyTripsTab (MyTripsScreen)
-│   └── ProfileTab (ProfileScreen)
-├── FleetScreen (FleetCatalog)
-├── RatesScreen (OfficialNepalRateChart)
-├── AirportScreen (TIA Transfers)
-├── WeddingScreen (VIP Convoy)
-├── ToursScreen (Tour Packages)
-├── TourDetailScreen (Itinerary & Pricing)
-├── ContactScreen (Help & Reviews)
-└── AuthScreen (SignIn / SignUp / OTP Reset)
+├── MainTabs (BottomTabNavigator - 4 Primary Tabs)
+│   ├── Home (HomeScreen)
+│   ├── Booking (BookingScreen)
+│   ├── MyBookings (MyTripsScreen)
+│   └── Profile (ProfileScreen)
+├── Onboarding (OnboardingScreen - First Launch Flow)
+├── BookingModal (BookingScreen - Animated Full Modal)
+├── Auth (AuthScreen - SignIn / SignUp / OTP Modal)
+├── Fleet (FleetScreen - Fleet Catalog)
+├── Rates (RatesScreen - Official Nepal Tariff Matrix)
+├── Airport (AirportScreen - TIA Transfers)
+├── Wedding (WeddingScreen - VIP Convoy Packages)
+├── Tours (ToursScreen - Tour Expeditions)
+├── TourDetail (TourDetailScreen - Itinerary & Pax Table)
+├── Contact (ContactScreen - Help Desk & Reviews)
+├── MyTrips (MyTripsScreen - My Reservations)
+├── Profile (ProfileScreen - Profile & Settings)
+└── Explore (ExploreScreen - Service Discovery Hub)
 ```
+
+### Interactive Mapping & Geocoding Subsystem
+Drive Kendra Mobile integrates zero-cost OpenStreetMap (OSM) and Leaflet mapping:
+- **`FullScreenMapPicker.tsx`**: Full-screen modal with an interactive Leaflet map rendered via `react-native-webview` (mobile) or responsive `iframe` (web). Users can drag the map to position the custom amber brand marker over any point in Nepal.
+- **`EmbeddedMapView.tsx`**: Reusable container bridging web message events (zoom, pan, drag-end, pin coordinate clicks) between React Native and Leaflet.
+- **`src/utils/geocoding.ts`**: Queries OSM Nominatim API for reverse geocoding (coordinates ➔ readable landmark/street address) with fallback to nearest landmark in `nepalLocations.ts`.
+- **`src/constants/nepalLocations.ts`**: Curated database of all 77 districts, major tourist hubs (Pokhara, Chitwan, Lumbini, Jomsom, Nagarkot), airport terminals, and highway checkpoints.
+- **`src/utils/recentSearchesStorage.ts`**: Persistent search history caching using AsyncStorage.
+
+### Highway Status & Mountain Safety Subsystem
+- **`HighwayStatusCard.tsx`**: Real-time road advisory card displaying traffic conditions, weather alerts, landslide warnings, and one-way traffic notices across critical Nepal corridors:
+  - Narayanghat - Mugling Highway (Landslide zone alerts)
+  - Prithvi Highway (Kathmandu - Pokhara)
+  - BP Highway (Kathmandu - Eastern Terai)
+  - Tribhuvan Highway & Araniko Highway
+- **`EmergencySosModal.tsx` & `EmergencyTripCard.tsx`**: GPS sensor interrogation (`expo-location`) to extract high-accuracy coordinates and dispatch pre-formatted SOS SMS messages to Nepal Tourist Police (`1144`) and Drive Kendra 24/7 hotline (`+977 985-1363783`).
 
 ### State & Context Architecture
 - **AuthContext** (`src/context/AuthContext.tsx`): Manages authentication tokens, current user object, biometrics state, and automatic persistent session restore via `secureStorage.ts`.
@@ -189,7 +211,8 @@ Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) fre
 1. **Static Content Bundling**: Complete official rate charts (`rateCategories.generated.ts`) and tour itineraries (`tourDetails.ts`) are bundled directly with the application.
 2. **Encrypted Offline Voucher Storage** (`offlineVoucherStorage.ts`): Confirmed booking receipts are cached locally and viewable offline.
 3. **Offline QR Code Generator** (`VoucherQrCode.tsx`): Displays cryptographically formatted booking data as a QR code for conductor verification without internet.
-4. **Offline GPS Emergency SOS** (`EmergencyTripCard.tsx`): Captures GPS coordinates via device sensors and crafts ready-to-send SMS messages to emergency dispatchers even without data connectivity.
+4. **Offline GPS Emergency SOS** (`EmergencyTripCard.tsx` & `EmergencySosModal.tsx`): Captures GPS coordinates via device sensors and crafts ready-to-send SMS messages to emergency dispatchers even without data connectivity.
+5. **Offline Landmark Database** (`nepalLocations.ts`): Provides instant offline destination suggestions.
 
 ---
 

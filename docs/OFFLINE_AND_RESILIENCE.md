@@ -3,7 +3,7 @@
 [![Offline Resilient](https://img.shields.io/badge/Offline-First%20Architecture-success?style=for-the-badge)](https://drivekendra.com)
 [![Nepal Tested](https://img.shields.io/badge/Tested%20In-Himalayas%20%7C%20High%20Altitude-orange?style=for-the-badge)](https://drivekendra.com)
 
-Traveling through Nepal often involves mountainous routes with zero cellular coverage—such as the **Muktinath 4WD Trail**, **Kalinchowk Kuri Village**, **Upper Mustang**, and deep valleys along the **Prithvi Highway**.
+Traveling through Nepal often involves mountainous routes with zero cellular coverage—such as the **Muktinath 4WD Trail**, **Kalinchowk Kuri Village**, **Upper Mustang**, **Besisahar - Manang**, and deep valleys along the **Prithvi Highway**.
 
 **Drive Kendra Mobile** is engineered from the ground up with an **offline-first resilience model** to guarantee uninterrupted access to vital travel documents, emergency services, and rate estimates anywhere in the Himalayas.
 
@@ -15,10 +15,14 @@ Traveling through Nepal often involves mountainous routes with zero cellular cov
 - [Core Resilience Components](#-core-resilience-components)
   - [1. Offline Voucher Storage (`offlineVoucherStorage.ts`)](#1-offline-voucher-storage-offlinevoucherstoragets)
   - [2. Offline QR Code Verification (`VoucherQrCode.tsx`)](#2-offline-qr-code-verification-voucherqrcodetsx)
-  - [3. Emergency SOS & Offline GPS Capture (`EmergencyTripCard.tsx`)](#3-emergency-sos--offline-gps-capture-emergencytripcardtsx)
-  - [4. Dynamic Offline Action Queue (`offlineQueue.ts`)](#4-dynamic-offline-action-queue-offlinequeuets)
-  - [5. Bundled Offline Content & Rate Charts](#5-bundled-offline-content--rate-charts)
-  - [6. Network Status Listener (`useNetworkStatus.ts`)](#6-network-status-listener-usenetworkstatusts)
+  - [3. Emergency SOS & Offline GPS Capture (`EmergencyTripCard.tsx` & `EmergencySosModal.tsx`)](#3-emergency-sos--offline-gps-capture-emergencytripcardtsx--emergencysosmodaltsx)
+  - [4. Bundled Geographic Landmark Database (`nepalLocations.ts`)](#4-bundled-geographic-landmark-database-nepallocationsts)
+  - [5. Geocoding Fallback Engine (`geocoding.ts`)](#5-geocoding-fallback-engine-geocodingts)
+  - [6. Local Search & Onboarding Cache (`recentSearchesStorage.ts`, `onboardingStorage.ts`)](#6-local-search--onboarding-cache-recentsearchesstoragets-onboardingstoragets)
+  - [7. Real-Time Nepal Highway Advisory (`HighwayStatusCard.tsx`)](#7-real-time-nepal-highway-advisory-highwaystatuscardtsx)
+  - [8. Dynamic Offline Action Queue (`offlineQueue.ts`)](#8-dynamic-offline-action-queue-offlinequeuets)
+  - [9. Bundled Offline Content & Rate Charts (`rateCategories.generated.ts`)](#9-bundled-offline-content--rate-charts-ratecategoriesgeneratedts)
+  - [10. Network Status Listener (`useNetworkStatus.ts`)](#10-network-status-listener-usenetworkstatusts)
 - [Data Flow During Offline Operations](#-data-flow-during-offline-operations)
 - [Testing Offline Scenarios](#-testing-offline-scenarios)
 
@@ -47,6 +51,11 @@ Drive Kendra Mobile eliminates these points of failure through localized caching
 │  offlineVoucherStorage.ts      │ Persistent encrypted trip storage     │
 │  VoucherQrCode.tsx             │ Standalone ticket verification        │
 │  EmergencyTripCard.tsx         │ GPS location + SMS emergency dispatch │
+│  EmergencySosModal.tsx         │ 24/7 hotline + rescue police SOS      │
+│  nepalLocations.ts             │ 77-district offline landmark database │
+│  geocoding.ts                  │ Reverse geocoding with local fallback │
+│  recentSearchesStorage.ts      │ Local recent destination history      │
+│  HighwayStatusCard.tsx         │ Real-time highway condition alerts    │
 │  offlineQueue.ts               │ Action replay queue on reconnect      │
 │  rateCategories.generated.ts   │ 100% offline official rate matrix     │
 │  useNetworkStatus.ts           │ Real-time connectivity state banner   │
@@ -85,7 +94,7 @@ At high-altitude checkpoints, tourist police posts, or national park entry gates
 
 ---
 
-### 3. Emergency SOS & Offline GPS Capture (`EmergencyTripCard.tsx`)
+### 3. Emergency SOS & Offline GPS Capture (`EmergencyTripCard.tsx` & `EmergencySosModal.tsx`)
 
 In emergency situations (e.g. landslides, breakdowns, altitude sickness), travelers can trigger immediate assistance directly from the app:
 
@@ -103,7 +112,42 @@ Maps Link: https://maps.google.com/?q=28.8167,83.8667
 
 ---
 
-### 4. Dynamic Offline Action Queue (`offlineQueue.ts`)
+### 4. Bundled Geographic Landmark Database (`nepalLocations.ts`)
+
+Bundles exhaustive geographic data directly inside the client binary:
+- All **77 administrative districts** of Nepal across 7 provinces.
+- Major tourist hubs: Pokhara Lakeside, Chitwan Sauraha, Lumbini Peace Garden, Nagarkot, Bandipur, Dhulikhel.
+- High-altitude trek gateways: Jomsom, Besisahar, Syabrubesi, Dhunche, Lukla, Manang.
+- Airport terminals: TIA Kathmandu, Pokhara International (PIA), Gautam Buddha International (GBIA), Biratnagar, Nepalgunj.
+
+---
+
+### 5. Geocoding Fallback Engine (`geocoding.ts`)
+
+When an interactive map pin is dropped:
+1. First attempts free reverse geocoding via OpenStreetMap (OSM) Nominatim.
+2. If network request fails or device is offline, executes a fast Euclidean distance algorithm against the bundled coordinates in `nepalLocations.ts` to identify the closest landmark and district.
+
+---
+
+### 6. Local Search & Onboarding Cache (`recentSearchesStorage.ts`, `onboardingStorage.ts`)
+
+- Caches frequently selected destinations and recent searches in AsyncStorage with LRU eviction.
+- Tracks onboarding walkthrough completion status without requiring an authenticated account or internet ping.
+
+---
+
+### 7. Real-Time Nepal Highway Advisory (`HighwayStatusCard.tsx`)
+
+Provides up-to-date road condition information for major Nepal highway arteries:
+- **Narayanghat - Mugling**: Monsoonal landslide status, one-way alternating traffic schedules.
+- **Prithvi Highway (Kathmandu - Pokhara)**: Road expansion updates and bridge maintenance.
+- **BP Highway (Kathmandu - Sindhuli - Bardibas)**: Night travel restrictions and vehicle size limits.
+- **Tribhuvan Highway & Araniko Highway**: Mountain pass conditions.
+
+---
+
+### 8. Dynamic Offline Action Queue (`offlineQueue.ts`)
 
 If a user submits a review or updates their preferences while offline:
 - The mutation is queued in `src/api/offlineQueue.ts`.
@@ -112,7 +156,7 @@ If a user submits a review or updates their preferences while offline:
 
 ---
 
-### 5. Bundled Offline Content & Rate Charts
+### 9. Bundled Offline Content & Rate Charts (`rateCategories.generated.ts`)
 
 All mission-critical content is pre-compiled into TypeScript bundles during the build phase:
 - **`src/content/rateCategories.generated.ts`**: Complete Nepal Government & NTVA rate chart across 7 provinces.
@@ -123,7 +167,7 @@ No API roundtrip is required to view these catalogs.
 
 ---
 
-### 6. Network Status Listener (`useNetworkStatus.ts`)
+### 10. Network Status Listener (`useNetworkStatus.ts`)
 
 Utilizes `@react-native-community/netinfo` to provide instant feedback to the user:
 - Displays a non-intrusive banner when connectivity drops.
@@ -163,6 +207,7 @@ sequenceDiagram
    - On Android Emulator: Toggle Airplane Mode via Extended Controls (`...` ➔ `Cellular` ➔ `Data status: Denied`).
    - On iOS Simulator: Toggle Wi-Fi off or disable network interfaces via Network Link Conditioner.
 2. **Verify Screen Behavior**:
-   - Open **Rates Screen**: Ensure all 7 provinces load instantly.
-   - Open **My Trips**: Verify cached voucher loads with driver contact info.
+   - Open **Rates Screen**: Ensure all 7 provinces load instantly from bundled data.
+   - Open **My Trips**: Verify cached voucher loads with driver contact info and offline badge.
+   - Open **Location Picker**: Test offline search across all 77 districts.
    - Open **Emergency Assistance**: Tap GPS SOS to ensure pre-populated SMS payload is generated.

@@ -21,7 +21,7 @@ This document outlines key technical guidelines, architectural patterns, and qua
 
 Drive Kendra Mobile is a production-grade cross-platform mobile application for vehicle rentals and Himalayan tour expeditions in Nepal.
 
-- **Mobile Client (`src/`)**: Built with React Native 0.86.2, Expo SDK 57, React 19.2.3, TypeScript strict mode, and React Navigation v7.
+- **Mobile Client (`src/`)**: Built with React Native 0.86.2, Expo SDK 57, React 19.2.3, TypeScript strict mode, and React Navigation v7 (4-tab bottom navigation + stack screens).
 - **Backend API (`server/`)**: Built with Hono v4, Node.js (`tsx watch`), Zod v4 validation, and `pg` PostgreSQL connection pool.
 - **Database (`database/`)**: PostgreSQL 15+ canonical schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) and incremental patches in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
 - **Documentation (`docs/`)**: In-depth subsystem guides for Architecture, Offline Resilience, Push Notifications, and Deployment.
@@ -43,11 +43,17 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
 4. **TypeScript Discipline**:
    - Maintain 100% strict type safety.
    - Avoid `any` types. Utilize dedicated DTO types from `src/types/api.ts` and `src/types/auth.ts`.
-5. **Himalayan Resilience & Offline Handling**:
+5. **Interactive Mapping & Free Geocoding**:
+   - Use OpenStreetMap / Leaflet via `FullScreenMapPicker.tsx`, `MapLocationPicker.tsx`, and `EmbeddedMapView.tsx` (using `react-native-webview` for mobile and `iframe` for web).
+   - Never introduce paid or proprietary map SDK dependencies (e.g. Google Maps API keys).
+   - Use `src/utils/geocoding.ts` for reverse geocoding via OSM Nominatim with fallback to `src/constants/nepalLocations.ts`.
+6. **Himalayan Resilience, Highway Monitoring & Offline Handling**:
    - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
    - Use `offlineVoucherStorage.ts` when persisting trip vouchers for off-grid access.
    - Use `offlineQueue.ts` for handling network disruptions during mutating operations.
-6. **Push Notification Pipeline**:
+   - Use `EmergencyTripCard.tsx` and `EmergencySosModal.tsx` for GPS emergency SOS dispatch.
+   - Use `HighwayStatusCard.tsx` for real-time Nepal highway road advisories.
+7. **Push Notification Pipeline**:
    - Device tokens are registered via `src/hooks/usePushNotifications.ts` and endpoint `POST /api/users/push-token`.
    - Server-side notification dispatches are routed through `server/src/services/notifications.ts` (FCM v1 ready).
 
@@ -62,7 +68,7 @@ Always run and verify these commands before concluding a task:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Run automated test suites
+# 2. Run automated test suites (7 Client Suites / 43 Tests, 1 Server Suite / 14 Tests)
 npm test
 npm test --prefix server
 ```

@@ -6,7 +6,7 @@
 
 ### Development
 ```bash
-# Start both Hono API + Expo Metro bundler concurrently
+# Start both Hono API + Expo Metro bundler concurrently (recommended)
 npm run dev
 
 # Start Expo bundler alone (Expo Go)
@@ -21,15 +21,24 @@ npm run ios
 npm run web
 ```
 
-### Static Analysis & Testing
+### Static Analysis & Testing (57 Automated Tests)
 ```bash
 # Static TypeScript typecheck (Client & Server)
 npm run typecheck
 npm run typecheck --prefix server
 
-# Run Jest unit tests
+# Run Jest unit & integration test suites (Client: 7 suites / 43 tests, Server: 1 suite / 14 tests)
 npm test
 npm test --prefix server
+
+# Run specific client test suites
+npx jest __tests__/BookingScreen.test.tsx
+npx jest __tests__/AuthFlow.test.tsx
+npx jest __tests__/LocationPicker.test.tsx
+npx jest __tests__/GeocodingAndMapPicker.test.tsx
+npx jest __tests__/Onboarding.test.tsx
+npx jest __tests__/RecentSearches.test.tsx
+npx jest __tests__/BrandLogoAndSplash.test.tsx
 ```
 
 ### Building & Packaging (EAS CLI)
@@ -37,7 +46,7 @@ npm test --prefix server
 # Build internal development client for on-device native debugging
 npx eas-cli build --profile development --platform android
 
-# Build standalone preview APK for Android beta testing
+# Build standalone preview APK for Android beta testing (direct install)
 npx eas-cli build --profile preview --platform android
 
 # Build production release AAB for Google Play Store
@@ -53,9 +62,18 @@ npx eas-cli build --profile production --platform android
    - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
    - Add incremental changes as numbered patches in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
    - **NEVER** run SQL queries directly on live databases.
-3. **Theming**: Use `useThemedStyles` hook with tokens from `src/theme/` (`colors.ts`, `spacing.ts`, `typography.ts`) to support dynamic Light and Dark modes.
-4. **Himalayan Offline Resilience**: Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `VoucherQrCode`, and bundled rate charts for off-grid resilience.
-5. **Push Notifications**: Expo Server SDK + FCM v1 in `server/src/services/notifications.ts`, registered via `POST /api/users/push-token` and managed in `src/hooks/usePushNotifications.ts`.
+3. **Interactive OpenStreetMap (OSM) Map Picking**:
+   - Use `FullScreenMapPicker.tsx`, `MapLocationPicker.tsx`, and `EmbeddedMapView.tsx` (Leaflet OSM via `react-native-webview` on mobile and `iframe` on web).
+   - Zero third-party API key costs. Use `geocoding.ts` for Nominatim reverse geocoding with fallback to `nepalLocations.ts`.
+4. **Theming**:
+   - Always wrap styles with `useThemedStyles((theme) => StyleSheet.create({ ... }))`.
+   - Use color tokens (`theme.colors.*`), spacing tokens (`theme.spacing.*`), and typography constants (`src/theme/typography.ts`) for dynamic Light and Dark modes.
+5. **Himalayan Offline Resilience & Highway Monitoring**:
+   - Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `EmergencySosModal`, `HighwayStatusCard`, `VoucherQrCode`, and bundled rate charts (`rateCategories.generated.ts`) for off-grid resilience.
+6. **Push Notifications**:
+   - Expo Server SDK + FCM v1 in `server/src/services/notifications.ts`, registered via `POST /api/users/push-token` and managed in `src/hooks/usePushNotifications.ts`.
+7. **Form Validation & Anti-Spam**:
+   - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
 
 ---
 

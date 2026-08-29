@@ -11,6 +11,7 @@ Please review this guide before submitting pull requests or making modifications
 - [Core Principles & Rules](#-core-principles--rules)
 - [Development Setup](#-development-setup)
 - [Code Style & Standards](#-code-style--standards)
+- [Interactive Map & Location Standards](#-interactive-map--location-standards)
 - [Database Modification Protocol](#-database-modification-protocol)
 - [Testing & Quality Verification](#-testing--quality-verification)
 - [Commit & Pull Request Guidelines](#-commit--pull-request-guidelines)
@@ -61,17 +62,25 @@ npm run dev
 
 ## 🎨 Code Style & Standards
 
-- **TypeScript**: Strict mode is enabled (`tsconfig.json`). Avoid `any` types wherever possible; use explicit interfaces and DTOs from `src/types/`.
+- **TypeScript**: Strict mode is enabled (`tsconfig.json`). Avoid `any` types; use explicit interfaces and DTOs from `src/types/`.
 - **Component Architecture**:
   - Reusable UI primitives belong in `src/components/ui/`.
-  - Feature-specific screens belong in `src/screens/`.
+  - Feature-specific screens belong in `src/screens/` (14 screens).
   - API communication logic belongs in `src/api/`.
-  - Offline resilience utilities belong in `src/utils/` and `src/api/offlineQueue.ts`.
+  - Offline resilience & geocoding utilities belong in `src/utils/` and `src/constants/`.
 - **Theming**:
-  - Never hardcode color hex codes (e.g. `#FFFFFF` or `#000000`) inside screen styles. Use `theme.colors.*` values.
+  - Never hardcode color hex codes (e.g. `#FFFFFF` or `#0F172A`) inside screen styles. Use `theme.colors.*` values.
   - Utilize `src/theme/spacing.ts` and `src/theme/typography.ts` tokens for consistency.
 - **Haptic Feedback**: Integrate tactile feedback using `src/utils/haptics.ts` on primary user interactions.
 - **Anti-Spam & Validation**: Include honeypot fields (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`) on all form submissions.
+
+---
+
+## 🗺️ Interactive Map & Location Standards
+
+- All interactive map views must use the zero-cost OpenStreetMap (OSM) / Leaflet architecture (`FullScreenMapPicker.tsx`, `EmbeddedMapView.tsx`, `MapLocationPicker.tsx`).
+- Do not introduce Google Maps API keys or third-party proprietary mapping SDKs.
+- Address resolution must use `src/utils/geocoding.ts` (OSM Nominatim) with offline fallback to `src/constants/nepalLocations.ts`.
 
 ---
 
@@ -98,9 +107,12 @@ npm run typecheck
 npm run typecheck --prefix server
 ```
 
-### 2. Unit Test Suites
+### 2. Unit Test Suites (57 Total Tests)
 ```bash
+# Client test suites (7 suites: AuthFlow, BookingScreen, BrandLogo, Geocoding, LocationPicker, Onboarding, RecentSearches)
 npm test
+
+# Server test suite (14 validation & route tests)
 npm test --prefix server
 ```
 
@@ -119,8 +131,8 @@ Use standard conventional commit prefixes:
 
 ### Pull Request Checklist
 - [ ] Code passes both client and server `npm run typecheck`.
-- [ ] All unit test suites pass (`npm test` and `npm test --prefix server`).
-- [ ] Light and Dark theme visuals look crisp and accessible.
+- [ ] All 57 automated tests pass (`npm test` and `npm test --prefix server`).
+- [ ] Light and Dark theme visuals look crisp, accessible, and responsive.
 - [ ] Any database alterations include both `database/database.sql` updates and a new numbered patch in `database/patches/`.
-- [ ] Offline failover behaviors have been verified (e.g. offline trip vouchers, rate matrix).
+- [ ] Offline failover behaviors have been verified (e.g. offline trip vouchers, rate matrix, geocoding fallback).
 - [ ] No hardcoded API secrets or live production credentials in commit history.
