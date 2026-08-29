@@ -12,7 +12,6 @@
   "dependencies": {
     "@hono/node-server": "^1.19.9",
     "dotenv": "^17.2.3",
-    "expo-server-sdk": "^3.15.0",
     "hono": "^4.11.3",
     "pg": "^8.16.3",
     "zod": "^4.4.3"

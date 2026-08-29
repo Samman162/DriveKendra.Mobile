@@ -162,7 +162,7 @@ describe('Review Zod Validation', () => {
   });
 });
 
-describe('User & Push Token Schema Validation', () => {
+describe('User Schema Validation in Booking', () => {
   it('safely parses booking with non-numeric demo user ID', () => {
     const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const booking = {

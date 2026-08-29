@@ -275,10 +275,12 @@ export function BookingScreen({
         pickup_location: form.pickup_location.trim(),
         dropoff_location: form.dropoff_location.trim(),
         pickup_date: fullPickupDate,
+        pickup_time: form.pickup_time?.trim() || null,
         return_date: selectedTripMode === 'Return' ? toLocalDateOnly(form.return_date) : null,
         passenger_count: form.passenger_count,
         trip_type: form.trip_type,
         vehicle_type_id: form.vehicle_type_id,
+        estimated_fare: budget.trim() || null,
         additional_details: emptyToNull(combinedDetails),
         website_hp: '',
       });
@@ -623,12 +625,12 @@ export function BookingScreen({
                 pressed && styles.getOfferBtnPressed,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Get Offer"
+              accessibilityLabel="Submit Booking"
             >
               {submitting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.getOfferBtnText}>Get Offer</Text>
+                <Text style={styles.getOfferBtnText}>Submit Booking</Text>
               )}
             </Pressable>
           </View>

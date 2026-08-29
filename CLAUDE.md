@@ -70,9 +70,7 @@ npx eas-cli build --profile production --platform android
    - Use color tokens (`theme.colors.*`), spacing tokens (`theme.spacing.*`), and typography constants (`src/theme/typography.ts`) for dynamic Light and Dark modes.
 5. **Himalayan Offline Resilience & Highway Monitoring**:
    - Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `EmergencySosModal`, `HighwayStatusCard`, `VoucherQrCode`, and bundled rate charts (`rateCategories.generated.ts`) for off-grid resilience.
-6. **Push Notifications**:
-   - Expo Server SDK + FCM v1 in `server/src/services/notifications.ts`, registered via `POST /api/users/push-token` and managed in `src/hooks/usePushNotifications.ts`.
-7. **Form Validation & Anti-Spam**:
+6. **Form Validation & Anti-Spam**:
    - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
 
 ---
@@ -83,6 +81,5 @@ npx eas-cli build --profile production --platform android
 - [Database Schema Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md)
 - [System Architecture](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/ARCHITECTURE.md)
 - [Offline Resilience Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md)
-- [Push Notification Pipeline](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/PUSH_NOTIFICATIONS.md)
 - [Deployment Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md)
 - [Contributing Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/CONTRIBUTING.md)

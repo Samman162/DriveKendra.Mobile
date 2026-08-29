@@ -1,30 +1,37 @@
-import React from 'react';
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Image,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
-  Calendar,
-  Car,
+  Camera,
+  Check,
   ChevronRight,
   Compass,
-  Fingerprint,
   Headphones,
-  KeyRound,
   LogOut,
-  Moon,
-  ShieldCheck,
-  Sparkles,
+  Mail,
+  Phone,
   User as UserIcon,
 } from 'lucide-react-native';
 
-import { BrandLogo } from '../components/ui/BrandLogo';
+import { updateUserProfile } from '../api/users';
 import { Button } from '../components/ui/Button';
+import { ManAvatarIllustration } from '../components/ui/ManAvatarIllustration';
 import { Screen } from '../components/ui/Screen';
-import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { ThemeModeSelector } from '../components/ui/ThemeModeSelector';
 import { useAuth } from '../context/AuthContext';
-import { useBiometrics } from '../hooks/useBiometrics';
 import type { RootStackParamList, RootTabParamList } from '../navigation/types';
 import { radius, spacing } from '../theme/spacing';
 import type { ThemeColors } from '../theme/colors';
@@ -39,27 +46,93 @@ type ProfileNav = CompositeNavigationProp<
 
 export function ProfileScreen() {
   const navigation = useNavigation<ProfileNav>();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { user, isAuthenticated, signOut, biometricEnabled, setBiometricEnabled } = useAuth();
-  const { isAvailable, typeLabel, authenticate } = useBiometrics();
+  const { user, isAuthenticated, signOut, updateUser } = useAuth();
 
-  const handleToggleBiometrics = async (value: boolean) => {
-    if (value) {
-      const ok = await authenticate(`Confirm ${typeLabel} to enable biometric unlock`);
-      if (ok) {
-        hapticFeedback.success();
-        await setBiometricEnabled(true);
-      } else {
-        hapticFeedback.error();
+  // Profile Form States
+  const [name, setName] = useState<string>(user?.name || 'Samman Budhathoki');
+  const [phone, setPhone] = useState<string>(user?.phone || '+977 9819923926');
+  const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatarUrl || null);
+  const [isSaved, setIsSaved] = useState<boolean>(false);
+  const [isNameFocused, setIsNameFocused] = useState<boolean>(false);
+
+  // Sync state when user context updates
+  useEffect(() => {
+    if (user?.name) setName(user.name);
+    if (user?.phone) setPhone(user.phone);
+    if (user?.avatarUrl) setAvatarUri(user.avatarUrl);
+  }, [user]);
+
+  // Determine if profile fields or avatar have changed
+  const initialName = user?.name || 'Samman Budhathoki';
+  const initialAvatar = user?.avatarUrl || null;
+  const isDirty = name.trim() !== initialName.trim() || avatarUri !== initialAvatar;
+
+  const handlePickImage = async () => {
+    hapticFeedback.selection();
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert(
+          'Photo Library Access',
+          'Drive Kendra needs permission to access your photo gallery to select a profile picture.',
+        );
+        return;
       }
-    } else {
-      hapticFeedback.selection();
-      await setBiometricEnabled(false);
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0]?.uri) {
+        const selectedUri = result.assets[0].uri;
+        // Update local state only; save only when Save button is pressed
+        setAvatarUri(selectedUri);
+        hapticFeedback.selection();
+      }
+    } catch (e) {
+      console.warn('[ImagePicker] Error picking image from gallery:', e);
+      Alert.alert('Error', 'Unable to open gallery. Please try again.');
+      hapticFeedback.error();
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    Keyboard.dismiss();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      hapticFeedback.error();
+      Alert.alert('Invalid Name', 'Full name cannot be left empty.');
+      return;
+    }
+
+    try {
+      await updateUser({ name: trimmed, phone, avatarUrl: avatarUri || undefined });
+
+      if (user?.id) {
+        void updateUserProfile({
+          userId: user.id,
+          fullName: trimmed,
+          avatarUrl: avatarUri || undefined,
+          phone,
+        });
+      }
+
+      hapticFeedback.success();
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
+    } catch {
+      hapticFeedback.error();
+      Alert.alert('Error', 'Could not save profile changes. Please try again.');
     }
   };
 
   const handleSignOut = () => {
+    hapticFeedback.error();
     Alert.alert('Sign Out', 'Are you sure you want to sign out of Drive Kendra?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -72,203 +145,242 @@ export function ProfileScreen() {
     ]);
   };
 
+  // ----------------------------------------------------
+  // GUEST STATE
+  // ----------------------------------------------------
   if (!isAuthenticated || !user) {
     return (
-      <Screen>
-        <View style={styles.guestContainer}>
-          <BrandLogo size="lg" variant="card" style={{ marginBottom: spacing.md }} />
-          <Text style={styles.guestTitle}>Welcome to Drive Kendra</Text>
-          <Text style={styles.guestSubtitle}>
-            Sign in or create an account to manage your car bookings, access discounted rates, and track your Himalayan tours.
-          </Text>
+      <Screen padded={false}>
+        {/* Top Branded Hero */}
+        <View style={styles.heroBanner}>
+          <View style={styles.topBar}>
+            <View style={{ width: 64 }} />
+            <Text style={styles.headerTitle}>Profile</Text>
+            <View style={{ width: 64 }} />
+          </View>
 
-          <View style={styles.guestActions}>
-            <Button
-              label="Sign In to Account"
-              onPress={() => navigation.navigate('Auth', { initialMode: 'signin' })}
-              variant="primary"
-            />
-            <View style={{ height: spacing.sm }} />
-            <Button
-              label="Create New Account"
-              onPress={() => navigation.navigate('Auth', { initialMode: 'signup' })}
-              variant="secondary"
-            />
+          <View style={styles.guestHeroAvatar}>
+            <ManAvatarIllustration size={80} />
+          </View>
+        </View>
+
+        <View style={styles.guestBody}>
+          <View style={styles.guestContentCard}>
+            <Text style={styles.guestTitle}>Join Drive Kendra</Text>
+            <Text style={styles.guestSubtitle}>
+              Sign in to manage your Himalayan car bookings, access offline vouchers, and unlock
+              exclusive VIP expedition rates.
+            </Text>
+
+            <View style={styles.guestActions}>
+              <Button
+                label="Sign In to Account"
+                onPress={() => navigation.navigate('Auth', { initialMode: 'signin' })}
+                variant="primary"
+              />
+              <View style={{ height: spacing.sm }} />
+              <Button
+                label="Create New Account"
+                onPress={() => navigation.navigate('Auth', { initialMode: 'signup' })}
+                variant="secondary"
+              />
+            </View>
+          </View>
+
+          {/* Theme Appearance Setting for Guest */}
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>App Appearance</Text>
+            <Text style={styles.sectionSubtitle}>
+              Switch between Light, Dark, or System mode.
+            </Text>
+            <ThemeModeSelector style={{ marginTop: spacing.sm }} />
+          </View>
+
+          {/* Walkthrough link */}
+          <View style={styles.menuSection}>
+            <Pressable
+              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+              onPress={() => navigation.navigate('Onboarding')}
+            >
+              <View style={styles.menuIconWrap}>
+                <Compass size={18} color={colors.accent} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text style={styles.menuLabel}>App Walkthrough & Intro</Text>
+                <Text style={styles.menuSub}>Explore features, vehicle fleets & tour packages</Text>
+              </View>
+              <ChevronRight size={18} color={colors.subtle} />
+            </Pressable>
           </View>
         </View>
       </Screen>
     );
   }
 
+  // ----------------------------------------------------
+  // AUTHENTICATED PROFILE
+  // ----------------------------------------------------
   return (
-    <Screen>
-      {/* Profile Header Card */}
-      <View style={styles.profileCard}>
-        <View style={styles.avatarRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user.name ? user.name.slice(0, 2).toUpperCase() : 'DK'}
-            </Text>
-          </View>
-          <View style={styles.userInfo}>
-            <View style={styles.nameRow}>
-              <Text style={styles.userName}>{user.name}</Text>
-              <View style={styles.verifiedBadge}>
-                <ShieldCheck size={12} color={colors.success} />
-                <Text style={styles.verifiedText}>Verified</Text>
-              </View>
+    <Screen padded={false}>
+      {/* Curved Sunset Hero Header */}
+      <View style={styles.heroBanner}>
+        <View style={styles.topBar}>
+          {/* Left spacer to keep title centered */}
+          <View style={{ width: 64 }} />
+
+          {/* Center: Title */}
+          <Text style={styles.headerTitle}>My Profile</Text>
+
+          {/* Right: Save Action - Only shown when edited or just saved */}
+          {isDirty || isSaved ? (
+            <Pressable
+              onPress={handleSaveProfile}
+              style={({ pressed }) => [
+                styles.saveBtn,
+                isSaved && styles.saveBtnSaved,
+                pressed && { opacity: 0.8 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Save profile changes"
+            >
+              {isSaved ? (
+                <View style={styles.saveInnerRow}>
+                  <Check size={14} color={colors.onAccent} strokeWidth={3} />
+                  <Text style={styles.saveBtnText}>Saved</Text>
+                </View>
+              ) : (
+                <Text style={styles.saveBtnText}>Save</Text>
+              )}
+            </Pressable>
+          ) : (
+            <View style={{ width: 64 }} />
+          )}
+        </View>
+
+        {/* Floating Avatar Section */}
+        <View style={styles.avatarSection}>
+          <Pressable
+            onPress={handlePickImage}
+            accessibilityRole="button"
+            accessibilityLabel="Open gallery to change profile picture"
+            style={({ pressed }) => [styles.avatarTouchable, pressed && { opacity: 0.85 }]}
+          >
+            <View style={styles.avatarCircle}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+              ) : (
+                <ManAvatarIllustration size={100} />
+              )}
             </View>
-            <Text style={styles.userEmail}>{user.email}</Text>
-            <Text style={styles.userPhone}>{user.phone}</Text>
-          </View>
+
+            {/* Camera Overlay Badge */}
+            <View style={styles.cameraBadge}>
+              <Camera size={16} color={colors.navy} strokeWidth={2.5} />
+            </View>
+          </Pressable>
         </View>
       </View>
 
-      {/* Quick Stats Grid */}
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>12</Text>
-          <Text style={styles.statLabel}>Trips Completed</Text>
+      {/* Main Profile Body */}
+      <View style={styles.bodyContainer}>
+        {/* Profile Information Card */}
+        <View style={styles.infoCard}>
+          {/* Full Name Field */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Full Name</Text>
+            <View style={[styles.inputRow, isNameFocused && styles.inputRowFocused]}>
+              <UserIcon size={18} color={isNameFocused ? colors.accent : colors.subtle} />
+              <TextInput
+                style={styles.nameInput}
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter full name"
+                placeholderTextColor={colors.muted}
+                onFocus={() => setIsNameFocused(true)}
+                onBlur={() => setIsNameFocused(false)}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSaveProfile}
+              />
+            </View>
+          </View>
+
+          <View style={styles.fieldDivider} />
+
+          {/* Phone Number Field */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Phone Number</Text>
+            <View style={styles.staticFieldRow}>
+              <View style={styles.fieldIconPrefix}>
+                <Phone size={18} color={colors.subtle} />
+              </View>
+              <Text style={styles.staticFieldValue}>{phone}</Text>
+            </View>
+          </View>
+
+          <View style={styles.fieldDivider} />
+
+          {/* Email Address Field */}
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Email Address</Text>
+            <View style={styles.staticFieldRow}>
+              <View style={styles.fieldIconPrefix}>
+                <Mail size={18} color={colors.subtle} />
+              </View>
+              <Text style={styles.staticFieldValue}>{user.email || 'traveler@drivekendra.com'}</Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>4.9★</Text>
-          <Text style={styles.statLabel}>Rating</Text>
+
+        {/* App Appearance & Mode Setting */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>App Appearance & Mode</Text>
+          <Text style={styles.sectionSubtitle}>
+            Select your preferred display theme or sync with your device settings.
+          </Text>
+          <ThemeModeSelector style={{ marginTop: spacing.sm }} />
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statValue}>VIP</Text>
-          <Text style={styles.statLabel}>Tier</Text>
-        </View>
-      </View>
 
-      {/* Menu Options */}
-      <View style={styles.menuSection}>
-        <Text style={styles.sectionTitle}>Account & Activity</Text>
+        {/* Support Section */}
+        <View style={styles.menuSection}>
+          <Text style={styles.sectionTitle}>Support & Help</Text>
+          <Text style={styles.sectionSubtitle}>
+            Reach our Nepal dispatch team for bookings, routes, and emergency assistance.
+          </Text>
 
-        <Pressable
-          style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-          onPress={() => navigation.navigate('MyBookings')}
-        >
-          <View style={[styles.menuIconWrap, { backgroundColor: colors.accentSoft }]}>
-            <Calendar size={18} color={colors.accent} />
-          </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>My Reservations & Trips</Text>
-            <Text style={styles.menuSub}>View upcoming rides, driver details & tax invoices</Text>
-          </View>
-          <ChevronRight size={18} color={colors.subtle} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-          onPress={() => navigation.navigate('BookingModal')}
-        >
-          <View style={styles.menuIconWrap}>
-            <Car size={18} color={colors.accent} />
-          </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>Book a Vehicle</Text>
-            <Text style={styles.menuSub}>Instant rental & chauffeur reservations</Text>
-          </View>
-          <ChevronRight size={18} color={colors.subtle} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-          onPress={() => navigation.navigate('Tours')}
-        >
-          <View style={styles.menuIconWrap}>
-            <Sparkles size={18} color={colors.accent} />
-          </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>Himalayan Tour Packages</Text>
-            <Text style={styles.menuSub}>Muktinath, Manakamana, Kalinchowk</Text>
-          </View>
-          <ChevronRight size={18} color={colors.subtle} />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-          onPress={() => navigation.navigate('Contact')}
-        >
-          <View style={styles.menuIconWrap}>
-            <Headphones size={18} color={colors.accent} />
-          </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>24/7 Driver Support</Text>
-            <Text style={styles.menuSub}>Direct phone & WhatsApp hotline</Text>
-          </View>
-          <ChevronRight size={18} color={colors.subtle} />
-        </Pressable>
-      </View>
-
-      {/* Security & Preferences Section */}
-      <View style={styles.menuSection}>
-        <Text style={styles.sectionTitle}>Security & Preferences</Text>
-
-        {isAvailable ? (
-          <View style={styles.menuItem}>
-            <View style={styles.menuIconWrap}>
-              <Fingerprint size={18} color={colors.accent} />
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            onPress={() => {
+              hapticFeedback.selection();
+              navigation.navigate('Contact');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Contact 24/7 Roadside Hotline and Support"
+          >
+            <View style={[styles.menuIconWrap, { backgroundColor: colors.accentSoft }]}>
+              <Headphones size={18} color={colors.accent} />
             </View>
             <View style={styles.menuContent}>
-              <Text style={styles.menuLabel}>{typeLabel} Unlock</Text>
-              <Text style={styles.menuSub}>Require biometric verification on app resume</Text>
+              <Text style={styles.menuLabel}>24/7 Roadside & Trip Support</Text>
+              <Text style={styles.menuSub}>Direct phone, WhatsApp & customer helpline in Nepal</Text>
             </View>
-            <Switch
-              value={biometricEnabled}
-              onValueChange={handleToggleBiometrics}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor={colors.onAccent}
-            />
-          </View>
-        ) : null}
-
-        <View style={styles.menuItem}>
-          <View style={styles.menuIconWrap}>
-            <KeyRound size={18} color={colors.success} />
-          </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>Hardware Encryption</Text>
-            <Text style={styles.menuSub}>Protected with iOS Keychain / Android KeyStore</Text>
-          </View>
-          <ShieldCheck size={18} color={colors.success} />
+            <ChevronRight size={18} color={colors.subtle} />
+          </Pressable>
         </View>
 
-        <View style={styles.menuItem}>
-          <View style={styles.menuIconWrap}>
-            <Moon size={18} color={colors.accent} />
-          </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>App Appearance</Text>
-            <Text style={styles.menuSub}>{isDark ? 'Dark Mode' : 'Light Mode'}</Text>
-          </View>
-          <ThemeToggle variant="onSurface" />
+        {/* Sign Out Button */}
+        <View style={styles.logoutWrap}>
+          <Pressable
+            onPress={handleSignOut}
+            style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Sign Out of Drive Kendra"
+          >
+            <LogOut size={18} color={colors.error} style={{ marginRight: 8 }} />
+            <Text style={styles.logoutText}>Sign Out of Drive Kendra</Text>
+          </Pressable>
         </View>
-
-        <Pressable
-          style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-          onPress={() => navigation.navigate('Onboarding')}
-        >
-          <View style={styles.menuIconWrap}>
-            <Compass size={18} color={colors.accent} />
-          </View>
-          <View style={styles.menuContent}>
-            <Text style={styles.menuLabel}>App Walkthrough & Intro</Text>
-            <Text style={styles.menuSub}>Review features, tour packages & logistics services</Text>
-          </View>
-          <ChevronRight size={18} color={colors.subtle} />
-        </Pressable>
-      </View>
-
-      {/* Logout Action */}
-      <View style={styles.logoutWrap}>
-        <Pressable
-          onPress={handleSignOut}
-          style={({ pressed }) => [styles.logoutBtn, pressed && styles.menuItemPressed]}
-        >
-          <LogOut size={18} color={colors.error} style={{ marginRight: 8 }} />
-          <Text style={styles.logoutText}>Sign Out of Drive Kendra</Text>
-        </Pressable>
       </View>
     </Screen>
   );
@@ -276,126 +388,193 @@ export function ProfileScreen() {
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    guestContainer: {
+    // Hero Top Banner
+    heroBanner: {
+      backgroundColor: colors.accent,
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.xl + 12,
+      borderBottomLeftRadius: 32,
+      borderBottomRightRadius: 32,
       alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: spacing.xl,
-      paddingHorizontal: spacing.md,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
+      elevation: 6,
     },
-    guestAvatar: {
-      width: 88,
-      height: 88,
-      borderRadius: 44,
-      backgroundColor: colors.accentSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: spacing.lg,
-    },
-    guestTitle: {
-      fontSize: 24,
-      fontWeight: '800',
-      color: colors.text,
-      marginBottom: spacing.xs,
-      textAlign: 'center',
-    },
-    guestSubtitle: {
-      fontSize: 14,
-      color: colors.muted,
-      textAlign: 'center',
-      lineHeight: 20,
-      marginBottom: spacing.xl,
-    },
-    guestActions: {
+    topBar: {
       width: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: spacing.lg,
+      marginBottom: spacing.md,
     },
-    profileCard: {
+    headerTitle: {
+      fontSize: 18,
+      fontWeight: '900',
+      color: colors.onAccent,
+      textAlign: 'center',
+    },
+    saveBtn: {
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      backgroundColor: colors.navy,
+      minWidth: 64,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      elevation: 3,
+    },
+    saveBtnSaved: {
+      backgroundColor: colors.success,
+    },
+    saveInnerRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    saveBtnText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.onNavy,
+    },
+
+    // Avatar
+    avatarSection: {
+      alignItems: 'center',
+      marginTop: spacing.xs,
+    },
+    avatarTouchable: {
+      position: 'relative',
+      marginBottom: spacing.xs,
+    },
+    avatarCircle: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 4,
+      borderColor: colors.surface,
+      backgroundColor: '#E2E8F0',
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    avatarImage: {
+      width: 100,
+      height: 100,
+      borderRadius: 50,
+    },
+    cameraBadge: {
+      position: 'absolute',
+      bottom: 2,
+      right: 2,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: '#FFFFFF',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.accent,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 3,
+      elevation: 4,
+    },
+
+    // Body
+    bodyContainer: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xxl + 20,
+    },
+
+    // Information Card
+    infoCard: {
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
-      padding: spacing.lg,
+      padding: spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
       marginBottom: spacing.md,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
     },
-    avatarRow: {
+    fieldBlock: {
+      paddingVertical: spacing.xs,
+    },
+    fieldLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.muted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginBottom: 6,
+    },
+    inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      gap: spacing.sm,
     },
-    avatar: {
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: colors.navy,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginRight: spacing.md,
+    inputRowFocused: {
+      borderColor: colors.accent,
+      backgroundColor: colors.surface,
     },
-    avatarText: {
-      color: colors.onNavy,
-      fontSize: 20,
-      fontWeight: '900',
-    },
-    userInfo: {
+    nameInput: {
       flex: 1,
-    },
-    nameRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    userName: {
-      fontSize: 18,
+      fontSize: 15,
       fontWeight: '800',
       color: colors.text,
+      padding: 0,
     },
-    verifiedBadge: {
+    fieldDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: spacing.sm,
+    },
+    staticFieldRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
-      backgroundColor: colors.successSoft,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: radius.pill,
-    },
-    verifiedText: {
-      fontSize: 10,
-      color: colors.success,
-      fontWeight: '700',
-    },
-    userEmail: {
-      fontSize: 13,
-      color: colors.muted,
-      marginTop: 2,
-    },
-    userPhone: {
-      fontSize: 12,
-      color: colors.subtle,
-      marginTop: 2,
-    },
-    statsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      marginBottom: spacing.md,
-    },
-    statBox: {
-      flex: 1,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.elevated,
       borderRadius: radius.md,
-      padding: spacing.md,
-      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
       borderWidth: 1,
       borderColor: colors.border,
+      gap: spacing.sm,
     },
-    statValue: {
-      fontSize: 18,
-      fontWeight: '900',
+    fieldIconPrefix: {
+      width: 20,
+      alignItems: 'center',
+    },
+    staticFieldValue: {
+      flex: 1,
+      fontSize: 14,
+      fontWeight: '700',
       color: colors.text,
     },
-    statLabel: {
-      fontSize: 11,
-      color: colors.muted,
-      fontWeight: '600',
-      marginTop: 2,
-    },
+
+    // Menu Sections
     menuSection: {
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
@@ -403,15 +582,26 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.border,
       marginBottom: spacing.md,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 4,
+      elevation: 1,
     },
     sectionTitle: {
       fontSize: 12,
-      fontWeight: '800',
+      fontWeight: '900',
       color: colors.muted,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
-      marginBottom: spacing.sm,
-      paddingHorizontal: 4,
+      marginBottom: 2,
+      paddingHorizontal: 2,
+    },
+    sectionSubtitle: {
+      fontSize: 11,
+      color: colors.subtle,
+      marginBottom: spacing.xs,
+      paddingHorizontal: 2,
     },
     menuItem: {
       flexDirection: 'row',
@@ -445,9 +635,11 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
       marginTop: 1,
     },
+
+    // Logout
     logoutWrap: {
-      marginTop: spacing.sm,
-      marginBottom: spacing.xxl,
+      marginTop: spacing.xs,
+      marginBottom: spacing.lg,
     },
     logoutBtn: {
       flexDirection: 'row',
@@ -459,10 +651,58 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1,
       borderColor: colors.error,
     },
+    logoutBtnPressed: {
+      opacity: 0.8,
+    },
     logoutText: {
       color: colors.error,
-      fontWeight: '800',
+      fontWeight: '900',
       fontSize: 14,
+    },
+
+    // Guest Styles
+    guestHeroAvatar: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: '#E2E8F0',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+      borderWidth: 2,
+      borderColor: 'rgba(255, 255, 255, 0.3)',
+      overflow: 'hidden',
+    },
+    guestBody: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xxl + 20,
+    },
+    guestContentCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      marginBottom: spacing.md,
+    },
+    guestTitle: {
+      fontSize: 22,
+      fontWeight: '900',
+      color: colors.text,
+      marginBottom: spacing.xs,
+      textAlign: 'center',
+    },
+    guestSubtitle: {
+      fontSize: 13,
+      color: colors.muted,
+      textAlign: 'center',
+      lineHeight: 19,
+      marginBottom: spacing.lg,
+    },
+    guestActions: {
+      width: '100%',
     },
   });
 }

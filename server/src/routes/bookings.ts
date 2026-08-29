@@ -30,21 +30,26 @@ bookingsRoute.get('/', async (c) => {
       pickup_location: string;
       dropoff_location: string;
       pickup_date: Date;
+      pickup_time: string | null;
       return_date: Date | null;
       passenger_count: number;
       trip_type: string;
+      estimated_fare: string | null;
       booking_status: string;
       assigned_driver_name: string | null;
       assigned_driver_phone: string | null;
+      assigned_driver_rating: number | null;
       assigned_vehicle_plate: string | null;
+      assigned_vehicle_model: string | null;
       flight_number: string | null;
       flight_delay_minutes: number;
       created_at: Date;
     }>(
       `SELECT b.booking_id, b.user_id, b.vehicle_type_id, vt.type_name,
-              b.pickup_location, b.dropoff_location, b.pickup_date, b.return_date,
-              b.passenger_count, b.trip_type, b.booking_status,
-              b.assigned_driver_name, b.assigned_driver_phone, b.assigned_vehicle_plate,
+              b.pickup_location, b.dropoff_location, b.pickup_date, b.pickup_time, b.return_date,
+              b.passenger_count, b.trip_type, b.estimated_fare, b.booking_status,
+              b.assigned_driver_name, b.assigned_driver_phone, b.assigned_driver_rating,
+              b.assigned_vehicle_plate, b.assigned_vehicle_model,
               b.flight_number, b.flight_delay_minutes, b.created_at
        FROM dka_bookings b
        JOIN dka_users u ON b.user_id = u.user_id
@@ -65,13 +70,17 @@ bookingsRoute.get('/', async (c) => {
       pickupLocation: row.pickup_location,
       dropoffLocation: row.dropoff_location,
       pickupDate: row.pickup_date,
+      pickupTime: row.pickup_time,
       returnDate: row.return_date,
       passengerCount: row.passenger_count,
       tripType: row.trip_type,
+      estimatedFare: row.estimated_fare,
       status: row.booking_status,
       assignedDriverName: row.assigned_driver_name,
       assignedDriverPhone: row.assigned_driver_phone,
+      assignedDriverRating: row.assigned_driver_rating ? Number(row.assigned_driver_rating) : 4.9,
       assignedVehiclePlate: row.assigned_vehicle_plate,
+      assignedVehicleModel: row.assigned_vehicle_model,
       flightNumber: row.flight_number,
       flightDelayMinutes: row.flight_delay_minutes,
       createdAt: row.created_at,
@@ -166,8 +175,9 @@ bookingsRoute.post('/', async (c) => {
       const bookingRecord = await client.query<{ booking_id: number; created_at: Date }>(
         `INSERT INTO dka_bookings (
             user_id, vehicle_type_id, pickup_location, dropoff_location,
-            pickup_date, return_date, passenger_count, trip_type, additional_details, booking_status
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending')
+            pickup_date, pickup_time, return_date, passenger_count, trip_type,
+            estimated_fare, additional_details, booking_status
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Pending')
          RETURNING booking_id, created_at`,
         [
           userId,
@@ -175,9 +185,11 @@ bookingsRoute.post('/', async (c) => {
           booking.pickup_location,
           booking.dropoff_location,
           booking.pickup_date,
+          booking.pickup_time || null,
           booking.return_date,
           booking.passenger_count,
           booking.trip_type,
+          booking.estimated_fare || null,
           booking.additional_details,
         ],
       );
@@ -185,19 +197,6 @@ bookingsRoute.post('/', async (c) => {
       if (!bookingId) {
         throw new HttpError(500, 'Failed to create booking reservation.');
       }
-
-      // Step 3: Insert in-app alert/notification tagged with user_id
-      await client.query(
-        `INSERT INTO dka_notifications (user_id, title, message, related_entity_id, notification_type, created_at, is_read)
-         VALUES ($1, $2, $3, $4, $5, NOW(), false)`,
-        [
-          userId,
-          'Booking Received',
-          `Reservation received for ${booking.pickup_location} ➔ ${booking.dropoff_location} (${booking.pickup_date.toISOString().slice(0, 10)}).`,
-          bookingId,
-          'BookingReceived',
-        ],
-      );
 
       const bookingRef = `DK-${new Date().getFullYear()}-${String(bookingId).padStart(4, '0')}`;
       const responseBody = {
@@ -209,7 +208,7 @@ bookingsRoute.post('/', async (c) => {
         status: 'Pending',
       };
 
-      // Step 4: Save completed state to idempotency table
+      // Step 3: Save completed state to idempotency table
       if (idempotencyKey) {
         await client.query(
           `UPDATE dka_idempotency_keys

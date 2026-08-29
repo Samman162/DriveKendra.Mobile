@@ -97,6 +97,7 @@ jest.mock('react-native-svg', () => {
     Rect: SvgElementMock,
     G: SvgElementMock,
     Defs: SvgElementMock,
+    ClipPath: SvgElementMock,
     LinearGradient: SvgElementMock,
     Stop: SvgElementMock,
     Line: SvgElementMock,
@@ -212,3 +213,20 @@ jest.mock('react-native-webview', () => {
     }),
   };
 });
+
+// Mock expo-image-picker
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn(() => Promise.resolve({ granted: true })),
+  launchImageLibraryAsync: jest.fn(() =>
+    Promise.resolve({
+      canceled: false,
+      assets: [{ uri: 'file://mock-avatar.jpg' }],
+    }),
+  ),
+  MediaTypeOptions: {
+    Images: 'Images',
+    All: 'All',
+    Videos: 'Videos',
+  },
+}));
+

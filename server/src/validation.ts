@@ -102,10 +102,12 @@ export const bookingZodSchema = z
     pickup_location: z.string().trim().min(1, 'Pickup location is required.').max(255),
     dropoff_location: z.string().trim().min(1, 'Dropoff location is required.').max(255),
     pickup_date: z.string().min(1, 'Pickup date is required.'),
+    pickup_time: z.string().max(20, 'Pickup time too long.').optional().nullable().or(z.literal('')),
     return_date: z.string().optional().nullable().or(z.literal('')),
     passenger_count: z.coerce.number().int().min(1, 'Passenger count must be at least 1.').max(50, 'Passenger count max 50.'),
     trip_type: z.enum(['One Way', 'Return', 'Round Trip', 'return', 'one way', 'round trip', 'One-Way', 'Round-Trip']),
     vehicle_type_id: z.coerce.number().int().min(1, 'Select a valid vehicle type.').max(4, 'Select a valid vehicle type.'),
+    estimated_fare: z.string().max(50, 'Estimated fare too long.').optional().nullable().or(z.literal('')),
     additional_details: z.string().max(2000, 'Additional details too long.').optional().nullable(),
     website_hp: honeypotValidator,
   })
@@ -158,10 +160,12 @@ export type BookingInput = {
   pickup_location: string;
   dropoff_location: string;
   pickup_date: Date;
+  pickup_time?: string | null;
   return_date: Date | null;
   passenger_count: number;
   trip_type: 'One Way' | 'Round Trip';
   vehicle_type_id: number;
+  estimated_fare?: string | null;
   additional_details: string | null;
 };
 
@@ -185,10 +189,12 @@ export function parseBooking(body: unknown): BookingInput {
     pickup_location: valid.pickup_location,
     dropoff_location: valid.dropoff_location,
     pickup_date: pickupDate,
+    pickup_time: valid.pickup_time?.trim() || null,
     return_date: returnDate,
     passenger_count: valid.passenger_count,
     trip_type: isRound ? 'Round Trip' : 'One Way',
     vehicle_type_id: valid.vehicle_type_id,
+    estimated_fare: valid.estimated_fare?.trim() || null,
     additional_details: valid.additional_details?.trim() || null,
   };
 }
@@ -249,42 +255,4 @@ export const resetPasswordZodSchema = z.object({
   identifier: z.string().trim().min(1, 'Identifier is required.'),
   code: z.string().trim().min(4, 'Verification code is required.'),
   newPassword: z.string().min(6, 'New password must be at least 6 characters.'),
-});
-
-// Push Token Registration Schema
-export const registerPushTokenSchema = z.object({
-  pushToken: z.string().trim().min(1, 'Push token is required.'),
-  userId: z.number().int().positive().optional().nullable(),
-  customerId: z.number().int().positive().optional().nullable(), // backwards-compatible alias
-  phoneNumber: z.string().trim().optional().nullable(),
-  email: z.string().trim().email().optional().nullable().or(z.literal('')),
-  devicePlatform: z.enum(['ios', 'android', 'web']).optional().nullable(),
-  deviceName: z.string().trim().max(100).optional().nullable(),
-});
-
-// Notification Dispatch Event Schemas
-export const bookingStatusTriggerSchema = z.object({
-  bookingId: z.number().int().positive('Valid bookingId is required.'),
-  status: z.enum(['Confirmed', 'Cancelled', 'Completed', 'In Progress']),
-  remarks: z.string().optional(),
-});
-
-export const driverAssignTriggerSchema = z.object({
-  bookingId: z.number().int().positive('Valid bookingId is required.'),
-  driverName: z.string().trim().min(1, 'Driver name is required.'),
-  driverPhone: z.string().trim().min(1, 'Driver phone is required.'),
-  vehiclePlate: z.string().trim().min(1, 'Vehicle plate number is required.'),
-  vehicleModel: z.string().trim().optional(),
-});
-
-export const tripReminderTriggerSchema = z.object({
-  bookingId: z.number().int().positive('Valid bookingId is required.'),
-});
-
-export const flightDelayTriggerSchema = z.object({
-  bookingId: z.number().int().positive('Valid bookingId is required.'),
-  flightNumber: z.string().trim().min(1, 'Flight number is required.'),
-  delayMinutes: z.number().int().min(1, 'Delay minutes must be positive.'),
-  newArrivalTime: z.string().trim().optional(),
-  airline: z.string().trim().optional(),
 });

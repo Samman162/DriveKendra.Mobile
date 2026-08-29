@@ -178,32 +178,6 @@ All queries run inside `withPublicClient` in `server/src/db.ts`:
 
 ---
 
-## 🔔 Push Notification Pipeline
-
-```
-+------------------+         +--------------------+         +------------------------+
-|  Mobile Client   |         |    Hono API        |         |   Expo Push Service    |
-| (Expo Notifs SDK)|         | (server/services)  |         |        (FCM v1)        |
-+--------+---------+         +---------+----------+         +-----------+------------+
-         |                             |                                |
-         | 1. Request Token            |                                |
-         |---------------------------->|                                |
-         | 2. POST /api/users/push-token                                |
-         |---------------------------->|                                |
-         |                             | 3. Store Token in dka_users    |
-         |                             |                                |
-         |                             | 4. Dispatch Event (Chauffeur)  |
-         |                             |------------------------------->|
-         |                             |                                | 5. Push Alert
-         | 6. Receive Alert on Device  |<-------------------------------+
-         |<----------------------------|                                |
-         | 7. Tap Notification (Deep Link: /mytrips/42)                 |
-```
-
-The server utilizes `expo-server-sdk` configured for HTTP v1 FCM. It manages automatic device token invalidation when Apple APNs or Google FCM report `DeviceNotRegistered`.
-
----
-
 ## 🏔 Offline-First & Himalayan Resilience Strategy
 
 Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) frequently cross areas with zero cellular connectivity. Drive Kendra Mobile provides:

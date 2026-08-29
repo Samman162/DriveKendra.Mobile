@@ -11,7 +11,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { navigationRef } from './src/navigation/navigationRef';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { usePushNotifications } from './src/hooks/usePushNotifications';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { AppSplashScreen } from './src/components/ui/AppSplashScreen';
 import { hasCompletedOnboarding } from './src/utils/onboardingStorage';
@@ -24,9 +23,6 @@ function ThemedApp() {
   const { isLoading } = useAuth();
   const [isOnboardingChecked, setIsOnboardingChecked] = useState(false);
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(true);
-
-  // Initialize push notification listener & token lifecycle
-  usePushNotifications();
 
   // Check if first-launch onboarding walkthrough has been completed
   useEffect(() => {

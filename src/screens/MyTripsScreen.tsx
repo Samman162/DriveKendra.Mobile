@@ -154,14 +154,14 @@ export function MyTripsScreen() {
             pickup: b.pickupLocation,
             dropoff: b.dropoffLocation,
             date: new Date(b.pickupDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
-            time: new Date(b.pickupDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            time: b.pickupTime || new Date(b.pickupDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             tripType: b.tripType,
-            vehicleName: b.vehicleTypeName || 'Mahindra Scorpio 4x4',
+            vehicleName: b.assignedVehicleModel || b.vehicleTypeName || 'Mahindra Scorpio 4x4',
             vehiclePlate: b.assignedVehiclePlate || 'Ba 2 Cha (TBD)',
             driverName: b.assignedDriverName || 'Assigning Chauffeur...',
             driverPhone: b.assignedDriverPhone || CONTACT_INFO.phoneRaw,
-            driverRating: 4.9,
-            fare: 'NPR 12,000',
+            driverRating: b.assignedDriverRating ? Number(b.assignedDriverRating) : 4.9,
+            fare: b.estimatedFare || 'NPR 12,000',
             status: b.status.toLowerCase() === 'completed' ? 'completed' : b.status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
           }));
           setTrips(formatted);

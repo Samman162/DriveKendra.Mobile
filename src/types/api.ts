@@ -8,10 +8,12 @@ export interface BookingEntryDto {
   pickup_location: string;
   dropoff_location: string;
   pickup_date: string;
+  pickup_time?: string | null;
   return_date?: string | null;
   passenger_count: number;
   trip_type: TripType;
   vehicle_type_id: number;
+  estimated_fare?: string | null;
   additional_details?: string | null;
   website_hp?: string;
 }
@@ -25,13 +27,17 @@ export interface BookingRecordDto {
   pickupLocation: string;
   dropoffLocation: string;
   pickupDate: string;
+  pickupTime?: string | null;
   returnDate: string | null;
   passengerCount: number;
   tripType: 'One Way' | 'Return' | 'Round Trip';
+  estimatedFare?: string | null;
   status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
   assignedDriverName: string | null;
   assignedDriverPhone: string | null;
+  assignedDriverRating?: number | null;
   assignedVehiclePlate: string | null;
+  assignedVehicleModel?: string | null;
   flightNumber: string | null;
   flightDelayMinutes: number;
   createdAt: string;
@@ -62,19 +68,6 @@ export interface CreateReviewDto {
   comment: string;
   trip_title?: string | null;
   website_hp?: string;
-}
-
-export interface InAppNotificationDto {
-  id: number;
-  userId: number;
-  title: string;
-  message: string;
-  relatedEntityId: number | null;
-  type: string;
-  pushStatus: string;
-  payload?: any;
-  isRead: boolean;
-  createdAt: string;
 }
 
 export interface ApiMessageResponse {

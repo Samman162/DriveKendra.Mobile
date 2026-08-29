@@ -53,9 +53,6 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
    - Use `offlineQueue.ts` for handling network disruptions during mutating operations.
    - Use `EmergencyTripCard.tsx` and `EmergencySosModal.tsx` for GPS emergency SOS dispatch.
    - Use `HighwayStatusCard.tsx` for real-time Nepal highway road advisories.
-7. **Push Notification Pipeline**:
-   - Device tokens are registered via `src/hooks/usePushNotifications.ts` and endpoint `POST /api/users/push-token`.
-   - Server-side notification dispatches are routed through `server/src/services/notifications.ts` (FCM v1 ready).
 
 ---
 
@@ -68,7 +65,7 @@ Always run and verify these commands before concluding a task:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Run automated test suites (7 Client Suites / 43 Tests, 1 Server Suite / 14 Tests)
+# 2. Run automated test suites (8 Client Suites / 49 Tests, 1 Server Suite / 14 Tests)
 npm test
 npm test --prefix server
 ```
@@ -81,6 +78,5 @@ npm test --prefix server
 - [Database Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md)
 - [Architecture Blueprint](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/ARCHITECTURE.md)
 - [Himalayan Offline Strategy](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md)
-- [Push Notification Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/PUSH_NOTIFICATIONS.md)
 - [Deployment & CI/CD Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md)
 - [Contributing Guidelines](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/CONTRIBUTING.md)

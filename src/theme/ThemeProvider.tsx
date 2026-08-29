@@ -9,38 +9,48 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Appearance } from 'react-native';
+import { Appearance, type ColorSchemeName } from 'react-native';
 
 import { darkColors, lightColors, type ThemeColors } from './colors';
 
-const STORAGE_KEY = 'app-theme';
+const STORAGE_PREF_KEY = 'app-theme-preference';
+const LEGACY_STORAGE_KEY = 'app-theme';
 
+export type ThemePreference = 'system' | 'light' | 'dark';
 export type ThemeMode = 'light' | 'dark';
 
 type ThemeContextValue = {
   isDark: boolean;
   mode: ThemeMode;
+  preference: ThemePreference;
   colors: ThemeColors;
   toggle: () => void;
   setMode: (mode: ThemeMode) => void;
+  setPreference: (preference: ThemePreference) => void;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function systemIsDark(): boolean {
-  return Appearance.getColorScheme() === 'dark';
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [isDark, setIsDark] = useState(systemIsDark);
+  const [preference, setPreferenceState] = useState<ThemePreference>('system');
+  const [systemScheme, setSystemScheme] = useState<ColorSchemeName>(() => Appearance.getColorScheme() ?? 'light');
 
   useEffect(() => {
     let cancelled = false;
-    AsyncStorage.getItem(STORAGE_KEY)
+    AsyncStorage.getItem(STORAGE_PREF_KEY)
       .then((saved) => {
         if (cancelled) return;
-        if (saved === 'dark') setIsDark(true);
-        else if (saved === 'light') setIsDark(false);
+        if (saved === 'dark' || saved === 'light' || saved === 'system') {
+          setPreferenceState(saved as ThemePreference);
+        } else {
+          // Check legacy key
+          AsyncStorage.getItem(LEGACY_STORAGE_KEY).then((legacy) => {
+            if (cancelled) return;
+            if (legacy === 'dark' || legacy === 'light') {
+              setPreferenceState(legacy as ThemePreference);
+            }
+          });
+        }
       })
       .catch(() => {
         /* keep system default */
@@ -50,37 +60,48 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const persist = useCallback((next: boolean) => {
-    void AsyncStorage.setItem(STORAGE_KEY, next ? 'dark' : 'light');
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      setSystemScheme(colorScheme);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const isDark = useMemo(() => {
+    if (preference === 'dark') return true;
+    if (preference === 'light') return false;
+    return systemScheme === 'dark';
+  }, [preference, systemScheme]);
+
+  const setPreference = useCallback((nextPref: ThemePreference) => {
+    setPreferenceState(nextPref);
+    void AsyncStorage.setItem(STORAGE_PREF_KEY, nextPref);
+    void AsyncStorage.setItem(LEGACY_STORAGE_KEY, nextPref === 'dark' ? 'dark' : 'light');
+    void Haptics.selectionAsync();
   }, []);
 
   const setMode = useCallback(
     (mode: ThemeMode) => {
-      const next = mode === 'dark';
-      setIsDark(next);
-      persist(next);
+      setPreference(mode);
     },
-    [persist],
+    [setPreference],
   );
 
   const toggle = useCallback(() => {
-    setIsDark((current) => {
-      const next = !current;
-      persist(next);
-      return next;
-    });
-    void Haptics.selectionAsync();
-  }, [persist]);
+    setPreference(isDark ? 'light' : 'dark');
+  }, [isDark, setPreference]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({
       isDark,
       mode: isDark ? 'dark' : 'light',
+      preference,
       colors: isDark ? darkColors : lightColors,
       toggle,
       setMode,
+      setPreference,
     }),
-    [isDark, setMode, toggle],
+    [isDark, preference, setMode, setPreference, toggle],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -93,3 +114,4 @@ export function useTheme(): ThemeContextValue {
   }
   return context;
 }
+

@@ -31,3 +31,34 @@ export async function registerPushToken(
     return { success: false, message: 'Push token registration failed' };
   }
 }
+
+export interface UpdateUserProfilePayload {
+  userId?: string | number;
+  fullName?: string;
+  avatarUrl?: string;
+  phone?: string;
+}
+
+export interface UpdateUserProfileResponse {
+  success: boolean;
+  message: string;
+}
+
+/**
+ * Update the customer profile details on the backend database.
+ */
+export async function updateUserProfile(
+  payload: UpdateUserProfilePayload,
+): Promise<UpdateUserProfileResponse> {
+  try {
+    const { data } = await apiClient.put<UpdateUserProfileResponse>(
+      '/users/profile',
+      payload,
+    );
+    return data;
+  } catch (error) {
+    console.warn('[Users] Failed to update profile with backend:', error);
+    return { success: false, message: 'Profile update failed' };
+  }
+}
+

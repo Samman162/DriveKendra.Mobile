@@ -89,18 +89,18 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 │  │ (CORS, Error Handler) │ │ (Nepal Phone Regex)  │ │ Manager (SHA)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
-│  ┌───────────┴───────────┐ ┌──────────────────────┐                     │
-│  │ Transaction Manager   │ │ Push Dispatcher      │═══════════════════╗ │
-│  │ (Multi-Table Atomic)  │ │ (Expo Server SDK/FCM)│                   ║ │
-│  └───────────┬───────────┘ └──────────────────────┘                   ║ │
-└──────────────┼────────────────────────────────────────────────────────╫─┘
-               │ PostgreSQL Connection Pool (pg)                        ║
-               ▼                                                        ▼
-┌───────────────────────────────────────────────┐     ┌───────────────────┐
-│          PostgreSQL Database Server           │     │ Expo Push Service │
-│   (dka_bookings • dka_users • dka_idemp etc)  │     │     (FCM v1)      │
-│          Stored Procedures & Indexes          │     │                   │
-└───────────────────────────────────────────────┘     └───────────────────┘
+│  ┌───────────┴───────────┐                                              │
+│  │ Transaction Manager   │                                              │
+│  │ (Multi-Table Atomic)  │                                              │
+│  └───────────┬───────────┘                                              │
+└──────────────┼──────────────────────────────────────────────────────────┘
+               │ PostgreSQL Connection Pool (pg)
+               ▼
+┌───────────────────────────────────────────────┐
+│          PostgreSQL Database Server           │
+│   (dka_bookings • dka_users • dka_idemp etc)  │
+│          Stored Procedures & Indexes          │
+└───────────────────────────────────────────────┘
 ```
 
 ### Frontend Stack
@@ -115,7 +115,6 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - `expo-local-authentication` (Biometrics: TouchID & FaceID)
   - `expo-secure-store` (Encrypted keychain / keystore credential storage)
   - `expo-location` (High-accuracy GPS coordinate extraction for SOS)
-  - `expo-notifications` (Remote push notification registration & handling)
   - `expo-print` & `expo-sharing` (PDF itinerary and voucher export)
   - `@react-native-community/netinfo` (Network status monitoring)
 - **HTTP Client**: `axios`
@@ -125,7 +124,6 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - **Runtime**: Node.js (ES Modules) with `tsx watch` for instant hot reloading
 - **Database Driver**: `pg` (node-postgres connection pool)
 - **Validation**: `zod` v4
-- **Push Notification Service**: `expo-server-sdk` (configured for FCM v1)
 
 ---
 
@@ -340,7 +338,6 @@ DriveKendra.Mobile/
 │   │       ├── MapLocationPicker.tsx # Form field trigger for map picker
 │   │       ├── MapPinBrandBadge.tsx # Custom branded map pin marker
 │   │       ├── MapRoutePreview.tsx # Scenic route visualization card
-│   │       ├── NotificationModal.tsx # In-app notification tray
 │   │       ├── OtpInput.tsx      # 6-digit OTP verification box
 │   │       ├── PasswordField.tsx # Secure input with show/hide toggle
 │   │       ├── PickerSheet.tsx   # Modal bottom sheet selection
@@ -382,8 +379,7 @@ DriveKendra.Mobile/
 │   ├── hooks/
 │   │   ├── useBiometrics.ts      # Hardware FaceID/TouchID authentication
 │   │   ├── useCachedData.ts      # Cached query fetcher
-│   │   ├── useNetworkStatus.ts   # Network connectivity listener
-│   │   └── usePushNotifications.ts # Expo push notifications hook
+│   │   └── useNetworkStatus.ts   # Network connectivity listener
 │   ├── navigation/
 │   │   ├── AppNavigator.tsx      # Bottom tabs & stack navigators
 │   │   ├── booking.ts            # Cross-screen booking navigation helpers

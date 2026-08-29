@@ -21,21 +21,20 @@ This directory contains the canonical PostgreSQL database schema, stored procedu
 
 ## 📑 Table of Contents
 
-- [Database Architecture (6 Core Tables)](#-database-architecture-6-core-tables)
+- [Database Architecture (5 Core Tables)](#-database-architecture-5-core-tables)
 - [Schema Table Definitions](#-schema-table-definitions)
   - [1. `dka_users`](#1-dka_users)
   - [2. `dka_vehicle_types`](#2-dka_vehicle_types)
   - [3. `dka_bookings`](#3-dka_bookings)
   - [4. `dka_reviews`](#4-dka_reviews)
-  - [5. `dka_notifications`](#5-dka_notifications)
-  - [6. `dka_idempotency_keys`](#6-dka_idempotency_keys)
+  - [5. `dka_idempotency_keys`](#5-dka_idempotency_keys)
 - [Stored Functions & Procedures](#-stored-functions--procedures)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
 - [Initializing Database from Scratch](#-initializing-database-from-scratch)
 
 ---
 
-## 🏗 Database Architecture (6 Core Tables)
+## 🏗 Database Architecture (5 Core Tables)
 
 ```
                        ┌─────────────────────────┐
@@ -48,9 +47,9 @@ This directory contains the canonical PostgreSQL database schema, stored procedu
 └────────┬────────┘       └─────────────────┘
          │ 1:N
          ▼
-┌────────────────────┐    ┌──────────────────────┐
-│ dka_notifications  │    │ dka_idempotency_keys │
-└────────────────────┘    └──────────────────────┘
+┌──────────────────────┐
+│ dka_idempotency_keys │
+└──────────────────────┘
 
 ┌─────────────────┐
 │   dka_reviews   │
@@ -62,7 +61,7 @@ This directory contains the canonical PostgreSQL database schema, stored procedu
 ## 📋 Schema Table Definitions
 
 ### 1. `dka_users`
-User accounts, traveler profiles, authentication credentials, and Expo push notification tokens.
+User accounts, traveler profiles, and authentication credentials.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
@@ -71,12 +70,10 @@ User accounts, traveler profiles, authentication credentials, and Expo push noti
 | `phone_number` | `VARCHAR(30)` | `UNIQUE NOT NULL` | Nepal phone number (`+977 98/97` or `01XXXXXXX`) |
 | `email` | `VARCHAR(120)` | `UNIQUE` | User email address |
 | `password_hash` | `VARCHAR(255)` | | Bcrypt password hash |
+| `avatar_url` | `TEXT` | | Custom profile photo URL |
 | `role` | `VARCHAR(30)` | `NOT NULL DEFAULT 'customer'` | `customer`, `driver`, `operator`, `admin` |
 | `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Account status |
 | `is_verified` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | Phone/Email verification |
-| `push_token` | `VARCHAR(255)` | | Expo push notification token |
-| `push_token_updated_at` | `TIMESTAMPTZ` | | Token last updated timestamp |
-| `device_platform` | `VARCHAR(30)` | | `ios`, `android`, `web` |
 | `last_login_at` | `TIMESTAMPTZ` | | Timestamp of last login |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record creation timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record update timestamp |
@@ -105,19 +102,23 @@ Primary trip and vehicle booking records with chauffeur, vehicle plate, and flig
 | `vehicle_type_id` | `INTEGER` | `REFERENCES dka_vehicle_types ON DELETE SET NULL` | Chosen vehicle category |
 | `pickup_location` | `VARCHAR(255)` | `NOT NULL` | Origin address or landmark |
 | `dropoff_location` | `VARCHAR(255)` | `NOT NULL` | Destination address or landmark |
-| `pickup_date` | `TIMESTAMPTZ` | `NOT NULL` | Departure date & time |
+| `pickup_date` | `TIMESTAMPTZ` | `NOT NULL` | Departure date & timestamp |
+| `pickup_time` | `VARCHAR(20)` | | Scheduled pickup time string (e.g. `07:00 AM`) |
 | `return_date` | `TIMESTAMPTZ` | | Return date & time (for round trips) |
 | `passenger_count` | `INTEGER` | `NOT NULL DEFAULT 1` | Number of travelers |
 | `trip_type` | `VARCHAR(50)` | `NOT NULL DEFAULT 'One Way'` | `One Way` or `Round Trip` |
+| `estimated_fare` | `VARCHAR(50)` | | Target budget or quoted fare (e.g. `NPR 12,000`) |
 | `additional_details` | `TEXT` | | Special instructions & luggage notes |
 | `booking_status` | `VARCHAR(50)` | `NOT NULL DEFAULT 'Pending'` | `Pending`, `Confirmed`, `Completed`, `Cancelled` |
 | `assigned_driver_name` | `VARCHAR(100)` | | Driver full name |
 | `assigned_driver_phone` | `VARCHAR(30)` | | Driver direct contact number |
+| `assigned_driver_rating` | `NUMERIC(2,1)` | `DEFAULT 4.9` | Driver performance rating |
 | `assigned_vehicle_plate` | `VARCHAR(50)` | | Vehicle number plate |
+| `assigned_vehicle_model` | `VARCHAR(100)` | | Vehicle model / trim details |
 | `flight_number` | `VARCHAR(50)` | | Airline flight code (for TIA transfers) |
 | `flight_delay_minutes` | `INTEGER` | `DEFAULT 0` | Flight delay offset in minutes |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp |
-| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp (Auto-updated via trigger) |
 
 ---
 
@@ -137,26 +138,7 @@ Customer reviews and star ratings.
 
 ---
 
-### 5. `dka_notifications`
-In-app and push notification delivery audit log.
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `notification_id` | `SERIAL` | `PRIMARY KEY` | Notification log ID |
-| `user_id` | `INTEGER` | `REFERENCES dka_users(user_id) ON DELETE SET NULL` | Target recipient user |
-| `title` | `VARCHAR(255)` | `NOT NULL` | Alert title |
-| `message` | `TEXT` | `NOT NULL` | Alert message text |
-| `related_entity_id` | `INTEGER` | | Linked booking ID |
-| `notification_type` | `VARCHAR(100)` | `NOT NULL` | `BookingConfirmed`, `DriverAssigned`, etc. |
-| `push_status` | `VARCHAR(50)` | `DEFAULT 'delivered'` | `delivered`, `failed`, `ticket_created` |
-| `payload` | `JSONB` | | Deep link data payload |
-| `ticket_id` | `VARCHAR(255)` | | Expo Push Ticket ID |
-| `is_read` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | In-app read status |
-| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Creation timestamp |
-
----
-
-### 6. `dka_idempotency_keys`
+### 5. `dka_idempotency_keys`
 Prevents duplicate transactions when mobile clients retry on unstable mountain cellular networks.
 
 | Column | Type | Constraints | Description |
@@ -196,16 +178,12 @@ SELECT * FROM dka_get_public_stats();
 - `idx_dka_users_phone` ON `dka_users(phone_number)`
 - `idx_dka_users_email` ON `dka_users(email)`
 - `idx_dka_users_role` ON `dka_users(role)`
-- `idx_dka_users_push_token` ON `dka_users(push_token)`
 - `idx_dka_users_created_at` ON `dka_users(created_at)`
 - `idx_dka_bookings_user_id` ON `dka_bookings(user_id)`
 - `idx_dka_bookings_status` ON `dka_bookings(booking_status)`
 - `idx_dka_bookings_pickup_date` ON `dka_bookings(pickup_date)`
 - `idx_dka_reviews_user_id` ON `dka_reviews(user_id)`
 - `idx_dka_reviews_approved` ON `dka_reviews(is_approved)`
-- `idx_dka_notifications_unread` ON `dka_notifications(is_read)`
-- `idx_dka_notifications_user_id` ON `dka_notifications(user_id)`
-- `idx_dka_notifications_ticket_id` ON `dka_notifications(ticket_id)`
 - `idx_dka_idempotency_keys_user_id` ON `dka_idempotency_keys(user_id)`
 - `idx_dka_idempotency_keys_expires_at` ON `dka_idempotency_keys(expires_at)`
 - `idx_dka_idempotency_keys_hash` ON `dka_idempotency_keys(request_hash)`

@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Drive Kendra Mobile App - Streamlined PostgreSQL Database Schema
 -- File: database/database.sql
--- Description: Core 6-table optimized schema with user authentication tagging.
+-- Description: Core 5-table optimized schema with user authentication tagging.
 -- =============================================================================
 
 -- Enable UUID extension if required
@@ -16,12 +16,10 @@ CREATE TABLE IF NOT EXISTS dka_users (
     phone_number VARCHAR(30) UNIQUE NOT NULL,
     email VARCHAR(120) UNIQUE,
     password_hash VARCHAR(255),
+    avatar_url TEXT,
     role VARCHAR(30) NOT NULL DEFAULT 'customer', -- 'customer', 'driver', 'operator', 'admin'
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
-    push_token VARCHAR(255),
-    push_token_updated_at TIMESTAMP WITH TIME ZONE,
-    device_platform VARCHAR(30), -- 'ios', 'android', 'web'
     last_login_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -30,7 +28,6 @@ CREATE TABLE IF NOT EXISTS dka_users (
 CREATE INDEX IF NOT EXISTS idx_dka_users_phone ON dka_users(phone_number);
 CREATE INDEX IF NOT EXISTS idx_dka_users_email ON dka_users(email);
 CREATE INDEX IF NOT EXISTS idx_dka_users_role ON dka_users(role);
-CREATE INDEX IF NOT EXISTS idx_dka_users_push_token ON dka_users(push_token);
 CREATE INDEX IF NOT EXISTS idx_dka_users_created_at ON dka_users(created_at);
 
 -- Automatic updated_at Trigger for dka_users
@@ -68,14 +65,18 @@ CREATE TABLE IF NOT EXISTS dka_bookings (
     pickup_location VARCHAR(255) NOT NULL,
     dropoff_location VARCHAR(255) NOT NULL,
     pickup_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    pickup_time VARCHAR(20),
     return_date TIMESTAMP WITH TIME ZONE,
     passenger_count INTEGER NOT NULL DEFAULT 1,
     trip_type VARCHAR(50) NOT NULL DEFAULT 'One Way',
+    estimated_fare VARCHAR(50),
     additional_details TEXT,
     booking_status VARCHAR(50) NOT NULL DEFAULT 'Pending',
     assigned_driver_name VARCHAR(100),
     assigned_driver_phone VARCHAR(30),
+    assigned_driver_rating NUMERIC(2, 1) DEFAULT 4.9,
     assigned_vehicle_plate VARCHAR(50),
+    assigned_vehicle_model VARCHAR(100),
     flight_number VARCHAR(50),
     flight_delay_minutes INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -85,6 +86,23 @@ CREATE TABLE IF NOT EXISTS dka_bookings (
 CREATE INDEX IF NOT EXISTS idx_dka_bookings_user_id ON dka_bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_dka_bookings_status ON dka_bookings(booking_status);
 CREATE INDEX IF NOT EXISTS idx_dka_bookings_pickup_date ON dka_bookings(pickup_date);
+CREATE INDEX IF NOT EXISTS idx_dka_bookings_created_at ON dka_bookings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_dka_bookings_user_status ON dka_bookings(user_id, booking_status);
+
+-- Automatic updated_at Trigger for dka_bookings
+CREATE OR REPLACE FUNCTION update_dka_bookings_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_dka_bookings_updated_at ON dka_bookings;
+CREATE TRIGGER trigger_dka_bookings_updated_at
+    BEFORE UPDATE ON dka_bookings
+    FOR EACH ROW
+    EXECUTE FUNCTION update_dka_bookings_timestamp();
 
 -- =============================================================================
 -- 4. REVIEWS & TESTIMONIALS (dka_reviews)
@@ -104,28 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_dka_reviews_user_id ON dka_reviews(user_id);
 CREATE INDEX IF NOT EXISTS idx_dka_reviews_approved ON dka_reviews(is_approved);
 
 -- =============================================================================
--- 5. NOTIFICATIONS & AUDIT LOGS (dka_notifications)
--- =============================================================================
-CREATE TABLE IF NOT EXISTS dka_notifications (
-    notification_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES dka_users(user_id) ON DELETE SET NULL,
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    related_entity_id INTEGER,
-    notification_type VARCHAR(100) NOT NULL,
-    push_status VARCHAR(50) DEFAULT 'delivered',
-    payload JSONB,
-    ticket_id VARCHAR(255),
-    is_read BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_dka_notifications_unread ON dka_notifications(is_read);
-CREATE INDEX IF NOT EXISTS idx_dka_notifications_user_id ON dka_notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_dka_notifications_ticket_id ON dka_notifications(ticket_id);
-
--- =============================================================================
--- 6. IDEMPOTENCY KEYS & NETWORK RETRIES (dka_idempotency_keys)
+-- 5. IDEMPOTENCY KEYS & NETWORK RETRIES (dka_idempotency_keys)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS dka_idempotency_keys (
     idempotency_key VARCHAR(128) PRIMARY KEY,
@@ -145,7 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_dka_idempotency_keys_expires_at ON dka_idempotenc
 CREATE INDEX IF NOT EXISTS idx_dka_idempotency_keys_hash ON dka_idempotency_keys(request_hash);
 
 -- =============================================================================
--- 7. STORED FUNCTIONS & PROCEDURES (dka_get_public_stats)
+-- 6. STORED FUNCTIONS & PROCEDURES (dka_get_public_stats)
 -- =============================================================================
 CREATE OR REPLACE FUNCTION dka_get_public_stats()
 RETURNS TABLE (
@@ -171,7 +168,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- =============================================================================
--- 8. SEED DATA (DEFAULT VEHICLE TYPES & DEMO USERS)
+-- 7. SEED DATA (DEFAULT VEHICLE TYPES & DEMO USERS)
 -- =============================================================================
 INSERT INTO dka_vehicle_types (vehicle_type_id, type_name, description)
 VALUES 
