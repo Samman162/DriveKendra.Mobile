@@ -4,20 +4,13 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { CalendarCheck, Car, Home as HomeIcon, User as UserIcon } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AirportScreen } from '../screens/AirportScreen';
 import { AuthScreen } from '../screens/AuthScreen';
 import { BookingScreen } from '../screens/BookingScreen';
 import { ContactScreen } from '../screens/ContactScreen';
-import { ExploreScreen } from '../screens/ExploreScreen';
-import { FleetScreen } from '../screens/FleetScreen';
 import { HomeScreen } from '../screens/HomeScreen';
 import { MyTripsScreen } from '../screens/MyTripsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { RatesScreen } from '../screens/RatesScreen';
-import { TourDetailScreen } from '../screens/TourDetailScreen';
-import { ToursScreen } from '../screens/ToursScreen';
-import { WeddingScreen } from '../screens/WeddingScreen';
 import { useTheme } from '../theme/ThemeProvider';
 import { hapticFeedback } from '../utils/haptics';
 import type { RootStackParamList, RootTabParamList } from './types';
@@ -116,7 +109,7 @@ export function AppNavigator({ initialRouteName = 'MainTabs' }: AppNavigatorProp
 
   return (
     <RootStack.Navigator initialRouteName={initialRouteName}>
-      {/* 3-Tab Bottom Shell */}
+      {/* 4-Tab Bottom Shell */}
       <RootStack.Screen
         name="MainTabs"
         component={MainTabsNavigator}
@@ -154,42 +147,13 @@ export function AppNavigator({ initialRouteName = 'MainTabs' }: AppNavigatorProp
         }}
       />
 
-      {/* Secondary Service & Exploration Screens */}
-      <RootStack.Screen
-        name="Fleet"
-        component={FleetScreen}
-        options={stackScreenOptions(colors, 'Our Fleet')}
-      />
-      <RootStack.Screen
-        name="Rates"
-        component={RatesScreen}
-        options={stackScreenOptions(colors, 'Official Tariff Rates')}
-      />
-      <RootStack.Screen
-        name="Airport"
-        component={AirportScreen}
-        options={stackScreenOptions(colors, 'TIA Airport Transfer')}
-      />
-      <RootStack.Screen
-        name="Wedding"
-        component={WeddingScreen}
-        options={stackScreenOptions(colors, 'Wedding & VIP Luxury')}
-      />
-      <RootStack.Screen
-        name="Tours"
-        component={ToursScreen}
-        options={stackScreenOptions(colors, 'Himalayan Expeditions')}
-      />
-      <RootStack.Screen
-        name="TourDetail"
-        component={TourDetailScreen}
-        options={stackScreenOptions(colors, 'Tour Package')}
-      />
+      {/* 24/7 Support Desk */}
       <RootStack.Screen
         name="Contact"
         component={ContactScreen}
         options={stackScreenOptions(colors, '24/7 Support Desk')}
       />
+
       <RootStack.Screen
         name="MyTrips"
         component={MyTripsScreen}
@@ -199,11 +163,6 @@ export function AppNavigator({ initialRouteName = 'MainTabs' }: AppNavigatorProp
         name="Profile"
         component={ProfileScreen}
         options={stackScreenOptions(colors, 'Profile')}
-      />
-      <RootStack.Screen
-        name="Explore"
-        component={ExploreScreen}
-        options={stackScreenOptions(colors, 'Explore Services')}
       />
     </RootStack.Navigator>
   );

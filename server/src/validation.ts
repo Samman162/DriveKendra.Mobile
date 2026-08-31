@@ -199,40 +199,7 @@ export function parseBooking(body: unknown): BookingInput {
   };
 }
 
-// Review Zod Schema
-export const reviewZodSchema = z.object({
-  user_id: z
-    .preprocess((val) => (typeof val === 'string' && isNaN(Number(val)) ? undefined : val), z.coerce.number().int().positive().optional().nullable()),
-  customer_name: z.string().trim().min(1, 'Your name is required.').max(100, 'Name is too long.'),
-  rating: z.coerce.number().int().min(1, 'Rating must be between 1 and 5.').max(5, 'Rating must be between 1 and 5.'),
-  comment: z.string().trim().min(1, 'Review comment is required.').max(2000, 'Review comment is too long.'),
-  trip_title: z.string().max(150, 'Trip title is too long.').optional().nullable(),
-  website_hp: honeypotValidator,
-});
 
-export type ReviewInput = {
-  user_id?: number | null;
-  customer_name: string;
-  rating: number;
-  comment: string;
-  trip_title: string | null;
-};
-
-export function parseReview(body: unknown): ReviewInput {
-  const result = reviewZodSchema.safeParse(body);
-  if (!result.success) {
-    const firstIssue = result.error.issues[0];
-    throw new HttpError(400, firstIssue?.message || 'Invalid review submission.');
-  }
-
-  return {
-    user_id: result.data.user_id,
-    customer_name: result.data.customer_name,
-    rating: result.data.rating,
-    comment: result.data.comment,
-    trip_title: result.data.trip_title?.trim() || null,
-  };
-}
 
 // Auth Schemas
 export const loginZodSchema = z.object({

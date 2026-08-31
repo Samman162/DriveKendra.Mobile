@@ -1,5 +1,4 @@
 import { secureStorage } from '../src/utils/secureStorage';
-import { swrCache } from '../src/api/cache';
 import { offlineQueue } from '../src/api/offlineQueue';
 import { isValidNepalPhone, normalizeNepalPhone } from '../src/utils/phone';
 
@@ -39,28 +38,6 @@ describe('State, Security & Storage Test Suite', () => {
 
     it('cleans non-digit characters correctly', () => {
       expect(normalizeNepalPhone('+977 985-136-3783')).toBe('9779851363783');
-    });
-  });
-
-  describe('Stale-While-Revalidate Caching Layer', () => {
-    it('caches and retrieves public stats with TTL status', async () => {
-      const statsPayload = {
-        fleet_count: 32,
-        completed_trips: 1850,
-        cities_covered: 18,
-        review_count: 420,
-        average_rating: 4.9,
-      };
-
-      await swrCache.set('test_stats', statsPayload, 5000);
-      const cached = await swrCache.get<typeof statsPayload>('test_stats');
-
-      expect(cached.data).toEqual(statsPayload);
-      expect(cached.isStale).toBe(false);
-
-      await swrCache.invalidate('test_stats');
-      const invalidated = await swrCache.get('test_stats');
-      expect(invalidated.data).toBeNull();
     });
   });
 

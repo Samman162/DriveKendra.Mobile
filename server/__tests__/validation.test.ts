@@ -4,8 +4,6 @@ import {
   isValidNepalPhone,
   normalizeNepalPhone,
   parseBooking,
-  parseReview,
-  reviewZodSchema,
 } from '../src/validation.js';
 
 describe('Nepal Phone Validation', () => {
@@ -125,42 +123,7 @@ describe('Booking Zod Validation & Honeypot', () => {
   });
 });
 
-describe('Review Zod Validation', () => {
-  it('parses valid 5-star customer review', () => {
-    const review = {
-      customer_name: 'Pooja Thapa',
-      rating: 5,
-      comment: 'Excellent Scorpio 4x4 ride to Muktinath. Highly recommended driver!',
-      trip_title: 'Muktinath Expedition',
-    };
 
-    const parsed = parseReview(review);
-    expect(parsed.customer_name).toBe('Pooja Thapa');
-    expect(parsed.rating).toBe(5);
-  });
-
-  it('safely handles non-numeric user_id strings without throwing', () => {
-    const review = {
-      user_id: 'usr_demo_123',
-      customer_name: 'Pooja Thapa',
-      rating: 5,
-      comment: 'Excellent ride!',
-    };
-
-    const parsed = parseReview(review);
-    expect(parsed.user_id).toBeUndefined();
-  });
-
-  it('rejects invalid star ratings', () => {
-    const invalid = {
-      customer_name: 'Traveler',
-      rating: 6,
-      comment: 'Nice',
-    };
-
-    expect(() => parseReview(invalid)).toThrow('Rating must be between 1 and 5');
-  });
-});
 
 describe('User Schema Validation in Booking', () => {
   it('safely parses booking with non-numeric demo user ID', () => {

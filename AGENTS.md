@@ -44,15 +44,14 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
    - Maintain 100% strict type safety.
    - Avoid `any` types. Utilize dedicated DTO types from `src/types/api.ts` and `src/types/auth.ts`.
 5. **Interactive Mapping & Free Geocoding**:
-   - Use OpenStreetMap / Leaflet via `FullScreenMapPicker.tsx`, `MapLocationPicker.tsx`, and `EmbeddedMapView.tsx` (using `react-native-webview` for mobile and `iframe` for web).
+   - Use OpenStreetMap / Leaflet via `FullScreenMapPicker.tsx` (using `react-native-webview` for mobile and `iframe` for web).
    - Never introduce paid or proprietary map SDK dependencies (e.g. Google Maps API keys).
    - Use `src/utils/geocoding.ts` for reverse geocoding via OSM Nominatim with fallback to `src/constants/nepalLocations.ts`.
-6. **Himalayan Resilience, Highway Monitoring & Offline Handling**:
+6. **Himalayan Resilience & Offline Handling**:
    - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
    - Use `offlineVoucherStorage.ts` when persisting trip vouchers for off-grid access.
    - Use `offlineQueue.ts` for handling network disruptions during mutating operations.
    - Use `EmergencyTripCard.tsx` and `EmergencySosModal.tsx` for GPS emergency SOS dispatch.
-   - Use `HighwayStatusCard.tsx` for real-time Nepal highway road advisories.
 
 ---
 
@@ -65,7 +64,7 @@ Always run and verify these commands before concluding a task:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Run automated test suites (8 Client Suites / 49 Tests, 1 Server Suite / 14 Tests)
+# 2. Run automated test suites (8 Client Suites / 49 Tests, 1 Server Suite / 11 Tests)
 npm test
 npm test --prefix server
 ```

@@ -32,16 +32,9 @@ export type RootTabParamList = {
 export type RootStackParamList = {
   MainTabs: NavigatorScreenParams<RootTabParamList> | undefined;
   BookingModal: BookParams | undefined;
-  Fleet: undefined;
-  Rates: undefined;
-  Airport: undefined;
-  Wedding: undefined;
-  Tours: undefined;
-  TourDetail: { tourId: 'manakamana' | 'muktinath' | 'kalinchowk' };
   Contact: undefined;
   Onboarding: undefined;
   Auth: AuthParams | undefined;
   MyTrips: { bookingId?: string | number } | undefined;
   Profile: undefined;
-  Explore: undefined;
 };

@@ -8,8 +8,6 @@ config();
 const { pingDatabase } = await import('./db.js');
 const { authRoute } = await import('./routes/auth.js');
 const { bookingsRoute } = await import('./routes/bookings.js');
-const { reviewsRoute } = await import('./routes/reviews.js');
-const { statsRoute } = await import('./routes/stats.js');
 const { usersRoute } = await import('./routes/users.js');
 const { HttpError } = await import('./validation.js');
 
@@ -40,8 +38,6 @@ app.get('/health', async (c) => {
 
 app.route('/api/auth', authRoute);
 app.route('/api/bookings', bookingsRoute);
-app.route('/api/reviews', reviewsRoute);
-app.route('/api/stats', statsRoute);
 app.route('/api/users', usersRoute);
 
 const port = Number(process.env.PORT) || 8787;

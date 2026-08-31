@@ -5,8 +5,6 @@ import { ThemeProvider } from '../src/theme/ThemeProvider';
 import { AuthProvider } from '../src/context/AuthContext';
 import { ProfileScreen } from '../src/screens/ProfileScreen';
 import { ThemeModeSelector } from '../src/components/ui/ThemeModeSelector';
-import { AvatarPickerModal } from '../src/components/ui/AvatarPickerModal';
-import { PhoneUpdateModal } from '../src/components/ui/PhoneUpdateModal';
 import { ManAvatarIllustration } from '../src/components/ui/ManAvatarIllustration';
 
 // Mock navigation
@@ -57,65 +55,6 @@ describe('ThemeModeSelector & Theme Preferences', () => {
     renderer.act(() => {
       darkBtn.props.onPress();
     });
-
-    renderer.act(() => {
-      tree?.unmount();
-    });
-  });
-});
-
-describe('AvatarPickerModal', () => {
-  it('renders all Himalayan explorer avatar presets', () => {
-    const handleSelect = jest.fn();
-    const handleClose = jest.fn();
-
-    let tree: any = null;
-    renderer.act(() => {
-      tree = renderer.create(
-        <ThemeProvider>
-          <AvatarPickerModal
-            visible={true}
-            onClose={handleClose}
-            userName="Samman Budhathoki"
-            onSelectAvatar={handleSelect}
-          />
-        </ThemeProvider>,
-      );
-    });
-
-    const root = tree.root;
-    expect(root.findByProps({ accessibilityLabel: 'Sherpa Guide avatar' })).toBeTruthy();
-    expect(root.findByProps({ accessibilityLabel: 'Alpine Nomad avatar' })).toBeTruthy();
-    expect(root.findByProps({ accessibilityLabel: 'Summit Pioneer avatar' })).toBeTruthy();
-
-    renderer.act(() => {
-      tree?.unmount();
-    });
-  });
-});
-
-describe('PhoneUpdateModal', () => {
-  it('renders phone update sheet with security advisory', () => {
-    const handleClose = jest.fn();
-    const handleSuccess = jest.fn();
-
-    let tree: any = null;
-    renderer.act(() => {
-      tree = renderer.create(
-        <ThemeProvider>
-          <PhoneUpdateModal
-            visible={true}
-            onClose={handleClose}
-            currentPhone="+977 9819923926"
-            onSuccess={handleSuccess}
-          />
-        </ThemeProvider>,
-      );
-    });
-
-    const root = tree.root;
-    expect(root.findByProps({ label: 'New Phone Number' })).toBeTruthy();
-    expect(root.findByProps({ label: 'Request Phone Update' })).toBeTruthy();
 
     renderer.act(() => {
       tree?.unmount();
