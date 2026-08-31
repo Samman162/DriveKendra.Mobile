@@ -41,8 +41,6 @@ bookingsRoute.get('/', async (c) => {
       assigned_driver_rating: number | null;
       assigned_vehicle_plate: string | null;
       assigned_vehicle_model: string | null;
-      flight_number: string | null;
-      flight_delay_minutes: number;
       created_at: Date;
     }>(
       `SELECT b.booking_id, b.user_id, b.vehicle_type_id, vt.type_name,
@@ -50,7 +48,7 @@ bookingsRoute.get('/', async (c) => {
               b.passenger_count, b.trip_type, b.estimated_fare, b.booking_status,
               b.assigned_driver_name, b.assigned_driver_phone, b.assigned_driver_rating,
               b.assigned_vehicle_plate, b.assigned_vehicle_model,
-              b.flight_number, b.flight_delay_minutes, b.created_at
+              b.created_at
        FROM dka_bookings b
        JOIN dka_users u ON b.user_id = u.user_id
        LEFT JOIN dka_vehicle_types vt ON b.vehicle_type_id = vt.vehicle_type_id
@@ -81,8 +79,6 @@ bookingsRoute.get('/', async (c) => {
       assignedDriverRating: row.assigned_driver_rating ? Number(row.assigned_driver_rating) : 4.9,
       assignedVehiclePlate: row.assigned_vehicle_plate,
       assignedVehicleModel: row.assigned_vehicle_model,
-      flightNumber: row.flight_number,
-      flightDelayMinutes: row.flight_delay_minutes,
       createdAt: row.created_at,
     })),
   });

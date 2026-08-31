@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Drive Kendra Mobile App - Streamlined PostgreSQL Database Schema
 -- File: database/database.sql
--- Description: Core 5-table optimized schema with user authentication tagging.
+-- Description: Core 4-table optimized schema with user authentication tagging.
 -- =============================================================================
 
 -- Enable UUID extension if required
@@ -77,8 +77,6 @@ CREATE TABLE IF NOT EXISTS dka_bookings (
     assigned_driver_rating NUMERIC(2, 1) DEFAULT 4.9,
     assigned_vehicle_plate VARCHAR(50),
     assigned_vehicle_model VARCHAR(100),
-    flight_number VARCHAR(50),
-    flight_delay_minutes INTEGER DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -105,24 +103,7 @@ CREATE TRIGGER trigger_dka_bookings_updated_at
     EXECUTE FUNCTION update_dka_bookings_timestamp();
 
 -- =============================================================================
--- 4. REVIEWS & TESTIMONIALS (dka_reviews)
--- =============================================================================
-CREATE TABLE IF NOT EXISTS dka_reviews (
-    review_id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES dka_users(user_id) ON DELETE SET NULL,
-    customer_name VARCHAR(100) NOT NULL,
-    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
-    comment TEXT NOT NULL,
-    trip_title VARCHAR(150),
-    is_approved BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_dka_reviews_user_id ON dka_reviews(user_id);
-CREATE INDEX IF NOT EXISTS idx_dka_reviews_approved ON dka_reviews(is_approved);
-
--- =============================================================================
--- 5. IDEMPOTENCY KEYS & NETWORK RETRIES (dka_idempotency_keys)
+-- 4. IDEMPOTENCY KEYS & NETWORK RETRIES (dka_idempotency_keys)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS dka_idempotency_keys (
     idempotency_key VARCHAR(128) PRIMARY KEY,
@@ -142,33 +123,7 @@ CREATE INDEX IF NOT EXISTS idx_dka_idempotency_keys_expires_at ON dka_idempotenc
 CREATE INDEX IF NOT EXISTS idx_dka_idempotency_keys_hash ON dka_idempotency_keys(request_hash);
 
 -- =============================================================================
--- 6. STORED FUNCTIONS & PROCEDURES (dka_get_public_stats)
--- =============================================================================
-CREATE OR REPLACE FUNCTION dka_get_public_stats()
-RETURNS TABLE (
-    fleet_count BIGINT,
-    completed_trips BIGINT,
-    cities_covered BIGINT,
-    review_count BIGINT,
-    average_rating NUMERIC
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        (SELECT COUNT(*) FROM dka_vehicle_types) AS fleet_count,
-        (SELECT COUNT(*) FROM dka_bookings WHERE LOWER(booking_status) = 'completed') AS completed_trips,
-        (SELECT COUNT(*) FROM (
-            SELECT DISTINCT LOWER(TRIM(pickup_location)) AS loc FROM dka_bookings
-            UNION
-            SELECT DISTINCT LOWER(TRIM(dropoff_location)) FROM dka_bookings
-        ) cities) AS cities_covered,
-        (SELECT COUNT(*) FROM dka_reviews WHERE is_approved = TRUE) AS review_count,
-        (SELECT COALESCE(ROUND(AVG(rating)::numeric, 1), 0) FROM dka_reviews WHERE is_approved = TRUE) AS average_rating;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- =============================================================================
--- 7. SEED DATA (DEFAULT VEHICLE TYPES & DEMO USERS)
+-- 5. SEED DATA (DEFAULT VEHICLE TYPES & DEMO USERS)
 -- =============================================================================
 INSERT INTO dka_vehicle_types (vehicle_type_id, type_name, description)
 VALUES 

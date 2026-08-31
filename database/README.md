@@ -3,7 +3,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Database Rules](https://img.shields.io/badge/Schema%20Rules-Strict%20Migrations-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
-This directory contains the canonical PostgreSQL database schema, stored procedures, and indexes tailored specifically for the **Drive Kendra Mobile App**.
+This directory contains the canonical PostgreSQL database schema, migration patches, and indexes tailored specifically for the **Drive Kendra Mobile App**.
 
 ---
 
@@ -21,20 +21,18 @@ This directory contains the canonical PostgreSQL database schema, stored procedu
 
 ## 📑 Table of Contents
 
-- [Database Architecture (5 Core Tables)](#-database-architecture-5-core-tables)
+- [Database Architecture (4 Core Tables)](#-database-architecture-4-core-tables)
 - [Schema Table Definitions](#-schema-table-definitions)
   - [1. `dka_users`](#1-dka_users)
   - [2. `dka_vehicle_types`](#2-dka_vehicle_types)
   - [3. `dka_bookings`](#3-dka_bookings)
-  - [4. `dka_reviews`](#4-dka_reviews)
-  - [5. `dka_idempotency_keys`](#5-dka_idempotency_keys)
-- [Stored Functions & Procedures](#-stored-functions--procedures)
+  - [4. `dka_idempotency_keys`](#4-dka_idempotency_keys)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
 - [Initializing Database from Scratch](#-initializing-database-from-scratch)
 
 ---
 
-## 🏗 Database Architecture (5 Core Tables)
+## 🏗 Database Architecture (4 Core Tables)
 
 ```
                        ┌─────────────────────────┐
@@ -50,10 +48,6 @@ This directory contains the canonical PostgreSQL database schema, stored procedu
 ┌──────────────────────┐
 │ dka_idempotency_keys │
 └──────────────────────┘
-
-┌─────────────────┐
-│   dka_reviews   │
-└─────────────────┘
 ```
 
 ---
@@ -93,7 +87,7 @@ Lookup catalog defining categories of vehicles available for booking.
 ---
 
 ### 3. `dka_bookings`
-Primary trip and vehicle booking records with chauffeur, vehicle plate, and flight delay tracking.
+Primary trip and vehicle booking records with chauffeur and vehicle assignment tracking.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
@@ -115,30 +109,12 @@ Primary trip and vehicle booking records with chauffeur, vehicle plate, and flig
 | `assigned_driver_rating` | `NUMERIC(2,1)` | `DEFAULT 4.9` | Driver performance rating |
 | `assigned_vehicle_plate` | `VARCHAR(50)` | | Vehicle number plate |
 | `assigned_vehicle_model` | `VARCHAR(100)` | | Vehicle model / trim details |
-| `flight_number` | `VARCHAR(50)` | | Airline flight code (for TIA transfers) |
-| `flight_delay_minutes` | `INTEGER` | `DEFAULT 0` | Flight delay offset in minutes |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp (Auto-updated via trigger) |
 
 ---
 
-### 4. `dka_reviews`
-Customer reviews and star ratings.
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `review_id` | `SERIAL` | `PRIMARY KEY` | Review ID |
-| `user_id` | `INTEGER` | `REFERENCES dka_users(user_id) ON DELETE SET NULL` | Author user account |
-| `customer_name` | `VARCHAR(100)` | `NOT NULL` | Reviewer name |
-| `rating` | `INTEGER` | `NOT NULL CHECK (rating >= 1 AND rating <= 5)` | Star rating (1 to 5) |
-| `comment` | `TEXT` | `NOT NULL` | Review body |
-| `trip_title` | `VARCHAR(150)` | | Destination / Trip title |
-| `is_approved` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | Moderation approval flag |
-| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Submission timestamp |
-
----
-
-### 5. `dka_idempotency_keys`
+### 4. `dka_idempotency_keys`
 Prevents duplicate transactions when mobile clients retry on unstable mountain cellular networks.
 
 | Column | Type | Constraints | Description |
@@ -156,23 +132,6 @@ Prevents duplicate transactions when mobile clients retry on unstable mountain c
 
 ---
 
-## ⚡ Stored Functions & Procedures
-
-### `dka_get_public_stats()`
-High-performance aggregation function returning real-time platform statistics in a single call.
-
-```sql
-SELECT * FROM dka_get_public_stats();
-```
-**Returns**:
-- `fleet_count` (`BIGINT`): Active vehicle categories.
-- `completed_trips` (`BIGINT`): Count of completed bookings in `dka_bookings`.
-- `cities_covered` (`BIGINT`): Count of distinct pickup/dropoff destinations.
-- `review_count` (`BIGINT`): Count of approved customer reviews.
-- `average_rating` (`NUMERIC`): Rounded average review score (1.0 - 5.0).
-
----
-
 ## 🔍 Indexing & Query Optimization
 
 - `idx_dka_users_phone` ON `dka_users(phone_number)`
@@ -182,8 +141,8 @@ SELECT * FROM dka_get_public_stats();
 - `idx_dka_bookings_user_id` ON `dka_bookings(user_id)`
 - `idx_dka_bookings_status` ON `dka_bookings(booking_status)`
 - `idx_dka_bookings_pickup_date` ON `dka_bookings(pickup_date)`
-- `idx_dka_reviews_user_id` ON `dka_reviews(user_id)`
-- `idx_dka_reviews_approved` ON `dka_reviews(is_approved)`
+- `idx_dka_bookings_created_at` ON `dka_bookings(created_at DESC)`
+- `idx_dka_bookings_user_status` ON `dka_bookings(user_id, booking_status)`
 - `idx_dka_idempotency_keys_user_id` ON `dka_idempotency_keys(user_id)`
 - `idx_dka_idempotency_keys_expires_at` ON `dka_idempotency_keys(expires_at)`
 - `idx_dka_idempotency_keys_hash` ON `dka_idempotency_keys(request_hash)`

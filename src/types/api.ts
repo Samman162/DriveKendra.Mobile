@@ -38,36 +38,7 @@ export interface BookingRecordDto {
   assignedDriverRating?: number | null;
   assignedVehiclePlate: string | null;
   assignedVehicleModel?: string | null;
-  flightNumber: string | null;
-  flightDelayMinutes: number;
   createdAt: string;
-}
-
-export interface PublicStatsDto {
-  fleet_count: number;
-  completed_trips: number;
-  cities_covered: number;
-  review_count: number;
-  average_rating: number;
-}
-
-export interface PublicReviewDto {
-  id?: number | string;
-  user_id?: number | string | null;
-  customer_name: string;
-  rating: number;
-  comment: string;
-  trip_title?: string | null;
-  created_at?: string;
-}
-
-export interface CreateReviewDto {
-  user_id?: number | string | null;
-  customer_name: string;
-  rating: number;
-  comment: string;
-  trip_title?: string | null;
-  website_hp?: string;
 }
 
 export interface ApiMessageResponse {
