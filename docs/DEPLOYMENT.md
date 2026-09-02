@@ -192,7 +192,7 @@ psql -U postgres -h <DB_HOST> -d car_rental_db -f database/database.sql
 ```
 
 ### Applying Sequential Patches
-When pending patches exist in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/), run patch files in ascending numeric order:
+When pending patches exist in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/), run patch files in ascending numeric order:
 ```bash
 psql -U postgres -h <DB_HOST> -d car_rental_db -f database/patches/<patch_name>.sql
 ```
@@ -202,14 +202,14 @@ Once applied to all target environments and verified in `database.sql`, remove t
 
 ## 4. CI/CD Automation with GitHub Actions
 
-The repository includes a fully configured workflow in [`.github/workflows/ci-cd.yml`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/.github/workflows/ci-cd.yml) that triggers on every push and pull request to `main` and `develop`:
+The repository includes a fully configured workflow in [`.github/workflows/ci-cd.yml`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/.github/workflows/ci-cd.yml) that triggers on every push and pull request to `main` and `develop`:
 
 1. **Static Analysis & Typechecking**:
    - `npm run typecheck` (Client TypeScript check)
    - `npm run typecheck --prefix server` (Server TypeScript check)
 2. **Automated Unit & Integration Tests**:
-   - `npm test` (Client Jest test suites - 7 suites / 43 tests)
-   - `npm test --prefix server` (Server Jest test suites - 1 suite / 14 tests)
+   - `npm test` (Client Jest test suites - 8 suites / 42 tests)
+   - `npm test --prefix server` (Server Jest test suites - 1 suite / 11 tests)
 3. **EAS Build Verification**:
    - Verifies `eas.json` schema configuration on release branch commits.
 

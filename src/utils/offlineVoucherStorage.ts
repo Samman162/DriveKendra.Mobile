@@ -17,9 +17,6 @@ export interface OfflineVoucher {
   passengerCount?: number;
   vehicleName: string;
   vehiclePlate: string;
-  driverName: string;
-  driverPhone: string;
-  driverRating?: number;
   fare: string;
   status: 'confirmed' | 'completed' | 'cancelled';
   cachedAt: string;
@@ -54,9 +51,6 @@ export function formatToOfflineVoucher(trip: any): OfflineVoucher {
     passengerCount: trip.passengerCount ?? 1,
     vehicleName: String(trip.vehicleName || 'Mahindra Scorpio 4x4 (AC)'),
     vehiclePlate: String(trip.vehiclePlate || 'Ba 2 Cha 8492'),
-    driverName: String(trip.driverName || 'Ram Bahadur Tamang'),
-    driverPhone: String(trip.driverPhone || DEFAULT_EMERGENCY_HOTLINE),
-    driverRating: trip.driverRating ?? 4.9,
     fare: String(trip.fare || 'NPR 12,000'),
     status: trip.status || 'confirmed',
     cachedAt: new Date().toISOString(),

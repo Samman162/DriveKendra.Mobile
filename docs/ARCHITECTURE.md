@@ -15,7 +15,7 @@ This document details the high-level system design, data flows, security boundar
 - [Client Architecture (React Native / Expo)](#-client-architecture-react-native--expo)
   - [Navigation Architecture](#navigation-architecture)
   - [Interactive Mapping & Geocoding Subsystem](#interactive-mapping--geocoding-subsystem)
-  - [Highway Status & Mountain Safety Subsystem](#highway-status--mountain-safety-subsystem)
+  - [Mountain Safety & Emergency Subsystem](#mountain-safety--emergency-subsystem)
   - [State & Context Architecture](#state--context-architecture)
   - [Theme Engine](#theme-engine)
   - [Hardware & Native API Bridges](#hardware--native-api-bridges)
@@ -23,8 +23,7 @@ This document details the high-level system design, data flows, security boundar
   - [Route Modularity & Middleware](#route-modularity--middleware)
   - [Idempotency & Concurrency Handling](#idempotency--concurrency-handling)
   - [Validation & Anti-Spam Pipeline](#validation--anti-spam-pipeline)
-  - [Database Abstraction & RLS Isolation](#database-abstraction--rls-isolation)
-- [Push Notification Pipeline](#-push-notification-pipeline)
+  - [Database Abstraction & Security Wrapper](#database-abstraction--security-wrapper)
 - [Offline-First & Himalayan Resilience Strategy](#-offline-first--himalayan-resilience-strategy)
 - [Security & Authentication Model](#-security--authentication-model)
 
@@ -43,8 +42,8 @@ This document details the high-level system design, data flows, security boundar
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐ ┌──────────────────────┐ ┌────────────────┐ │
-│  │ Offline Cache & Queue │ │ Push Notification    │ │ OpenStreetMap  │ │
-│  │ (Encrypted Vouchers)  │ │ Listener (Expo Push) │ │ Leaflet Engine │ │
+│  │ Offline Cache & Queue │ │ Network Status       │ │ OpenStreetMap  │ │
+│  │ (AsyncStorage Voucher)│ │ Listener (NetInfo)   │ │ Leaflet Engine │ │
 │  └───────────────────────┘ └──────────────────────┘ └────────────────┘ │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ HTTPS / JSON (Axios + Headers)
@@ -58,17 +57,17 @@ This document details the high-level system design, data flows, security boundar
 │  │ (CORS, Error Handler) │ │ (Nepal Phone Regex)  │ │ Manager (SHA)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
-│  ┌───────────┴───────────┐ ┌──────────────────────┐                     │
-│  │ Transaction Manager   │ │ Push Dispatcher      │═══════════════════╗ │
-│  │ (Multi-Table Atomic)  │ │ (Expo Server SDK/FCM)│                   ║ │
-│  └───────────┬───────────┘ └──────────────────────┘                   ║ │
-└──────────────┼────────────────────────────────────────────────────────╫─┘
-               │ PostgreSQL Connection Pool (pg)                        ║
-               ▼                                                        ▼
-┌───────────────────────────────────────────────┐     ┌───────────────────┐
-│          PostgreSQL Database Server           │     │ Expo Push Service │
-│   (dka_bookings • dka_users • dka_idemp etc)  │     │     (FCM v1)      │
-└───────────────────────────────────────────────┘     └───────────────────┘
+│  ┌───────────┴───────────┐                                              │
+│  │ Transaction Manager   │                                              │
+│  │ (Multi-Table Atomic)  │                                              │
+│  └───────────┬───────────┘                                              │
+└──────────────┼──────────────────────────────────────────────────────────┘
+               │ PostgreSQL Connection Pool (pg)
+               ▼
+┌───────────────────────────────────────────────┐
+│          PostgreSQL Database Server           │
+│   (dka_bookings • dka_users • dka_idemp etc)  │
+└───────────────────────────────────────────────┘
 ```
 
 ---
@@ -88,35 +87,24 @@ RootStackNavigator
 │   ├── MyBookings (MyTripsScreen)
 │   └── Profile (ProfileScreen)
 ├── Onboarding (OnboardingScreen - First Launch Flow)
-├── BookingModal (BookingScreen - Animated Full Modal)
+├── BookingModal (BookingScreen - Animated Full Modal Dialog)
 ├── Auth (AuthScreen - SignIn / SignUp / OTP Modal)
-├── Fleet (FleetScreen - Fleet Catalog)
-├── Rates (RatesScreen - Official Nepal Tariff Matrix)
-├── Airport (AirportScreen - TIA Transfers)
-├── Wedding (WeddingScreen - VIP Convoy Packages)
-├── Tours (ToursScreen - Tour Expeditions)
-├── TourDetail (TourDetailScreen - Itinerary & Pax Table)
-├── Contact (ContactScreen - Help Desk & Reviews)
-├── MyTrips (MyTripsScreen - My Reservations)
-├── Profile (ProfileScreen - Profile & Settings)
-└── Explore (ExploreScreen - Service Discovery Hub)
+├── Contact (ContactScreen - 24/7 Help Desk & Hotline)
+├── MyTrips (MyTripsScreen - Fullscreen Trips & Vouchers)
+└── Profile (ProfileScreen - User Profile & Settings)
 ```
 
 ### Interactive Mapping & Geocoding Subsystem
 Drive Kendra Mobile integrates zero-cost OpenStreetMap (OSM) and Leaflet mapping:
 - **`FullScreenMapPicker.tsx`**: Full-screen modal with an interactive Leaflet map rendered via `react-native-webview` (mobile) or responsive `iframe` (web). Users can drag the map to position the custom amber brand marker over any point in Nepal.
-- **`EmbeddedMapView.tsx`**: Reusable container bridging web message events (zoom, pan, drag-end, pin coordinate clicks) between React Native and Leaflet.
+- **`MapPinBrandBadge.tsx`**: Branded map pin marker overlay indicating the active selection coordinate.
 - **`src/utils/geocoding.ts`**: Queries OSM Nominatim API for reverse geocoding (coordinates ➔ readable landmark/street address) with fallback to nearest landmark in `nepalLocations.ts`.
 - **`src/constants/nepalLocations.ts`**: Curated database of all 77 districts, major tourist hubs (Pokhara, Chitwan, Lumbini, Jomsom, Nagarkot), airport terminals, and highway checkpoints.
 - **`src/utils/recentSearchesStorage.ts`**: Persistent search history caching using AsyncStorage.
 
-### Highway Status & Mountain Safety Subsystem
-- **`HighwayStatusCard.tsx`**: Real-time road advisory card displaying traffic conditions, weather alerts, landslide warnings, and one-way traffic notices across critical Nepal corridors:
-  - Narayanghat - Mugling Highway (Landslide zone alerts)
-  - Prithvi Highway (Kathmandu - Pokhara)
-  - BP Highway (Kathmandu - Eastern Terai)
-  - Tribhuvan Highway & Araniko Highway
+### Mountain Safety & Emergency Subsystem
 - **`EmergencySosModal.tsx` & `EmergencyTripCard.tsx`**: GPS sensor interrogation (`expo-location`) to extract high-accuracy coordinates and dispatch pre-formatted SOS SMS messages to Nepal Tourist Police (`1144`) and Drive Kendra 24/7 hotline (`+977 985-1363783`).
+- **`offlineVoucherStorage.ts`**: Persists trip vouchers with vehicle assignment details, route information, and dispatch hotline contacts so that travelers can present valid travel permits at checkpoints without cellular connectivity.
 
 ### State & Context Architecture
 - **AuthContext** (`src/context/AuthContext.tsx`): Manages authentication tokens, current user object, biometrics state, and automatic persistent session restore via `secureStorage.ts`.
@@ -150,12 +138,9 @@ This pattern ensures instantaneous theme switching, avoids memory leaks, and ena
 ### Route Modularity & Middleware
 The server entry point (`server/src/index.ts`) mounts distinct feature routes onto a unified Hono application:
 - `/health` ➔ Database ping & health check
-- `/api/auth` ➔ Authentication and OTP flow
-- `/api/bookings` ➔ Idempotent booking transactions
-- `/api/notifications` ➔ Push notification triggers
-- `/api/users` ➔ Device push token management
-- `/api/reviews` ➔ Testimonial submissions & moderation
-- `/api/stats` ➔ Real-time platform metrics
+- `/api/auth` ➔ Authentication and OTP recovery flow (`login`, `register`, `forgot-password`, `reset-password`)
+- `/api/bookings` ➔ GET active bookings and POST idempotent booking transactions
+- `/api/users` ➔ User profile updates (`PUT /profile`) and push token registration (`POST /push-token`)
 
 ### Idempotency & Concurrency Handling
 When the mobile client submits a booking, it generates a unique `X-Idempotency-Key` header. The server verifies this key against the `dka_idempotency_keys` table:
@@ -170,7 +155,7 @@ Every incoming payload passes through Zod v4 schemas in `server/src/validation.t
 - **Nepal Phone Normalization**: Strips spaces, dashes, country codes, and validates against `/^(?:977)?(9[78]\d{8}|0[1-9]\d{7})$/`.
 - **Date Validation**: Ensures pickup dates are in the future and return dates follow pickup dates.
 
-### Database Abstraction & RLS Isolation
+### Database Abstraction & Security Wrapper
 All queries run inside `withPublicClient` in `server/src/db.ts`:
 - Automatically sets `SET LOCAL app.is_admin = 'false'`.
 - Uses node-postgres connection pooling with configurable pool sizes.
@@ -182,11 +167,11 @@ All queries run inside `withPublicClient` in `server/src/db.ts`:
 
 Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) frequently cross areas with zero cellular connectivity. Drive Kendra Mobile provides:
 
-1. **Static Content Bundling**: Complete official rate charts (`rateCategories.generated.ts`) and tour itineraries (`tourDetails.ts`) are bundled directly with the application.
-2. **Encrypted Offline Voucher Storage** (`offlineVoucherStorage.ts`): Confirmed booking receipts are cached locally and viewable offline.
-3. **Offline QR Code Generator** (`VoucherQrCode.tsx`): Displays cryptographically formatted booking data as a QR code for conductor verification without internet.
-4. **Offline GPS Emergency SOS** (`EmergencyTripCard.tsx` & `EmergencySosModal.tsx`): Captures GPS coordinates via device sensors and crafts ready-to-send SMS messages to emergency dispatchers even without data connectivity.
-5. **Offline Landmark Database** (`nepalLocations.ts`): Provides instant offline destination suggestions.
+1. **Encrypted Offline Voucher Storage** (`offlineVoucherStorage.ts`): Confirmed booking receipts are cached locally and viewable offline.
+2. **Offline QR Code Generator** (`VoucherQrCode.tsx`): Displays cryptographically formatted booking data as a QR code for checkpoint verification without internet.
+3. **Offline GPS Emergency SOS** (`EmergencyTripCard.tsx` & `EmergencySosModal.tsx`): Captures GPS coordinates via device sensors and crafts ready-to-send SMS messages to emergency dispatchers even without data connectivity.
+4. **Offline Landmark Database** (`nepalLocations.ts`): Provides instant offline destination suggestions across all 77 districts.
+5. **Geocoding Fallback Engine** (`geocoding.ts`): Calculates nearest landmark using Euclidean distance when Nominatim is unreachable.
 
 ---
 
@@ -196,4 +181,4 @@ Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) fre
 - **Biometric Gatekeeper**: Hardware biometrics (Touch ID / Face ID) protect access to stored credentials.
 - **Bot Honeypots**: Invisible form inputs filter automated bots.
 - **SQL Injection Immunization**: 100% of SQL queries use positional parameterization (`$1, $2`).
-- **Zero Live SQL Execution Rule**: Database modifications must follow the strict patch protocol ([`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/)).
+- **Zero Live SQL Execution Rule**: Database modifications must follow the strict patch protocol ([`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/)).

@@ -79,9 +79,6 @@ export interface BookingScreenProps {
     tripType: 'One Way' | 'Return' | 'Round Trip';
     vehicleName: string;
     vehiclePlate: string;
-    driverName: string;
-    driverPhone: string;
-    driverRating: number;
     fare: string;
     status: 'confirmed';
   }) => void;
@@ -296,9 +293,6 @@ export function BookingScreen({
         tripType: form.trip_type as 'One Way' | 'Return' | 'Round Trip',
         vehicleName: `${vehicleName} (AC)`,
         vehiclePlate: `Ba ${Math.floor(1 + Math.random() * 5)} Cha ${randomRefNum}`,
-        driverName: 'Suman Shrestha (Kathmandu Dispatch)',
-        driverPhone: CONTACT_INFO.phoneRaw,
-        driverRating: 4.9,
         fare: budget.trim() ? budget.trim() : 'NPR 12,000',
         status: 'confirmed' as const,
       };
@@ -890,7 +884,7 @@ export function BookingScreen({
         <View style={styles.budgetGuideCard}>
           <ShieldCheck size={16} color={colors.accent} style={{ marginRight: 8 }} />
           <Text style={styles.budgetGuideText}>
-            Includes dedicated driver, fuel, highway tolls & passenger insurance.
+            Includes dedicated vehicle rental, fuel, highway tolls & passenger insurance.
           </Text>
         </View>
 
@@ -929,7 +923,7 @@ export function BookingScreen({
       <SuccessModal
         visible={successVisible}
         title="Booking Request Received!"
-        message="Thank you! Our Kathmandu 24/7 dispatch desk will call or WhatsApp you within 15 minutes to confirm driver and vehicle details."
+        message="Thank you! Our Kathmandu 24/7 dispatch desk will call or WhatsApp you within 15 minutes to confirm vehicle and reservation details."
         onClose={() => {
           setSuccessVisible(false);
           handleDismiss();

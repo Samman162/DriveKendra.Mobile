@@ -36,9 +36,6 @@ bookingsRoute.get('/', async (c) => {
       trip_type: string;
       estimated_fare: string | null;
       booking_status: string;
-      assigned_driver_name: string | null;
-      assigned_driver_phone: string | null;
-      assigned_driver_rating: number | null;
       assigned_vehicle_plate: string | null;
       assigned_vehicle_model: string | null;
       created_at: Date;
@@ -46,7 +43,6 @@ bookingsRoute.get('/', async (c) => {
       `SELECT b.booking_id, b.user_id, b.vehicle_type_id, vt.type_name,
               b.pickup_location, b.dropoff_location, b.pickup_date, b.pickup_time, b.return_date,
               b.passenger_count, b.trip_type, b.estimated_fare, b.booking_status,
-              b.assigned_driver_name, b.assigned_driver_phone, b.assigned_driver_rating,
               b.assigned_vehicle_plate, b.assigned_vehicle_model,
               b.created_at
        FROM dka_bookings b
@@ -74,9 +70,6 @@ bookingsRoute.get('/', async (c) => {
       tripType: row.trip_type,
       estimatedFare: row.estimated_fare,
       status: row.booking_status,
-      assignedDriverName: row.assigned_driver_name,
-      assignedDriverPhone: row.assigned_driver_phone,
-      assignedDriverRating: row.assigned_driver_rating ? Number(row.assigned_driver_rating) : 4.9,
       assignedVehiclePlate: row.assigned_vehicle_plate,
       assignedVehicleModel: row.assigned_vehicle_model,
       createdAt: row.created_at,

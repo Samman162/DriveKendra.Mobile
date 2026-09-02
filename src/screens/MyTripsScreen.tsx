@@ -63,9 +63,6 @@ export interface TripRecord {
   tripType: 'One Way' | 'Return' | 'Round Trip';
   vehicleName: string;
   vehiclePlate: string;
-  driverName: string;
-  driverPhone: string;
-  driverRating: number;
   fare: string;
   status: 'confirmed' | 'completed' | 'cancelled';
 }
@@ -81,9 +78,6 @@ const INITIAL_TRIPS: TripRecord[] = [
     tripType: 'One Way',
     vehicleName: 'Mahindra Scorpio 4x4 (AC)',
     vehiclePlate: 'Ba 2 Cha 8492',
-    driverName: 'Ram Bahadur Tamang',
-    driverPhone: '+9779851363783',
-    driverRating: 4.9,
     fare: 'NPR 12,000',
     status: 'confirmed',
   },
@@ -97,9 +91,6 @@ const INITIAL_TRIPS: TripRecord[] = [
     tripType: 'One Way',
     vehicleName: 'Toyota Corolla Sedan',
     vehiclePlate: 'Ba 1 Cha 4102',
-    driverName: 'Bikram Thapa',
-    driverPhone: '+9779851363783',
-    driverRating: 4.8,
     fare: 'NPR 1,500',
     status: 'completed',
   },
@@ -113,9 +104,6 @@ const INITIAL_TRIPS: TripRecord[] = [
     tripType: 'Round Trip',
     vehicleName: 'Toyota HiAce (14-Seater)',
     vehiclePlate: 'Ba 3 Cha 9912',
-    driverName: 'Prem Gurung',
-    driverPhone: '+9779851363783',
-    driverRating: 5.0,
     fare: 'NPR 9,500',
     status: 'completed',
   },
@@ -158,9 +146,6 @@ export function MyTripsScreen() {
             tripType: b.tripType,
             vehicleName: b.assignedVehicleModel || b.vehicleTypeName || 'Mahindra Scorpio 4x4',
             vehiclePlate: b.assignedVehiclePlate || 'Ba 2 Cha (TBD)',
-            driverName: b.assignedDriverName || 'Assigning Chauffeur...',
-            driverPhone: b.assignedDriverPhone || CONTACT_INFO.phoneRaw,
-            driverRating: b.assignedDriverRating ? Number(b.assignedDriverRating) : 4.9,
             fare: b.estimatedFare || 'NPR 12,000',
             status: b.status.toLowerCase() === 'completed' ? 'completed' : b.status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
           }));
@@ -208,8 +193,6 @@ export function MyTripsScreen() {
         tripType: trip.tripType,
         vehicleName: trip.vehicleName,
         vehiclePlate: trip.vehiclePlate,
-        driverName: trip.driverName,
-        driverPhone: trip.driverPhone,
         fare: trip.fare,
         status: trip.status,
       };
@@ -254,7 +237,7 @@ export function MyTripsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.screenSubtitle}>
-          Track chauffeur assignments, access offline vouchers, and view past expedition receipts.
+          Track vehicle assignments, access offline vouchers, and view past expedition receipts.
         </Text>
 
         {/* Mountain Emergency Mode Bar */}
@@ -436,7 +419,7 @@ export function MyTripsScreen() {
                     ]}
                   >
                     {trip.status === 'confirmed'
-                      ? '🟢 Driver Assigned'
+                      ? '🟢 Confirmed'
                       : trip.status === 'completed'
                       ? '✓ Completed'
                       : '✕ Cancelled'}
@@ -501,46 +484,39 @@ export function MyTripsScreen() {
                 </View>
               </View>
 
-              {/* Assigned Chauffeur & Vehicle Container */}
-              <View style={styles.driverCard}>
-                <View style={styles.driverAvatar}>
-                  <Text style={styles.driverInitialText}>
-                    {trip.driverName ? trip.driverName.charAt(0).toUpperCase() : 'D'}
-                  </Text>
+              {/* Assigned Vehicle Container */}
+              <View style={styles.vehicleCard}>
+                <View style={styles.vehicleAvatar}>
+                  <Car size={20} color={colors.onAccent} />
                 </View>
 
-                <View style={styles.driverInfoCol}>
-                  <View style={styles.driverTitleRow}>
-                    <Text style={styles.driverName} numberOfLines={1}>
-                      {trip.driverName}
+                <View style={styles.vehicleInfoCol}>
+                  <View style={styles.vehicleTitleRow}>
+                    <Text style={styles.vehicleCardName} numberOfLines={1}>
+                      {trip.vehicleName}
                     </Text>
-                    <View style={styles.ratingBadge}>
-                      <Star size={11} color={colors.highlight} fill={colors.highlight} />
-                      <Text style={styles.ratingText}>{trip.driverRating}</Text>
-                    </View>
                   </View>
 
                   <View style={styles.vehicleRow}>
-                    <Car size={12} color={colors.muted} />
-                    <Text style={styles.vehicleText} numberOfLines={1}>
-                      {trip.vehicleName}
-                    </Text>
                     <View style={styles.plateTag}>
                       <Text style={styles.plateText}>{trip.vehiclePlate}</Text>
                     </View>
+                    <Text style={styles.vehicleStatusSubtext}>
+                      {trip.status === 'confirmed' ? 'Assigned & Inspected' : 'Standard Fleet'}
+                    </Text>
                   </View>
                 </View>
 
-                {/* Quick Call Chauffeur Icon */}
+                {/* Quick Call Dispatch Icon */}
                 {trip.status === 'confirmed' && (
                   <Pressable
                     onPress={() => {
                       hapticFeedback.light();
-                      Linking.openURL(`tel:${trip.driverPhone}`);
+                      Linking.openURL(`tel:${CONTACT_INFO.phoneRaw}`);
                     }}
                     style={({ pressed }) => [styles.phoneBtn, pressed && styles.pressed]}
                     accessibilityRole="button"
-                    accessibilityLabel="Call Assigned Driver"
+                    accessibilityLabel="Call 24/7 Dispatch Desk"
                   >
                     <Phone size={15} color={colors.onAccent} />
                   </Pressable>
@@ -656,8 +632,6 @@ export function MyTripsScreen() {
           setSosTrip(null);
         }}
         bookingRef={sosTrip?.bookingRef}
-        driverName={sosTrip?.driverName}
-        driverPhone={sosTrip?.driverPhone}
       />
     </Screen>
   );
@@ -1038,8 +1012,8 @@ function createStyles(colors: ThemeColors) {
       color: colors.text,
     },
 
-    // Chauffeur & Vehicle Box
-    driverCard: {
+    // Vehicle Box
+    vehicleCard: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.elevated,
@@ -1050,7 +1024,7 @@ function createStyles(colors: ThemeColors) {
       marginVertical: spacing.sm,
       gap: spacing.sm,
     },
-    driverAvatar: {
+    vehicleAvatar: {
       width: 40,
       height: 40,
       borderRadius: 20,
@@ -1058,57 +1032,35 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    driverInitialText: {
-      fontSize: 16,
-      fontWeight: '900',
-      color: colors.onAccent,
-    },
-    driverInfoCol: {
+    vehicleInfoCol: {
       flex: 1,
     },
-    driverTitleRow: {
+    vehicleTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 6,
       marginBottom: 2,
     },
-    driverName: {
+    vehicleCardName: {
       fontSize: 13,
       fontWeight: '800',
       color: colors.text,
       flexShrink: 1,
     },
-    ratingBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-      backgroundColor: colors.surface,
-      paddingHorizontal: 5,
-      paddingVertical: 1,
-      borderRadius: radius.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    ratingText: {
-      fontSize: 10,
-      fontWeight: '800',
-      color: colors.text,
-    },
     vehicleRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 4,
+      gap: 6,
       flexWrap: 'wrap',
     },
-    vehicleText: {
+    vehicleStatusSubtext: {
       fontSize: 11,
       color: colors.muted,
       fontWeight: '500',
-      flexShrink: 1,
     },
     plateTag: {
       backgroundColor: colors.surface,
-      paddingHorizontal: 4,
+      paddingHorizontal: 6,
       paddingVertical: 1,
       borderRadius: radius.sm,
       borderWidth: 1,

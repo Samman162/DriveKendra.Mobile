@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS dka_users (
     email VARCHAR(120) UNIQUE,
     password_hash VARCHAR(255),
     avatar_url TEXT,
-    role VARCHAR(30) NOT NULL DEFAULT 'customer', -- 'customer', 'driver', 'operator', 'admin'
+    role VARCHAR(30) NOT NULL DEFAULT 'customer', -- 'customer', 'operator', 'admin'
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_verified BOOLEAN NOT NULL DEFAULT FALSE,
     last_login_at TIMESTAMP WITH TIME ZONE,
@@ -72,9 +72,6 @@ CREATE TABLE IF NOT EXISTS dka_bookings (
     estimated_fare VARCHAR(50),
     additional_details TEXT,
     booking_status VARCHAR(50) NOT NULL DEFAULT 'Pending',
-    assigned_driver_name VARCHAR(100),
-    assigned_driver_phone VARCHAR(30),
-    assigned_driver_rating NUMERIC(2, 1) DEFAULT 4.9,
     assigned_vehicle_plate VARCHAR(50),
     assigned_vehicle_model VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

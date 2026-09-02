@@ -27,16 +27,12 @@ interface EmergencySosModalProps {
   visible: boolean;
   onClose: () => void;
   bookingRef?: string;
-  driverName?: string;
-  driverPhone?: string;
 }
 
 export function EmergencySosModal({
   visible,
   onClose,
   bookingRef,
-  driverName,
-  driverPhone,
 }: EmergencySosModalProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
@@ -79,7 +75,6 @@ export function EmergencySosModal({
             <View style={styles.refBanner}>
               <Text style={styles.refText}>
                 Active Trip: <Text style={styles.refHighlight}>{bookingRef}</Text>
-                {driverName ? ` • Driver: ${driverName}` : ''}
               </Text>
             </View>
           )}
@@ -96,28 +91,12 @@ export function EmergencySosModal({
               </View>
               <View style={styles.cardTextBox}>
                 <Text style={styles.cardTitlePrimary}>Drive Kendra 24/7 Hotline</Text>
-                <Text style={styles.cardSubtitlePrimary}>Direct Chauffeur & Roadside Command</Text>
+                <Text style={styles.cardSubtitlePrimary}>Direct Roadside & Dispatch Command</Text>
               </View>
               <PhoneCall size={20} color={colors.onNavy} />
             </Pressable>
 
-            {/* 2. Driver Quick Call (if assigned) */}
-            {driverPhone && (
-              <Pressable
-                style={styles.sosCard}
-                onPress={() => dialNumber(driverPhone)}
-              >
-                <View style={styles.cardIconBoxSecondary}>
-                  <PhoneCall size={20} color={colors.accent} />
-                </View>
-                <View style={styles.cardTextBox}>
-                  <Text style={styles.cardTitle}>Call Assigned Chauffeur</Text>
-                  <Text style={styles.cardSubtitle}>{driverName || 'Driver'} ({driverPhone})</Text>
-                </View>
-              </Pressable>
-            )}
-
-            {/* 3. WhatsApp Urgent SOS */}
+            {/* 2. WhatsApp Urgent SOS */}
             <Pressable style={styles.sosCard} onPress={sendWhatsAppSos}>
               <View style={[styles.cardIconBoxSecondary, { backgroundColor: '#25D36620' }]}>
                 <MessageCircle size={20} color="#25D366" />

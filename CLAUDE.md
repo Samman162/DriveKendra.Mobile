@@ -21,13 +21,13 @@ npm run ios
 npm run web
 ```
 
-### Static Analysis & Testing (57 Automated Tests)
+### Static Analysis & Testing (53 Automated Tests)
 ```bash
 # Static TypeScript typecheck (Client & Server)
 npm run typecheck
 npm run typecheck --prefix server
 
-# Run Jest unit & integration test suites (Client: 7 suites / 43 tests, Server: 1 suite / 14 tests)
+# Run Jest unit & integration test suites (Client: 8 suites / 42 tests, Server: 1 suite / 11 tests)
 npm test
 npm test --prefix server
 
@@ -39,6 +39,7 @@ npx jest __tests__/GeocodingAndMapPicker.test.tsx
 npx jest __tests__/Onboarding.test.tsx
 npx jest __tests__/RecentSearches.test.tsx
 npx jest __tests__/BrandLogoAndSplash.test.tsx
+npx jest __tests__/ProfileScreen.test.tsx
 ```
 
 ### Building & Packaging (EAS CLI)
@@ -59,27 +60,27 @@ npx eas-cli build --profile production --platform android
 
 1. **Expo SDK 57**: Read the versioned docs at [https://docs.expo.dev/versions/v57.0.0/](https://docs.expo.dev/versions/v57.0.0/) before adding or configuring native modules.
 2. **Database Management**:
-   - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
-   - Add incremental changes as numbered patches in [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
+   - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
+   - Add incremental changes as numbered patches in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
    - **NEVER** run SQL queries directly on live databases.
 3. **Interactive OpenStreetMap (OSM) Map Picking**:
-   - Use `FullScreenMapPicker.tsx`, `MapLocationPicker.tsx`, and `EmbeddedMapView.tsx` (Leaflet OSM via `react-native-webview` on mobile and `iframe` on web).
+   - Use `FullScreenMapPicker.tsx` (Leaflet OSM via `react-native-webview` on mobile and `iframe` on web).
    - Zero third-party API key costs. Use `geocoding.ts` for Nominatim reverse geocoding with fallback to `nepalLocations.ts`.
 4. **Theming**:
    - Always wrap styles with `useThemedStyles((theme) => StyleSheet.create({ ... }))`.
    - Use color tokens (`theme.colors.*`), spacing tokens (`theme.spacing.*`), and typography constants (`src/theme/typography.ts`) for dynamic Light and Dark modes.
-5. **Himalayan Offline Resilience & Highway Monitoring**:
-   - Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `EmergencySosModal`, `HighwayStatusCard`, `VoucherQrCode`, and bundled rate charts (`rateCategories.generated.ts`) for off-grid resilience.
+5. **Himalayan Offline Resilience**:
+   - Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `EmergencySosModal`, `VoucherQrCode`, and bundled location database (`nepalLocations.ts`) for off-grid resilience.
 6. **Form Validation & Anti-Spam**:
    - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
 
 ---
 
 ## 📚 Specialized Documentation
-- [Main Readme](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/README.md)
-- [Server API Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md)
-- [Database Schema Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md)
-- [System Architecture](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/ARCHITECTURE.md)
-- [Offline Resilience Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md)
-- [Deployment Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md)
-- [Contributing Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/CONTRIBUTING.md)
+- [Main Readme](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/README.md)
+- [Server API Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md)
+- [Database Schema Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md)
+- [System Architecture](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/ARCHITECTURE.md)
+- [Offline Resilience Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md)
+- [Deployment Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md)
+- [Contributing Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/CONTRIBUTING.md)

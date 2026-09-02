@@ -33,9 +33,6 @@ export interface BookingRecordDto {
   tripType: 'One Way' | 'Return' | 'Round Trip';
   estimatedFare?: string | null;
   status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
-  assignedDriverName: string | null;
-  assignedDriverPhone: string | null;
-  assignedDriverRating?: number | null;
   assignedVehiclePlate: string | null;
   assignedVehicleModel?: string | null;
   createdAt: string;

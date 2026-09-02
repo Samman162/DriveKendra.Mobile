@@ -115,7 +115,6 @@ export function EmergencyTripCard({
 Booking: ${voucher.bookingRef}
 Route: ${voucher.pickup} ➔ ${voucher.dropoff}
 Vehicle: ${voucher.vehicleName} (${voucher.vehiclePlate})
-Driver: ${voucher.driverName} (${voucher.driverPhone})
 ${gpsText}${mapsLink}
 Status: Emergency assistance/mechanical support required.`;
 
@@ -234,25 +233,8 @@ Status: Emergency assistance/mechanical support required.`;
           </View>
         )}
 
-        {/* Driver & Vehicle Metadata */}
+        {/* Fleet & Dispatch Metadata */}
         <View style={styles.metaGrid}>
-          <View style={styles.metaBox}>
-            <View style={styles.metaIconLabel}>
-              <User size={13} color={colors.subtle} />
-              <Text style={styles.metaLabel}>Assigned Driver</Text>
-            </View>
-            <Text style={styles.metaValue} numberOfLines={1}>
-              {voucher.driverName}
-            </Text>
-            <Pressable
-              style={styles.driverCallPill}
-              onPress={() => handleEmergencyCall(voucher.driverPhone)}
-            >
-              <Phone size={11} color="#059669" />
-              <Text style={styles.driverCallText}>{voucher.driverPhone}</Text>
-            </Pressable>
-          </View>
-
           <View style={styles.metaBox}>
             <View style={styles.metaIconLabel}>
               <Car size={13} color={colors.subtle} />
@@ -264,6 +246,23 @@ Status: Emergency assistance/mechanical support required.`;
             <View style={styles.platePill}>
               <Text style={styles.plateText}>{voucher.vehiclePlate}</Text>
             </View>
+          </View>
+
+          <View style={styles.metaBox}>
+            <View style={styles.metaIconLabel}>
+              <Phone size={13} color={colors.subtle} />
+              <Text style={styles.metaLabel}>24/7 Hotline</Text>
+            </View>
+            <Text style={styles.metaValue} numberOfLines={1}>
+              Drive Kendra Dispatch
+            </Text>
+            <Pressable
+              style={styles.hotlineCallPill}
+              onPress={() => handleEmergencyCall(voucher.emergencyHotline || '+9779851363783')}
+            >
+              <Phone size={11} color="#059669" />
+              <Text style={styles.hotlineCallText}>{voucher.emergencyHotline || '+977 985-1363783'}</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -373,7 +372,6 @@ Status: Emergency assistance/mechanical support required.`;
                 value={JSON.stringify({
                   ref: voucher.bookingRef,
                   code: voucher.verificationCode,
-                  driver: voucher.driverName,
                   plate: voucher.vehiclePlate,
                   route: `${voucher.pickup} -> ${voucher.dropoff}`,
                 })}
@@ -393,9 +391,6 @@ Status: Emergency assistance/mechanical support required.`;
               </Text>
               <Text style={styles.modalTripMeta}>
                 {voucher.vehicleName} • {voucher.vehiclePlate}
-              </Text>
-              <Text style={styles.modalTripDriver}>
-                Driver: {voucher.driverName} ({voucher.driverPhone})
               </Text>
             </View>
 
@@ -612,7 +607,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.text,
       marginBottom: 4,
     },
-    driverCallPill: {
+    hotlineCallPill: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
@@ -622,7 +617,7 @@ function createStyles(colors: ThemeColors) {
       borderRadius: radius.sm,
       alignSelf: 'flex-start',
     },
-    driverCallText: {
+    hotlineCallText: {
       fontSize: 10,
       fontWeight: '700',
       color: '#059669',
@@ -806,12 +801,6 @@ function createStyles(colors: ThemeColors) {
       fontSize: 11,
       color: colors.subtle,
       fontWeight: '600',
-      marginTop: 2,
-    },
-    modalTripDriver: {
-      fontSize: 11,
-      color: colors.accent,
-      fontWeight: '700',
       marginTop: 2,
     },
     modalDoneButton: {

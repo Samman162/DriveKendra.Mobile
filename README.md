@@ -7,11 +7,11 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-success?style=for-the-badge)](https://drivekendra.com)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Samman162/DriveKendra.Mobile)
-[![Tests](https://img.shields.io/badge/Tests-57%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-53%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
 **Drive Kendra Mobile** is a standalone, production-grade cross-platform mobile application built with **React Native (Expo SDK 57)** and **TypeScript** for **Drive Kendra** — Nepal's premier vehicle rental and Himalayan tour transport service.
 
-The mobile app includes its own lightweight, high-performance **Hono/Node.js API** in `server/`. It connects directly to the shared **PostgreSQL database**, operating independently while maintaining complete database compatibility, atomic transactional consistency, push notification delivery, interactive zero-cost OpenStreetMap (OSM) map picking, real-time Nepal highway monitoring, and off-grid Himalayan resilience.
+The mobile app includes its own lightweight, high-performance **Hono/Node.js API** in `server/`. It connects directly to the shared **PostgreSQL database**, operating independently while maintaining complete database compatibility, atomic transactional consistency, interactive zero-cost OpenStreetMap (OSM) map picking, and off-grid Himalayan resilience.
 
 ---
 
@@ -19,11 +19,10 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 
 - [Key Highlights](#-key-highlights)
 - [Architecture & Tech Stack](#-architecture--tech-stack)
-- [Feature Breakdown & 14 Screens](#-feature-breakdown--14-screens)
+- [Feature Breakdown & 7 Core Screens](#-feature-breakdown--7-core-screens)
 - [Interactive Map & Geocoding Engine](#-interactive-map--geocoding-engine)
 - [Project Directory Structure](#-project-directory-structure)
 - [Himalayan Offline-First Resilience](#-himalayan-offline-first-resilience)
-- [Push Notification Pipeline](#-push-notification-pipeline)
 - [Backend API Reference](#-backend-api-reference)
 - [Database Schema & Migration Rules](#-database-schema--migration-rules)
 - [Environment Configuration](#-environment-configuration)
@@ -31,7 +30,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - [Prerequisites](#prerequisites)
   - [Installation & First Run](#installation--first-run)
   - [Connecting Physical Devices & Emulators](#connecting-physical-devices--emulators)
-- [Testing & Quality Verification (57 Tests)](#-testing--quality-verification-57-tests)
+- [Testing & Quality Verification (53 Tests)](#-testing--quality-verification-53-tests)
 - [Building with EAS (Android & iOS)](#-building-with-eas-android--ios)
 - [Design System & Theming](#-design-system--theming)
 - [Security & Anti-Spam Architecture](#-security--anti-spam-architecture)
@@ -43,21 +42,15 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 
 ## 🌟 Key Highlights
 
-- 🗺️ **Interactive OpenStreetMap (OSM) Location Picker**: Free, interactive Leaflet map integration (`FullScreenMapPicker`, `EmbeddedMapView`) enabling users to visually pin pickup & dropoff coordinates anywhere across Nepal with zero third-party API key costs.
+- 🗺️ **Interactive OpenStreetMap (OSM) Location Picker**: Free, interactive Leaflet map integration (`FullScreenMapPicker`) enabling users to visually pin pickup & dropoff coordinates anywhere across Nepal with zero third-party API key costs.
 - 📍 **Free Reverse Geocoding & Nepal Dataset**: Instant coordinate-to-address resolution via OSM Nominatim with robust fallback to a bundled 77-district offline dataset (`nepalLocations.ts`, `geocoding.ts`).
-- 🛣️ **Live Nepal Highway Corridor Status**: Real-time road condition indicators (`HighwayStatusCard`) monitoring major transit arteries (Narayanghat-Mugling, Prithvi Highway, BP Highway, Araniko Highway) for landslides, one-way traffic, and weather advisories.
-- 🏔️ **Himalayan Tours & Expeditions**: Muktinath 4WD pilgrimage, Kalinchowk snow trips, Manakamana temple packages, and Pokhara/Chitwan multi-day routes with dynamic per-person rate calculators.
-- 🚙 **Nepal Fleet Showcase**: 4x4 Mahindra Scorpios, 14-seater Toyota HiAce vans, luxury sedans, and 35-seater tourist coaches with luggage, fuel, and passenger capacity specs.
-- 📋 **Official Nepal Fare Matrix**: Government and NTVA rate chart covering hundreds of routes across all 7 provinces of Nepal with real-time search and filtering.
-- ✈️ **24/7 TIA Airport Transfers**: Fixed upfront rate calculator for Tribhuvan International Airport pickups and drops with flight tracking, delay adjustment, and nameboard greeting.
-- 💍 **Wedding & VIP Luxury Cars**: Ceremonial luxury vehicles with floral decoration tiers (Silver, Gold, Platinum, VIP Vintage) and suited chauffeurs.
+- 🚙 **Fleet Options**: Mahindra Scorpios (4x4 SUV), 14-seater Toyota HiAce vans, comfortable sedans, and tourist buses.
 - 🔒 **End-to-End Authentication & Biometrics**: Sign In, Sign Up, and OTP-based password reset with persistent session storage via `SecureStore` and TouchID / FaceID biometric verification.
-- 📱 **Interactive Trip Management & Offline Vouchers**: View upcoming and completed reservations, driver contact details, vehicle plate numbers, offline QR vouchers, and direct re-booking.
-- 📲 **Push Notification Pipeline**: Real-time push alerts for booking confirmations, chauffeur assignment, 24-hour departure reminders, and TIA airport flight delays.
+- 📱 **Interactive Trip Management & Offline Vouchers**: View upcoming and completed reservations, vehicle plate numbers, assigned models, offline QR vouchers, and 24/7 dispatch hotline access.
 - 🆘 **Himalayan Emergency SOS**: Offline GPS coordinate capture with pre-filled SMS emergency dispatch to rescue hotlines (`+977 985-1363783`) and tourist police (`1144`).
 - 📄 **Instant PDF Voucher Generator**: Export official booking receipts and itinerary vouchers as PDFs with direct sharing to WhatsApp, Email, or AirDrop.
 - 🌗 **Dual-Theme Engine**: Built-in Light and Dark modes with tactile haptic feedback on all interactions.
-- 🛡️ **Anti-Spam & Validation**: Bot honeypots, strict Nepal phone validation (`+977 98/97` or `01XXXXXXX`), and transactional SQL database writes with idempotency keys.
+- 🛡️ **Anti-Spam & Validation**: Bot honeypots (`website_hp`), strict Nepal phone validation (`+977 98/97` or `01XXXXXXX`), and transactional SQL database writes with idempotency keys.
 
 ---
 
@@ -74,8 +67,8 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐ ┌──────────────────────┐ ┌────────────────┐ │
-│  │ Offline Cache & Queue │ │ Push Notification    │ │ OpenStreetMap  │ │
-│  │ (Encrypted Vouchers)  │ │ Listener (Expo Push) │ │ Leaflet Engine │ │
+│  │ Offline Cache & Queue │ │ Network Status       │ │ OpenStreetMap  │ │
+│  │ (Encrypted Vouchers)  │ │ Listener (NetInfo)   │ │ Leaflet Engine │ │
 │  └───────────────────────┘ └──────────────────────┘ └────────────────┘ │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │ HTTPS / JSON (Axios + Headers)
@@ -109,7 +102,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - **Navigation**: `@react-navigation/native` v7, `@react-navigation/bottom-tabs`, `@react-navigation/native-stack`
 - **Mapping & WebViews**: `react-native-webview` (mobile Leaflet bridge) + HTML5 responsive canvas
 - **Icons**: `lucide-react-native`
-- **Pickers & UI Components**: `@react-native-community/datetimepicker`, `@gorhom/bottom-sheet`, `@shopify/flash-list`, `react-native-safe-area-context`, `react-native-screens`, `react-native-svg`
+- **Pickers & UI Components**: `@react-native-community/datetimepicker`, `@shopify/flash-list`, `react-native-safe-area-context`, `react-native-screens`, `react-native-svg`
 - **Native Hardware APIs**:
   - `expo-haptics` (Tactile haptic feedback)
   - `expo-local-authentication` (Biometrics: TouchID & FaceID)
@@ -127,127 +120,68 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 
 ---
 
-## 📱 Feature Breakdown & 14 Screens
+## 📱 Feature Breakdown & 7 Core Screens
 
 ### 1. 🌟 Onboarding Walkthrough (`src/screens/OnboardingScreen.tsx`)
-- First-launch welcome experience introducing travelers to Nepal car rental services.
+- First-launch welcome experience introducing travelers to Nepal vehicle rental services.
 - Animated multi-slide cards highlighting 4x4 mountain fleet, 24/7 airport transfers, and offline resilience.
 - Smooth page indicators, skip action, and persistent completion state in `onboardingStorage.ts`.
 
 ### 2. 🏠 Home Screen (`src/screens/HomeScreen.tsx`)
-- **Hero & Live Stats**: Real-time stats chip bar (`GET /api/stats`) displaying fleet size, completed trips, cities covered, and average traveler rating.
-- **Highway Condition Alert**: Embedded `HighwayStatusCard` showing real-time road conditions for major highways.
-- **Category Filter**: Instant category switching (All Fleet, 4x4 SUV, HiAce Vans, Sedans, Tourist Buses).
-- **Interactive Nepal Route Map**: Visual waypoint preview card showing route distances, durations, and scenic highlights.
-- **Popular Routes**: Quick fares for Kathmandu ➔ Pokhara, TIA Airport, Manakamana, Chitwan, and Nagarkot with one-tap booking pre-fill.
-- **Fleet Showcase**: Featured vehicle strip cards with specifications and instant booking triggers.
-- **Verified Traveler Reviews**: Horizontal carousel of customer reviews (`GET /api/reviews`) with star ratings and verified badges.
-- **FAQs Accordion**: Essential booking and cancellation policies.
+- **Personalized Header**: Top bar featuring user avatar, profile navigation, and theme mode toggle (`light` / `dark`).
+- **Welcome Greeting**: Greets travelers by name or guest profile status.
+- **Service Hub**: Quick action to start a vehicle booking reservation (`BookingScreen`).
 
-### 3. 🧭 Explore Hub (`src/screens/ExploreScreen.tsx`)
-- Central hub organizing all core rental categories into visual service tiles:
-  - **Vehicle Fleet & Specifications**
-  - **Official Nepal Rate Chart**
-  - **Airport TIA Transfers**
-  - **Wedding & VIP Luxury Cars**
-  - **Curated Himalayan Tour Expeditions**
-
-### 4. 🚙 Fleet Catalog (`src/screens/FleetScreen.tsx`)
-- Detailed catalog of vehicles:
-  - **Mahindra Scorpio 4x4 S11**: High ground clearance for off-road mountain passes.
-  - **Toyota HiAce Super GL / EV Van**: 14-seater touring vans with AC and reclining seats.
-  - **Toyota Corolla / Suzuki Dzire**: Comfortable sedans for city and highway transit.
-  - **Toyota Coaster / Tourist Bus**: 22–35 seaters for large groups and pilgrimages.
-- Filter by category and instant keyword search.
-- Passenger, luggage, fuel type, and transmission indicators.
-
-### 5. 📊 Official Rate Chart (`src/screens/RatesScreen.tsx`)
-- Complete rate catalog from Kathmandu to all major destinations in Nepal:
-  - Kathmandu Valley sightseeing & day excursions
-  - Pokhara, Chitwan, Lumbini, Biratnagar, Janakpur
-  - Mountain destinations: Kalinchowk, Manakamana, Besisahar, Jomsom, Dhunche
-- Search by destination or filter across all 7 provinces.
-- Side-by-side fare comparison across Car, Scorpio/Jeep, HiAce, and Coaster Bus.
-- One-click selection to prefill the booking form with rate details.
-
-### 6. ✈️ Airport Transfers (`src/screens/AirportScreen.tsx`)
-- Tribhuvan International Airport (TIA) transfer booking:
-  - **Direction Toggle**: Airport Pickup (TIA ➔ City) or Airport Drop (City ➔ TIA).
-  - **Destination Selector**: Major Kathmandu Valley areas (Thamel, Lazimpat, Lalitpur, Bhaktapur, Budhanilkantha, Nagarkot, etc.).
-  - **Vehicle Type**: Standard Sedan, 4WD Scorpio, or HiAce Van.
-  - **Fixed Upfront Fares**: Includes airport parking, luggage assistance, and 60 minutes of free flight-delay waiting.
-
-### 7. 💍 Wedding & VIP Cars (`src/screens/WeddingScreen.tsx`)
-- Luxury wedding convoy and VIP chauffeur booking:
-  - **Fleet Tiers**: Silver Elegance (Sedan), Gold Royal (Scorpio 4x4), Platinum Majesty (Prado/Land Cruiser), Vintage Classic.
-  - **Duration Packages**: Half Day (4 hrs), Full Day (8 hrs), Multi-Day Wedding Convoy.
-  - **Decoration Options**: Minimal Ribbon Bows, Fresh Rose & Orchid Wrap, Deluxe Royal Garland.
-  - Dynamic estimated price calculator with customized booking pre-fill.
-
-### 8. 🏔️ Tours & Expeditions (`src/screens/ToursScreen.tsx`)
-- Dedicated catalog of premier Nepal tour packages:
-  - **Muktinath 4WD Pilgrimage** (3 Days / 2 Nights via Pokhara & Jomsom)
-  - **Manakamana Temple Day Trip** (Same-Day / Overnight cable car transport)
-  - **Kalinchowk Snow & Kuri Village** (2 Days / 1 Night mountain tour)
-- Visual tour overview cards with duration, difficulty, and per-person price ranges.
-
-### 9. 📋 Tour Details & Pax Calculator (`src/screens/TourDetailScreen.tsx`)
-- In-depth itinerary, packing guide, mountain preparation tips, and FAQs.
-- Interactive Pax rate matrix (dynamic pricing per person based on group size).
-- Direct booking action pre-populating dates and passenger count.
-
-### 10. 📝 Booking Engine (`src/screens/BookingScreen.tsx`)
-- Comprehensive trip booking form:
+### 3. 📝 Booking Engine (`src/screens/BookingScreen.tsx`)
+- Comprehensive trip reservation form:
   - **Personal Details**: Full name, Nepal mobile number (`+977 98/97` or `01XXXXXXX`), optional email.
   - **Interactive Map Pinning**: OpenStreetMap / Leaflet location picker modal for visual pickup/dropoff coordinate selection.
   - **Departure Time Picker**: Quick presets (Early Morning, Morning, Afternoon, Evening) + custom native time picker (`TimePickerField`).
   - **Dates**: Pickup date and optional return date with multi-day quick offset chips.
   - **Trip Type**: Segmented One Way / Round Trip toggle.
-  - **Vehicle Type**: Interactive slide drawer sheet for Sedan, Scorpio (4WD), HiAce (14-Seater), Coaster Bus.
+  - **Vehicle Type**: Selection drawer for Sedan, Scorpio (4WD), HiAce (14-Seater), Coaster Bus.
   - **Passenger Stepper**: 1 to 50 passenger count adjuster.
-  - **Promo Codes**: Interactive coupon sheet with instant discount calculations (`DRIVE2026`, `NAMASTE10`, `HIMALAYA15`).
-  - **Spam Protection**: Invisible honeypot field.
+  - **Spam Protection**: Invisible honeypot field (`website_hp`).
   - **Idempotency Header**: Unique `X-Idempotency-Key` prevents double-bookings on flaky networks.
   - **Success Modal**: Animated confirmation dialog with reference details.
 
-### 11. 🔐 Authentication Flow (`src/screens/AuthScreen.tsx`)
+### 4. 🎫 My Reservations & Vouchers (`src/screens/MyTripsScreen.tsx`)
+- Active and past trip cards with status badges (`Confirmed`, `Completed`, `Cancelled`).
+- Full trip details: Booking reference ID, route, date & time, assigned vehicle model, and registration plate.
+- **Offline QR Voucher**: Display QR code for ticket verification without internet.
+- **PDF Export**: Generate official receipt voucher via `expo-print` and share via `expo-sharing`.
+- **24/7 Dispatch Hotline**: Instant one-tap phone call button to Drive Kendra operations (`+977 985-1363783`).
+- **Emergency SOS**: Immediate mountain SOS modal with satellite GPS extraction.
+
+### 5. 👤 User Profile (`src/screens/ProfileScreen.tsx`)
+- **Guest Mode**: Sign in / Sign up prompts with feature highlights.
+- **Authenticated Mode**:
+  - User avatar and account details.
+  - Quick action links: My Reservations, 24/7 Support Desk, Emergency Assistance.
+  - Settings: Dark/Light theme toggle, Biometrics toggle, Privacy Policy.
+  - Secure sign-out with confirmation modal.
+
+### 6. 🔐 Authentication Flow (`src/screens/AuthScreen.tsx`)
 - **Sign In**: Login with email or Nepal phone number + password.
 - **Biometric Quick Login**: Touch ID / Face ID hardware unlock for stored credentials.
-- **Sign Up**: New account registration with full name, email, phone, and password strength verification.
+- **Sign Up**: New account registration with full name, email, phone, and password verification.
 - **Forgot Password**: 3-step OTP recovery flow:
   1. Enter registered email/phone
   2. Verify 6-digit OTP code (`OtpInput` component)
   3. Set new secure password
-- **Social Login UI**: Quick actions for Google, Apple, and Phone OTP auth.
+- **Social Login UI**: Quick action buttons for third-party authentication.
 
-### 12. 👤 User Profile (`src/screens/ProfileScreen.tsx`)
-- **Guest Mode**: Sign in / Sign up prompts with feature highlights.
-- **Authenticated Mode**:
-  - User avatar and verified account badge.
-  - Member statistics (total bookings, active trips, reward points).
-  - Quick action links: My Reservations, Official Rates, Emergency Assistance.
-  - Settings: Dark/Light theme toggle, Notification preferences, Biometrics toggle, Privacy Policy.
-  - Secure sign-out with confirmation modal.
-
-### 13. 🎫 My Reservations & Vouchers (`src/screens/MyTripsScreen.tsx`)
-- Active and past trip cards with status badges (`Confirmed`, `Completed`, `Cancelled`).
-- Full trip details: Booking reference ID, route, date & time, vehicle plate number, and assigned driver details.
-- **Offline QR Voucher**: Display QR code for ticket verification without internet.
-- **PDF Export**: Generate official receipt voucher via `expo-print` and share via `expo-sharing`.
-- Direct driver call and WhatsApp buttons.
-
-### 14. 📞 Contact & Support (`src/screens/ContactScreen.tsx`)
-- Direct phone call dispatch (`+977 985-1363783`).
+### 7. 📞 Contact & Support (`src/screens/ContactScreen.tsx`)
+- Direct phone call dispatch to 24/7 dispatch desk (`+977 985-1363783`).
 - Instant WhatsApp chat deep link.
 - Email dispatch to `info@drivekendra.com`.
-- Interactive review submission form (`POST /api/reviews`) with star rating and trip title.
-- Expandable FAQs and 24/7 roadside assistance hotline.
+- Office location information and 24/7 roadside assistance support.
 
 ---
 
 ## 🗺️ Interactive Map & Geocoding Engine
 
-Drive Kendra Mobile includes a built-in OpenStreetMap (OSM) and Leaflet mapping subsystem that eliminates costly Google Maps API billing:
+Drive Kendra Mobile includes a built-in OpenStreetMap (OSM) and Leaflet mapping subsystem that eliminates costly third-party API key billing:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -256,8 +190,7 @@ Drive Kendra Mobile includes a built-in OpenStreetMap (OSM) and Leaflet mapping 
 │ Component / Utility     │ Functionality & Implementation               │
 ├─────────────────────────┼──────────────────────────────────────────────┤
 │ FullScreenMapPicker.tsx │ Fullscreen Leaflet map with drag-and-pin     │
-│ MapLocationPicker.tsx   │ Form field trigger & quick location selector │
-│ EmbeddedMapView.tsx     │ Responsive mobile WebView / web iframe       │
+│ LocationPickerModal.tsx │ Nepal landmark & district selector modal     │
 │ MapPinBrandBadge.tsx    │ Branded Drive Kendra amber pin marker        │
 │ geocoding.ts            │ Free OSM Nominatim reverse geocoding         │
 │ nepalLocations.ts       │ Bundled 77-district offline landmark database│
@@ -265,7 +198,7 @@ Drive Kendra Mobile includes a built-in OpenStreetMap (OSM) and Leaflet mapping 
 └─────────────────────────┴──────────────────────────────────────────────┘
 ```
 
-1. **Zero API Cost**: Uses OpenStreetMap vector tiles served over Leaflet without requiring credit cards or Google Cloud Console billing.
+1. **Zero API Cost**: Uses OpenStreetMap tiles served over Leaflet without requiring credit cards or Google Cloud Console billing.
 2. **Reverse Geocoding**: When a user drops a pin, `geocoding.ts` queries OSM Nominatim for the street/landmark name, seamlessly falling back to the nearest landmark in `nepalLocations.ts` if offline.
 3. **Smart Search & Recents**: Combines instant keyword filtering with recently selected locations stored locally.
 
@@ -281,125 +214,90 @@ DriveKendra.Mobile/
 ├── assets/                       # App icons, splash screens, and adaptive icons
 ├── database/                     # PostgreSQL Database Management
 │   ├── patches/                  # Sequential SQL migration patches
-│   │   └── .gitkeep              # Retained for future incremental migrations
 │   ├── database.sql              # Master canonical PostgreSQL schema & procedures
 │   └── README.md                 # Dedicated Database Management Guide
 ├── docs/                         # Specialized Technical Documentation
 │   ├── ARCHITECTURE.md           # End-to-end system architecture blueprint
 │   ├── OFFLINE_AND_RESILIENCE.md # Himalayan offline-first resilience strategy
-│   ├── PUSH_NOTIFICATIONS.md     # Push notification pipeline & triggers
 │   └── DEPLOYMENT.md             # EAS builds, server hosting, and CI/CD guide
 ├── server/                       # Dedicated Hono Node.js Mobile API
 │   ├── src/
 │   │   ├── routes/
 │   │   │   ├── auth.ts           # Login, register, OTP reset endpoints
-│   │   │   ├── bookings.ts       # POST /api/bookings with Idempotency & DB transaction
-│   │   │   ├── notifications.ts  # Push notification trigger routes
-│   │   │   ├── reviews.ts        # GET / POST /api/reviews endpoints
-│   │   │   ├── stats.ts          # GET /api/stats platform statistics
-│   │   │   └── users.ts          # POST /api/users/push-token registration
-│   │   ├── services/
-│   │   │   └── notifications.ts  # Push notification dispatcher (Expo SDK / FCM v1)
+│   │   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency & DB transaction
+│   │   │   └── users.ts          # Profile update and push token registration
 │   │   ├── db.ts                 # PostgreSQL connection pool & RLS client
 │   │   ├── index.ts              # Hono app entry point & CORS configuration
 │   │   └── validation.ts         # Input schemas, honeypot & phone validation
 │   ├── __tests__/                # Server unit tests
-│   │   └── validation.test.ts    # Zod schemas & phone regex validation tests
+│   │   └── validation.test.ts    # Zod schemas & phone regex validation tests (11 tests)
 │   ├── .env.example              # Server environment template
 │   ├── package.json              # Server dependencies & scripts
 │   ├── tsconfig.json             # Server TypeScript config
 │   └── README.md                 # Dedicated Server API Reference
 ├── src/                          # React Native Application Source
 │   ├── api/                      # Client API modules
-│   │   ├── auth.ts               # Auth API calls & demo fallbacks
+│   │   ├── auth.ts               # Auth API calls & session handling
 │   │   ├── bookings.ts           # Trip booking submission with idempotency
-│   │   ├── cache.ts              # Local data caching engine
 │   │   ├── client.ts             # Axios client with base URL configuration
 │   │   ├── config.ts             # API URL constants
 │   │   ├── offlineQueue.ts       # Action replay queue for offline mutations
-│   │   ├── reviews.ts            # Testimonials retrieval & submission
-│   │   ├── stats.ts              # Live platform stats
-│   │   └── users.ts              # Push token registration API
+│   │   └── users.ts              # Profile and push token API
 │   ├── components/
 │   │   ├── honeypot/             # Anti-spam HoneypotField component
 │   │   │   └── HoneypotField.tsx
-│   │   ├── rates/                # Rate filtering and table components
-│   │   └── ui/                   # 30+ reusable themed UI components
-│   │       ├── Button.tsx        # Variants: primary, secondary, subtle, outline, danger
-│   │       ├── Card.tsx          # Themed surface container
-│   │       ├── DateField.tsx     # Native date picker wrapper
-│   │       ├── EmbeddedMapView.tsx # WebView/Iframe Leaflet OSM map container
-│   │       ├── EmergencySosModal.tsx # Emergency SOS hotline and SMS modal
-│   │       ├── EmergencyTripCard.tsx # Offline SOS & GPS dispatch card
-│   │       ├── FaqList.tsx       # Expandable accordion list
-│   │       ├── FullScreenMapPicker.tsx # Interactive Leaflet map coordinate picker
-│   │       ├── HighwayStatusCard.tsx # Real-time Nepal highway condition card
-│   │       ├── LocationPickerModal.tsx # Nepal landmark & district selector modal
-│   │       ├── MapLocationPicker.tsx # Form field trigger for map picker
-│   │       ├── MapPinBrandBadge.tsx # Custom branded map pin marker
-│   │       ├── MapRoutePreview.tsx # Scenic route visualization card
-│   │       ├── OtpInput.tsx      # 6-digit OTP verification box
-│   │       ├── PasswordField.tsx # Secure input with show/hide toggle
-│   │       ├── PickerSheet.tsx   # Modal bottom sheet selection
-│   │       ├── PromoCodeSheet.tsx# Discount coupon sheet
-│   │       ├── QuoteCard.tsx     # Price quote display
-│   │       ├── RemoteImage.tsx   # Image loader with placeholder
-│   │       ├── ReviewCard.tsx    # Traveler review card
-│   │       ├── Screen.tsx        # SafeArea scrollable screen wrapper
-│   │       ├── SectionHeader.tsx # Standard section header with badge
-│   │       ├── SegmentedControl.tsx # Pill-style toggle control
-│   │       ├── SignupHeroIllustration.tsx # Geometric hero SVG illustration
-│   │       ├── SlideDrawerModal.tsx # Animated bottom-up slide drawer
-│   │       ├── SocialAuthButtons.tsx # Google/Apple/Phone login buttons
-│   │       ├── StatChip.tsx      # Metric highlight chip
-│   │       ├── Stepper.tsx       # Numeric increment/decrement
-│   │       ├── SuccessModal.tsx  # Confirmation modal
-│   │       ├── TextField.tsx     # Floating label text input
-│   │       ├── ThemeToggle.tsx   # Light/Dark mode switcher button
-│   │       ├── TimePickerField.tsx # Time selector with quick preset chips
-│   │       ├── TourCard.tsx      # Tour package card
-│   │       ├── VehicleCard.tsx   # Fleet vehicle card & strip card
-│   │       └── VoucherQrCode.tsx # Offline QR code ticket renderer
+│   │   ├── onboarding/           # Onboarding slide illustrations
+│   │   │   └── OnboardingIllustrations.tsx
+│   │   └── ui/                   # Reusable themed UI components
+│   │       ├── AppSplashScreen.tsx
+│   │       ├── BrandLogo.tsx
+│   │       ├── Button.tsx
+│   │       ├── Card.tsx
+│   │       ├── DateField.tsx
+│   │       ├── EmergencySosModal.tsx
+│   │       ├── EmergencyTripCard.tsx
+│   │       ├── FullScreenMapPicker.tsx
+│   │       ├── LocationPickerModal.tsx
+│   │       ├── ManAvatarIllustration.tsx
+│   │       ├── MapPinBrandBadge.tsx
+│   │       ├── OtpInput.tsx
+│   │       ├── PasswordField.tsx
+│   │       ├── RemoteImage.tsx
+│   │       ├── Screen.tsx
+│   │       ├── SectionHeader.tsx
+│   │       ├── SegmentedControl.tsx
+│   │       ├── SignupHeroIllustration.tsx
+│   │       ├── SlideDrawerModal.tsx
+│   │       ├── SocialAuthButtons.tsx
+│   │       ├── Stepper.tsx
+│   │       ├── SuccessModal.tsx
+│   │       ├── TextField.tsx
+│   │       ├── ThemeModeSelector.tsx
+│   │       ├── ThemeToggle.tsx
+│   │       ├── TimePickerField.tsx
+│   │       └── VoucherQrCode.tsx
 │   ├── constants/
 │   │   ├── contact.ts            # Phone, WhatsApp, email, and address constants
 │   │   ├── nepalLocations.ts     # 77 districts, tourist hubs, airports, highways
 │   │   ├── validation.ts         # Validation rules and error strings
 │   │   └── vehicles.ts           # Vehicle type IDs and mappings
-│   ├── content/                  # Bundled offline content & rate catalogs
-│   │   ├── airport.ts            # Airport transfer routes and rates
-│   │   ├── faqs.ts               # FAQs for all screens
-│   │   ├── rateCategories.generated.ts # Full Nepal official rate chart
-│   │   ├── rates.ts              # Rate helper utilities and column types
-│   │   ├── tourDetails.ts        # Muktinath, Manakamana, Kalinchowk pricing
-│   │   ├── tours.ts              # Curated tour package list
-│   │   ├── vehicles.ts           # Fleet catalog with specs and images
-│   │   └── wedding.ts            # Wedding car tiers and decor options
 │   ├── context/
 │   │   └── AuthContext.tsx       # Auth provider with secure storage persistence
 │   ├── hooks/
-│   │   ├── useBiometrics.ts      # Hardware FaceID/TouchID authentication
-│   │   ├── useCachedData.ts      # Cached query fetcher
 │   │   └── useNetworkStatus.ts   # Network connectivity listener
 │   ├── navigation/
 │   │   ├── AppNavigator.tsx      # Bottom tabs & stack navigators
 │   │   ├── booking.ts            # Cross-screen booking navigation helpers
 │   │   ├── navigationRef.ts      # Global navigation reference
 │   │   └── types.ts              # React Navigation param lists
-│   ├── screens/                  # 14 feature screens
-│   │   ├── AirportScreen.tsx     # TIA airport transfer calculator & booking
+│   ├── screens/                  # 7 production screens
 │   │   ├── AuthScreen.tsx        # SignIn, SignUp, and OTP reset
 │   │   ├── BookingScreen.tsx     # Comprehensive booking engine with map picker
-│   │   ├── ContactScreen.tsx     # 24/7 hotline, WhatsApp, and review submission
-│   │   ├── ExploreScreen.tsx     # Visual service categories hub
-│   │   ├── FleetScreen.tsx       # Fleet vehicle catalog with specifications
-│   │   ├── HomeScreen.tsx        # Hero stats, route map, featured fleet, reviews
+│   │   ├── ContactScreen.tsx     # 24/7 hotline, WhatsApp, and support
+│   │   ├── HomeScreen.tsx        # Hero greeting, service selection, theme toggle
 │   │   ├── MyTripsScreen.tsx     # Active/past reservations, QR voucher & PDF export
 │   │   ├── OnboardingScreen.tsx  # First-launch onboarding walkthrough
-│   │   ├── ProfileScreen.tsx     # User profile, statistics, settings, theme toggle
-│   │   ├── RatesScreen.tsx       # 7-province official Nepal fare matrix
-│   │   ├── TourDetailScreen.tsx  # Itinerary, packing guide, and pax rate table
-│   │   ├── ToursScreen.tsx       # Curated Himalayan tour expeditions
-│   │   └── WeddingScreen.tsx     # VIP & ceremonial convoy packages
+│   │   └── ProfileScreen.tsx     # User profile, statistics, settings, theme toggle
 │   ├── theme/
 │   │   ├── ThemeProvider.tsx     # Theme context & hook
 │   │   ├── colors.ts             # Light & Dark color palettes
@@ -407,26 +305,27 @@ DriveKendra.Mobile/
 │   │   ├── typography.ts         # Font size and weight definitions
 │   │   └── useThemedStyles.ts    # Hook for dynamic stylesheet evaluation
 │   ├── types/
-│   │   ├── api.ts                # DTOs for bookings, reviews, stats
+│   │   ├── api.ts                # DTOs for bookings, vouchers, trips
 │   │   └── auth.ts               # DTOs for auth, users, and tokens
 │   └── utils/
 │       ├── dates.ts              # Date formatting and comparison
 │       ├── errors.ts             # Axios and runtime error extractors
 │       ├── geocoding.ts          # Free OSM reverse geocoding & fallback coordinates
 │       ├── haptics.ts            # Tactile feedback helpers
-│       ├── offlineVoucherStorage.ts # Encrypted offline trip voucher storage
+│       ├── offlineVoucherStorage.ts # Offline trip voucher storage
 │       ├── onboardingStorage.ts  # Onboarding seen/completed persistent flag
 │       ├── pdfGenerator.ts       # PDF receipt creation and sharing
 │       ├── phone.ts              # Nepal phone number sanitization and checks
 │       ├── recentSearchesStorage.ts # Recents location search history
 │       └── secureStorage.ts      # Hardware encrypted credential storage
-├── __tests__/                    # Client unit & integration test suites (7 suites)
+├── __tests__/                    # Client unit & integration test suites (8 suites)
 │   ├── AuthFlow.test.tsx         # Auth & OTP interaction tests
 │   ├── BookingScreen.test.tsx    # Booking form submission tests
 │   ├── BrandLogoAndSplash.test.tsx # Brand assets and splash rendering tests
 │   ├── GeocodingAndMapPicker.test.tsx # OSM Geocoding & coordinate tests
 │   ├── LocationPicker.test.tsx   # Landmark selector & filtering tests
 │   ├── Onboarding.test.tsx       # First-launch onboarding walkthrough tests
+│   ├── ProfileScreen.test.tsx    # User profile interactions & auth gate tests
 │   └── RecentSearches.test.tsx   # Search caching & eviction tests
 ├── .env.example                  # Client environment template
 ├── AGENTS.md                     # Agent coding rules and guidelines
@@ -446,27 +345,13 @@ DriveKendra.Mobile/
 
 Traveling through Nepal often involves high-altitude passes and remote valleys without 4G/3G connectivity. Drive Kendra Mobile provides:
 
-1. **Bundled Offline Rate Sheets**: Access the official Nepal fare matrix across 7 provinces without cellular network.
-2. **Encrypted Offline Vouchers**: Confirmed trip vouchers are cached in local storage and accessible offline anytime.
-3. **Offline QR Code Ticket**: Passengers can present high-contrast QR codes at checkpoints for instant verification.
-4. **GPS Emergency SOS**: Captures latitude/longitude from GPS satellites and generates pre-filled emergency SMS messages to rescue hotlines (`+977 985-1363783`) and Tourist Police (`1144`).
-5. **Offline Location Lookup**: 77 Nepal districts and landmarks bundled locally in `nepalLocations.ts` with reverse geocoding fallback in `geocoding.ts`.
+1. **Encrypted Offline Vouchers**: Confirmed trip vouchers are cached in local storage and accessible offline anytime.
+2. **Offline QR Code Ticket**: Passengers can present high-contrast QR codes at checkpoints for instant verification.
+3. **GPS Emergency SOS**: Captures latitude/longitude from GPS satellites and generates pre-filled emergency SMS messages to rescue hotlines (`+977 985-1363783`) and Tourist Police (`1144`).
+4. **Offline Location Lookup**: 77 Nepal districts and landmarks bundled locally in `nepalLocations.ts` with reverse geocoding fallback in `geocoding.ts`.
+5. **Offline Action Queue**: Mutations queued locally in `offlineQueue.ts` and synced when connection restores.
 
-👉 *Read the full guide in [`docs/OFFLINE_AND_RESILIENCE.md`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md).*
-
----
-
-## 📲 Push Notification Pipeline
-
-The app integrates an automated push notification pipeline powered by **Expo Notifications** and **Expo Server SDK (FCM v1)**:
-
-- **Chauffeur Assignment**: Real-time push alert with driver name, direct phone dialer, and vehicle plate number.
-- **Booking Confirmation**: Instant confirmation notice when reservations are approved.
-- **24-Hour Trip Reminder**: Departure reminder 24 hours prior to trip time.
-- **TIA Airport Flight Delay Alerts**: Automatic updates if incoming flights to Kathmandu are delayed.
-- **Token Invalidation**: Server cleans up stale tokens when receiving `DeviceNotRegistered` receipts.
-
-👉 *Read the full guide in [`docs/PUSH_NOTIFICATIONS.md`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/PUSH_NOTIFICATIONS.md).*
+👉 *Read the full guide in [`docs/OFFLINE_AND_RESILIENCE.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md).*
 
 ---
 
@@ -477,22 +362,16 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | Method | Endpoint | Description | Headers / Body | Response |
 |---|---|---|---|---|
 | `GET` | `/health` | Server and PostgreSQL health check | — | `{ "ok": true }` |
-| `GET` | `/api/stats` | Live platform metrics | — | `PublicStatsDto` |
+| `GET` | `/api/bookings` | Fetch active trip reservations with vehicle assignment | — | `BookingRecordDto[]` |
 | `POST` | `/api/bookings` | Submit new booking with Idempotency | `X-Idempotency-Key`, `BookingEntryDto` | `{ "message": "Booking submitted successfully", "bookingRef": "..." }` |
+| `PUT` | `/api/users/profile` | Update user profile details | `{ userId, fullName, phone, avatarUrl }` | `{ "success": true }` |
 | `POST` | `/api/users/push-token` | Register Expo push token | `{ pushToken, customerId, phoneNumber }` | `{ "success": true }` |
-| `POST` | `/api/notifications/dispatch-driver-assigned` | Dispatch driver alert | `{ bookingId, driverName, driverPhone, vehiclePlate }` | `{ "result": { "success": true } }` |
-| `POST` | `/api/notifications/dispatch-booking-status` | Dispatch status alert | `{ bookingId, status }` | `{ "message": "..." }` |
-| `POST` | `/api/notifications/dispatch-trip-reminder` | Dispatch 24h reminder | `{ bookingId }` | `{ "message": "..." }` |
-| `POST` | `/api/notifications/dispatch-flight-delay` | Dispatch flight delay | `{ bookingId, flightNumber, delayMinutes }` | `{ "message": "..." }` |
-| `POST` | `/api/notifications/verify-receipts` | Verify Expo push delivery tickets | `{ receiptIds }` | `{ "receipts": [...] }` |
-| `GET` | `/api/reviews` | Fetch approved reviews | — | `PublicReviewDto[]` |
-| `POST` | `/api/reviews` | Submit customer review | `CreateReviewDto` | `{ "message": "Thank you! ..." }` |
 | `POST` | `/api/auth/login` | User login (email or phone) | `{ identifier, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/register`| User registration | `{ name, email, phone, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/forgot-password` | Send 6-digit OTP code | `{ identifier }` | `{ message, code }` |
 | `POST` | `/api/auth/reset-password` | Reset password via OTP | `{ identifier, code, newPassword }` | `{ message }` |
 
-👉 *Read the full API reference in [`server/README.md`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md).*
+👉 *Read the full API reference in [`server/README.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md).*
 
 ---
 
@@ -500,11 +379,11 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 
 > [!IMPORTANT]
 > **Strict Database Management Rules**:
-> 1. **Base Schema**: Always maintain and update the master schema in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
-> 2. **Patches Folder**: For any pending database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_...`, `002_...`).
+> 1. **Base Schema**: Always maintain and update the master schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
+> 2. **Patches Folder**: For any pending database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_...`, `002_...`).
 > 3. **Execution Constraint**: **NEVER** run SQL queries directly on live production/staging databases. Migrations are executed manually by database administrators.
 
-👉 *Read the full database documentation in [`database/README.md`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md).*
+👉 *Read the full database documentation in [`database/README.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md).*
 
 ---
 
@@ -525,7 +404,6 @@ Create a `.env` file inside `server/`:
 # PostgreSQL connection string (supports standard URI or ADO.NET format)
 DATABASE_URL=postgresql://postgres:your_password@localhost:5432/car_rental_db
 PORT=8787
-EXPO_ACCESS_TOKEN=
 ```
 
 ---
@@ -571,7 +449,7 @@ EXPO_ACCESS_TOKEN=
 
 ---
 
-## 🧪 Testing & Quality Verification (57 Tests)
+## 🧪 Testing & Quality Verification (53 Tests)
 
 Run the automated test suites and static analysis tools:
 
@@ -580,10 +458,10 @@ Run the automated test suites and static analysis tools:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Client Jest Unit & Integration Tests (7 Suites / 43 Tests)
+# 2. Client Jest Unit & Integration Tests (8 Suites / 42 Tests)
 npm test
 
-# 3. Server Jest Validation & Endpoint Tests (1 Suite / 14 Tests)
+# 3. Server Jest Validation & Endpoint Tests (1 Suite / 11 Tests)
 npm test --prefix server
 ```
 
@@ -591,7 +469,7 @@ npm test --prefix server
 
 ## 📦 Building with EAS (Android & iOS)
 
-Pre-configured EAS profiles in [`eas.json`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/eas.json):
+Pre-configured EAS profiles in [`eas.json`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/eas.json):
 
 ```bash
 # 1. Internal Development Client
@@ -604,7 +482,7 @@ npx eas-cli build --profile preview --platform android
 npx eas-cli build --profile production --platform android
 ```
 
-👉 *Read the full build and release guide in [`docs/DEPLOYMENT.md`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md).*
+👉 *Read the full build and release guide in [`docs/DEPLOYMENT.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md).*
 
 ---
 
@@ -616,13 +494,13 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
   - **Light Mode**: Clean slate background (`#F1F5F9`), crisp white surfaces (`#FFFFFF`), warm amber brand accent (`#D97706`), deep navy headers (`#0F172A`).
   - **Dark Mode**: Midnight navy background (`#0F172A`), elevated slate surfaces (`#1E293B`), golden amber accents (`#F59E0B`), high-contrast text (`#F8FAFC`).
 - **Dynamic Themed Hook** (`useThemedStyles.ts`): Automatically re-evaluates stylesheets when the theme toggles without re-mounting the component tree.
-- **Haptic Feedback** (`haptics.ts`): Tact responses for button taps, tab switching, and success states using `expo-haptics`.
+- **Haptic Feedback** (`haptics.ts`): Tactile responses for button taps, tab switching, and success states using `expo-haptics`.
 
 ---
 
 ## 🛡️ Security & Anti-Spam Architecture
 
-1. **Honeypot Bot Protection**: Hidden field `website_hp` filters automated bots from booking and review forms.
+1. **Honeypot Bot Protection**: Hidden field `website_hp` filters automated bots from booking forms.
 2. **Strict Nepal Phone Regex**: Pattern `/^(?:977)?(9[78]\d{8}|0[1-9]\d{7})$/` validates standard mobile (`98XXXXXXXX`, `97XXXXXXXX`) and regional landlines (`01XXXXXXX`).
 3. **Idempotency Keys**: Generates SHA-256 request hashes and checks `dka_idempotency_keys` to prevent accidental double-bookings on flaky connections.
 4. **Encrypted Secure Storage**: User tokens and biometrics are stored via `expo-secure-store` hardware encryption.
@@ -635,15 +513,14 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
 
 | Document | Purpose |
 |---|---|
-| [System Architecture](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/ARCHITECTURE.md) | Detailed architectural blueprint, topology, mapping engine, and security models |
-| [Himalayan Offline Strategy](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md) | In-depth guide to offline vouchers, QR tickets, geocoding fallback, and GPS SOS |
-| [Push Notifications Pipeline](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/PUSH_NOTIFICATIONS.md) | End-to-end push notification lifecycle and trigger reference |
-| [Deployment & Operations](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md) | EAS build guide, server setup, PM2, Docker, and CI/CD |
-| [Server API Documentation](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md) | Complete Hono REST API reference with JSON payloads |
-| [Database Management Guide](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md) | PostgreSQL table definitions, procedures, and migration rules |
-| [Contributing Guidelines](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/CONTRIBUTING.md) | Coding conventions, PR checklists, and developer setup |
-| [Agent Guidelines](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/AGENTS.md) | Operational guidelines for AI coding assistants |
-| [CLI Quick Reference](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/CLAUDE.md) | Rapid command cheatsheet |
+| [System Architecture](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/ARCHITECTURE.md) | Detailed architectural blueprint, topology, mapping engine, and security models |
+| [Himalayan Offline Strategy](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md) | In-depth guide to offline vouchers, QR tickets, geocoding fallback, and GPS SOS |
+| [Deployment & Operations](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md) | EAS build guide, server setup, PM2, Docker, and CI/CD |
+| [Server API Documentation](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md) | Complete Hono REST API reference with JSON payloads |
+| [Database Management Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md) | PostgreSQL table definitions, procedures, and migration rules |
+| [Contributing Guidelines](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/CONTRIBUTING.md) | Coding conventions, PR checklists, and developer setup |
+| [Agent Guidelines](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/AGENTS.md) | Operational guidelines for AI coding assistants |
+| [CLI Quick Reference](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/CLAUDE.md) | Rapid command cheatsheet |
 
 ---
 
@@ -675,7 +552,7 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
 | `npm run web` | `expo start --web` | Starts React Native Web development server |
 | `npm run server` | `npm run dev --prefix server` | Starts only the Hono backend server in watch mode |
 | `npm run typecheck` | `tsc --noEmit` | Runs static TypeScript typechecking across the client |
-| `npm test` | `jest` | Runs client unit and integration test suites (7 suites) |
+| `npm test` | `jest` | Runs client unit and integration test suites (8 suites / 42 tests) |
 
 ---
 

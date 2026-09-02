@@ -12,9 +12,9 @@ This directory contains the canonical PostgreSQL database schema, migration patc
 > [!IMPORTANT]
 > All engineers, administrators, and AI assistants working with this database **MUST STRICTLY ADHERE** to the following rules:
 >
-> 1. **Base Schema**: Always maintain and update the complete base database schema, tables, indexes, and functions in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) as the single canonical source of truth.
-> 2. **Patches Folder**: For any pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g., `001_add_feature.sql`, `002_add_table.sql`).
-> 3. **Patch Consolidation & Cleanup**: Once patches have been applied to the target database and verified in [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql), delete the applied patch files from `database/patches/`.
+> 1. **Base Schema**: Always maintain and update the complete base database schema, tables, indexes, and functions in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) as the single canonical source of truth.
+> 2. **Patches Folder**: For any pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g., `001_initial_schema.sql`, `002_add_field.sql`).
+> 3. **Patch Consolidation & Cleanup**: Once patches have been applied to the target database and verified in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql), delete the applied patch files from `database/patches/`.
 > 4. **Execution Constraint**: **NEVER** run SQL queries directly on any live production or staging database yourself. Only produce the SQL files in `database/database.sql` and `database/patches/` for manual or administrator application.
 
 ---
@@ -65,7 +65,7 @@ User accounts, traveler profiles, and authentication credentials.
 | `email` | `VARCHAR(120)` | `UNIQUE` | User email address |
 | `password_hash` | `VARCHAR(255)` | | Bcrypt password hash |
 | `avatar_url` | `TEXT` | | Custom profile photo URL |
-| `role` | `VARCHAR(30)` | `NOT NULL DEFAULT 'customer'` | `customer`, `driver`, `operator`, `admin` |
+| `role` | `VARCHAR(30)` | `NOT NULL DEFAULT 'customer'` | `customer`, `operator`, `admin` |
 | `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Account status |
 | `is_verified` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | Phone/Email verification |
 | `last_login_at` | `TIMESTAMPTZ` | | Timestamp of last login |
@@ -87,7 +87,7 @@ Lookup catalog defining categories of vehicles available for booking.
 ---
 
 ### 3. `dka_bookings`
-Primary trip and vehicle booking records with chauffeur and vehicle assignment tracking.
+Primary trip and vehicle booking records with vehicle assignment tracking.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
@@ -104,9 +104,6 @@ Primary trip and vehicle booking records with chauffeur and vehicle assignment t
 | `estimated_fare` | `VARCHAR(50)` | | Target budget or quoted fare (e.g. `NPR 12,000`) |
 | `additional_details` | `TEXT` | | Special instructions & luggage notes |
 | `booking_status` | `VARCHAR(50)` | `NOT NULL DEFAULT 'Pending'` | `Pending`, `Confirmed`, `Completed`, `Cancelled` |
-| `assigned_driver_name` | `VARCHAR(100)` | | Driver full name |
-| `assigned_driver_phone` | `VARCHAR(30)` | | Driver direct contact number |
-| `assigned_driver_rating` | `NUMERIC(2,1)` | `DEFAULT 4.9` | Driver performance rating |
 | `assigned_vehicle_plate` | `VARCHAR(50)` | | Vehicle number plate |
 | `assigned_vehicle_model` | `VARCHAR(100)` | | Vehicle model / trim details |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp |
@@ -154,4 +151,4 @@ Prevents duplicate transactions when mobile clients retry on unstable mountain c
 ```bash
 psql -U postgres -d car_rental_db -f database/database.sql
 ```
-Or in **DBeaver** / **pgAdmin**: Open [`database/database.sql`](file:///c:/Users/Lenovo/OneDrive/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) and execute script (`Alt + X` / `F5`).
+Or in **DBeaver** / **pgAdmin**: Open [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) and execute script (`Alt + X` / `F5`).

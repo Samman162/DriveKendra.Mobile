@@ -3,8 +3,9 @@
 [![Hono API](https://img.shields.io/badge/API-Hono%20v4-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
+[![Tests](https://img.shields.io/badge/Tests-11%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
-The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, user authentication, customer review management, public fleet statistics, and idempotency handling.
+The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, user authentication, profile updates, and idempotency handling.
 
 ---
 
@@ -20,10 +21,8 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
   - [2. Authentication](#2-authentication)
   - [3. Bookings & Idempotency](#3-bookings--idempotency)
   - [4. Users & Profile](#4-users--profile)
-  - [5. Reviews & Testimonials](#5-reviews--testimonials)
-  - [6. Platform Statistics](#6-platform-statistics)
 - [Database Security & Row-Level Security (RLS)](#-database-security--row-level-security-rls)
-- [Testing & Quality Assurance (14 Tests)](#-testing--quality-assurance-14-tests)
+- [Testing & Quality Assurance (11 Tests)](#-testing--quality-assurance-11-tests)
 
 ---
 
@@ -33,7 +32,7 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 - **🔒 Idempotent Booking Engine**: Eliminates duplicate charges/reservations caused by flaky mountain cellular networks using `X-Idempotency-Key` and database caching.
 - **🛡️ Strict Validation & Anti-Spam**: Zod schema validation, honeypot bot traps (`website_hp`), and Nepal phone number sanitization (`+977 98/97` or `01XXXXXXX`).
 - **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `dka_users`, `dka_bookings`, and `dka_idempotency_keys`.
-- **📊 Real-time Analytics**: Stored procedure `dka_get_public_stats()` aggregating active fleet counts, completed trips, cities covered, and customer ratings.
+- **🚙 Vehicle Assignment Tracking**: Seamless assignment of vehicle models and registration plates for confirmed expeditions.
 
 ---
 
@@ -54,15 +53,13 @@ server/
 ├── src/
 │   ├── routes/
 │   │   ├── auth.ts           # Login, register, OTP reset endpoints
-│   │   ├── bookings.ts       # POST /api/bookings with Idempotency & DB transaction
-│   │   ├── reviews.ts        # Testimonial submission & public listing
-│   │   ├── stats.ts          # Aggregated live platform statistics
-│   │   └── users.ts          # User profile update endpoints (/api/users/profile)
+│   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency & DB transaction
+│   │   └── users.ts          # User profile & push token endpoints (/api/users)
 │   ├── db.ts                 # PostgreSQL connection pool & tenant security wrapper
 │   ├── index.ts              # Server entry point & CORS configuration
 │   └── validation.ts         # Zod schemas, honeypot filters, Nepal phone helpers
 ├── __tests__/
-│   └── validation.test.ts    # Unit tests for validation, regex, and honeypot
+│   └── validation.test.ts    # Unit tests for validation, regex, and honeypot (11 tests)
 ├── .env.example              # Server environment template
 ├── package.json              # Dependencies and scripts
 └── tsconfig.json             # TypeScript configuration
@@ -195,6 +192,27 @@ Completes password reset using verified OTP.
 
 ### 3. Bookings & Idempotency
 
+#### `GET /api/bookings`
+Retrieves the list of active bookings with assigned vehicle models and registration plates.
+
+- **Response `200 OK`**:
+```json
+[
+  {
+    "bookingId": 42,
+    "pickup": "Kathmandu Airport (TIA)",
+    "dropoff": "Pokhara Lakeside",
+    "pickupDate": "2026-09-01T06:00:00.000Z",
+    "tripType": "One Way",
+    "estimatedFare": "NPR 12,000",
+    "status": "Confirmed",
+    "assignedVehiclePlate": "Ba 2 Cha 8492",
+    "assignedVehicleModel": "Mahindra Scorpio 4x4",
+    "createdAt": "2026-08-30T10:00:00.000Z"
+  }
+]
+```
+
 #### `POST /api/bookings`
 Submits a car or tour reservation. Executes an atomic PostgreSQL transaction across `dka_users`, `dka_bookings`, and `dka_idempotency_keys`.
 
@@ -230,7 +248,7 @@ Submits a car or tour reservation. Executes an atomic PostgreSQL transaction acr
 ```
 
 > **Idempotency Behavior**:
-> If a request with an existing `X-Idempotency-Key` is re-sent after successful processing, the API returns the cached `201` response with the header `X-Cache-Lookup: HIT` without re-inserting records.
+> If a request with an existing `X-Idempotency-Key` is re-sent after successful processing, the API returns the cached `201` response with the header `X-Cache-Lookup: HIT` without duplicate record insertions.
 
 ---
 
@@ -256,56 +274,22 @@ Updates a user's full name, phone number, and custom avatar URL.
 }
 ```
 
----
-
-### 5. Reviews & Testimonials
-
-#### `GET /api/reviews`
-Retrieves all approved traveler testimonials (`is_approved = true`).
-
-- **Response `200 OK`**:
-```json
-[
-  {
-    "id": 1,
-    "name": "Bipul Sharma",
-    "rating": 5,
-    "comment": "Seamless Scorpio rental for our Muktinath trip! Chauffeur was exceptionally skilled on the off-road trails.",
-    "trip_title": "Muktinath 4WD Tour",
-    "created_at": "2026-07-15T10:30:00.000Z"
-  }
-]
-```
-
-#### `POST /api/reviews`
-Submits a customer review for moderation.
+#### `POST /api/users/push-token`
+Registers or updates a client device push notification token.
 
 - **Request Body**:
 ```json
 {
-  "name": "Anita Shrestha",
-  "rating": 5,
-  "comment": "Airport pickup was right on time with a clean sedan and polite driver.",
-  "trip_title": "TIA Airport Drop",
-  "website_hp": ""
+  "pushToken": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+  "customerId": 1,
+  "phoneNumber": "9851363783"
 }
 ```
-
----
-
-### 6. Platform Statistics
-
-#### `GET /api/stats`
-Calls stored procedure `dka_get_public_stats()` to retrieve real-time platform metrics.
-
 - **Response `200 OK`**:
 ```json
 {
-  "fleet_count": 35,
-  "completed_trips": 1250,
-  "cities_covered": 48,
-  "review_count": 320,
-  "average_rating": 4.9
+  "success": true,
+  "message": "Push token registered successfully"
 }
 ```
 
@@ -321,7 +305,7 @@ This isolates unauthenticated public requests from administrative operations and
 
 ---
 
-## 🧪 Testing & Quality Assurance (14 Tests)
+## 🧪 Testing & Quality Assurance (11 Tests)
 
 ### Run Unit Tests
 ```bash

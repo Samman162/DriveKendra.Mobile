@@ -15,8 +15,6 @@ export interface TripVoucherPdfData {
   passengerCount?: number;
   vehicleName: string;
   vehiclePlate: string;
-  driverName: string;
-  driverPhone: string;
   fare: string;
   depositPaid?: string;
   balanceDue?: string;
@@ -272,14 +270,6 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
       border-top: 2px solid #0F172A;
       background-color: #FFFBEB;
     }
-    .driver-badge {
-      background-color: #ECFDF5;
-      border: 1px solid #A7F3D0;
-      color: #065F46;
-      padding: 10px 14px;
-      border-radius: 6px;
-      margin-bottom: 16px;
-    }
     .checkpoint-advisory {
       background-color: #FFFBEB;
       border: 1px solid #FDE68A;
@@ -315,7 +305,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
     <tr>
       <td style="vertical-align: middle;">
         <div class="brand-title">DRIVE <span>KENDRA</span></div>
-        <div class="brand-subtitle">Nepal Premium Car Rental & Chauffeur Services • PAN: 610394821</div>
+        <div class="brand-subtitle">Nepal Premium Car Rental & Expedition Services • PAN: 610394821</div>
       </td>
       <td style="text-align: right; vertical-align: middle;">
         <div class="badge-voucher">CONFIRMED VOUCHER & TAX RECEIPT</div>
@@ -353,7 +343,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
         </div>
         <div class="data-row">
           <div class="data-label">Service Type:</div>
-          <div class="data-value">${data.tripType} (Chauffeur Driven)</div>
+          <div class="data-value">${data.tripType} (Reserved)</div>
         </div>
         <div class="data-row">
           <div class="data-label">Voucher Issue Date:</div>
@@ -361,9 +351,9 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
         </div>
       </div>
 
-      <!-- Vehicle & Chauffeur Box -->
+      <!-- Vehicle & Fleet Box -->
       <div class="section-box">
-        <div class="section-title">Assigned Fleet & Chauffeur</div>
+        <div class="section-title">Assigned Vehicle & Fleet Details</div>
         <div class="data-row">
           <div class="data-label">Vehicle Model:</div>
           <div class="data-value">${data.vehicleName}</div>
@@ -373,12 +363,8 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
           <div class="data-value" style="letter-spacing:1px;">${data.vehiclePlate}</div>
         </div>
         <div class="data-row">
-          <div class="data-label">Designated Chauffeur:</div>
-          <div class="data-value">${data.driverName}</div>
-        </div>
-        <div class="data-row">
-          <div class="data-label">Chauffeur Direct Contact:</div>
-          <div class="data-value" style="color:#059669;">${data.driverPhone}</div>
+          <div class="data-label">24/7 Dispatch Hotline:</div>
+          <div class="data-value" style="color:#059669;">+977 985-1363783</div>
         </div>
       </div>
     </div>
@@ -415,8 +401,8 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
       </thead>
       <tbody>
         <tr>
-          <td><strong>Full Chauffeur & Vehicle Charter</strong></td>
-          <td>Vehicle rental, fuel, driver food/stay & all highway taxes</td>
+          <td><strong>Full Vehicle Charter</strong></td>
+          <td>Vehicle rental, fuel & all highway taxes</td>
           <td style="text-align:right; font-weight:700;">${data.fare}</td>
         </tr>
         <tr>
@@ -426,7 +412,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
         </tr>
         <tr>
           <td>Remaining Balance Due</td>
-          <td>Payable to chauffeur upon trip commencement</td>
+          <td>Payable upon trip commencement</td>
           <td style="text-align:right; color:#D97706; font-weight:700;">${balance}</td>
         </tr>
         <tr class="fare-total-row">

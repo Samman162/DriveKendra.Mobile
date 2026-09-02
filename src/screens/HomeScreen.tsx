@@ -103,7 +103,7 @@ export function HomeScreen() {
             <View style={styles.serviceTextContainer}>
               <Text style={styles.serviceTitle}>Rent a Vehicle</Text>
               <Text style={styles.serviceSubtitle}>
-                Book Scorpio 4x4, HiAce van, sedan or bus with driver or self-drive
+                Book Scorpio 4x4, HiAce van, sedan or bus for self-drive or rental charter
               </Text>
             </View>
             <View style={styles.serviceArrowCircle}>
