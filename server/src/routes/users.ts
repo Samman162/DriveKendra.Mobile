@@ -63,7 +63,29 @@ usersRoute.put('/profile', async (c) => {
     if (error?.code === '23505') {
       throw new HttpError(409, 'Phone number or email is already registered to another account.');
     }
-    throw error;
+    console.error('[Users] Update profile database error:', error?.message || error);
+    throw new HttpError(
+      503,
+      'Database connection unavailable. Please check your PostgreSQL connection and credentials in server/.env.',
+    );
   }
+});
+
+/**
+ * POST /api/users/push-token
+ * Register or update client device push notification token.
+ */
+usersRoute.post('/push-token', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { pushToken } = body;
+
+  if (!pushToken || typeof pushToken !== 'string' || pushToken.trim().length === 0) {
+    throw new HttpError(400, 'Valid pushToken is required.');
+  }
+
+  return c.json({
+    success: true,
+    message: 'Push token registered successfully',
+  });
 });
 

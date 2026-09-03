@@ -32,16 +32,29 @@ app.onError((error, c) => {
 });
 
 app.get('/health', async (c) => {
-  await pingDatabase();
-  return c.json({ ok: true });
+  let dbStatus = 'connected';
+  try {
+    await pingDatabase();
+  } catch {
+    dbStatus = 'disconnected';
+  }
+  return c.json({
+    status: 'online',
+    database: dbStatus,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.route('/api/auth', authRoute);
 app.route('/api/bookings', bookingsRoute);
 app.route('/api/users', usersRoute);
 
+export { app };
+
 const port = Number(process.env.PORT) || 8787;
 
-serve({ fetch: app.fetch, port }, (info) => {
-  console.log(`Drive Kendra mobile API listening on http://localhost:${info.port}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  serve({ fetch: app.fetch, port }, (info) => {
+    console.log(`Drive Kendra mobile API listening on http://localhost:${info.port}`);
+  });
+}

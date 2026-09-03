@@ -51,11 +51,11 @@ function parseConnectionConfig(raw: string): PoolConfig {
 
 const connectionString =
   firstNonEmpty(process.env.DATABASE_URL, process.env.ConnectionStrings__DefaultConnection) ||
-  'postgresql://postgres:postgres@localhost:5432/drivekendra_db';
+  'postgresql://postgres:postgres@localhost:5432/car_rental_db';
 
 if (!process.env.DATABASE_URL && !process.env.ConnectionStrings__DefaultConnection) {
   console.warn(
-    '[DB] DATABASE_URL is not configured in server/.env. Defaulting to local postgresql://postgres:postgres@localhost:5432/drivekendra_db',
+    '[DB] DATABASE_URL is not configured in server/.env. Defaulting to local postgresql://postgres:postgres@localhost:5432/car_rental_db',
   );
 }
 

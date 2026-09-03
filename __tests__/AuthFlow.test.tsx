@@ -1,6 +1,8 @@
 import { secureStorage } from '../src/utils/secureStorage';
 import { offlineQueue } from '../src/api/offlineQueue';
 import { isValidNepalPhone, isValidPhone, normalizeNepalPhone, normalizePhone } from '../src/utils/phone';
+import { loginUser } from '../src/api/auth';
+import { apiClient } from '../src/api/client';
 
 describe('State, Security & Storage Test Suite', () => {
   beforeEach(async () => {
@@ -90,6 +92,45 @@ describe('State, Security & Storage Test Suite', () => {
 
       const queueAfterFlush = await offlineQueue.getQueue();
       expect(queueAfterFlush.length).toBe(0);
+    });
+  });
+
+  describe('Resilient Demo Login Fallback', () => {
+    it('gracefully logs in demo user Samman Chhetri when backend database fails with 500/503', async () => {
+      const postSpy = jest.spyOn(apiClient, 'post').mockRejectedValueOnce({
+        response: {
+          status: 503,
+          data: { message: 'Database connection unavailable' },
+        },
+      });
+
+      const res = await loginUser({
+        identifier: '+977 9851363783',
+        password: 'password123',
+      });
+
+      expect(res.user.name).toBe('Samman Chhetri');
+      expect(res.user.phone).toBe('+977 9851363783');
+      expect(res.token).toContain('jwt_acc_');
+      postSpy.mockRestore();
+    });
+
+    it('rejects with explicit message on 401 unauthorized', async () => {
+      const postSpy = jest.spyOn(apiClient, 'post').mockRejectedValueOnce({
+        response: {
+          status: 401,
+          data: { message: 'Invalid password. Please check your credentials and try again.' },
+        },
+      });
+
+      await expect(
+        loginUser({
+          identifier: '+977 9851363783',
+          password: 'wrongpassword',
+        }),
+      ).rejects.toThrow('Invalid password. Please check your credentials and try again.');
+
+      postSpy.mockRestore();
     });
   });
 });

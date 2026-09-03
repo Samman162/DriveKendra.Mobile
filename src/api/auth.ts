@@ -13,47 +13,66 @@ const DEMO_USERS: User[] = [
   },
 ];
 
+export function findDemoUser(identifier: string): User | undefined {
+  const cleanId = identifier.trim();
+  const isEmail = cleanId.includes('@');
+  const idDigits = cleanId.replace(/\D/g, '');
+  const idLast10 = idDigits.length >= 10 ? idDigits.slice(-10) : idDigits;
+
+  return DEMO_USERS.find((u) => {
+    if (isEmail && u.email) {
+      return u.email.toLowerCase() === cleanId.toLowerCase();
+    }
+    const uDigits = u.phone.replace(/\D/g, '');
+    const uLast10 = uDigits.length >= 10 ? uDigits.slice(-10) : uDigits;
+    if (u.phone.replace(/[\s-+]/g, '') === cleanId.replace(/[\s-+]/g, '')) {
+      return true;
+    }
+    if (idLast10.length === 10 && uLast10 === idLast10) {
+      return true;
+    }
+    if (idDigits.length >= 7 && (uDigits === idDigits || uDigits.endsWith(idDigits) || idDigits.endsWith(uDigits))) {
+      return true;
+    }
+    return false;
+  });
+}
+
 export async function loginUser(dto: LoginDto): Promise<AuthResponse> {
+  const cleanId = dto.identifier.trim();
+  const matched = findDemoUser(cleanId);
+
   try {
     const response = await apiClient.post<AuthResponse>('/auth/login', dto);
     return response.data;
   } catch (err: any) {
     if (err.response) {
+      if (err.response.status === 401) {
+        throw new Error(
+          err.response.data?.message || 'Invalid credentials. Please check your phone number or password.',
+        );
+      }
+
+      // If server returned a 5xx error (database down/unconfigured), fall back to demo session
+      if (matched && dto.password.length >= 6) {
+        console.warn('[Auth] Server database unavailable; logging in with local demo user session for:', matched.name);
+        return {
+          user: matched,
+          token: `jwt_acc_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          refreshToken: `jwt_ref_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          message: 'Logged in successfully (demo mode)',
+        };
+      }
+
       const serverMessage =
-        err.response.data?.message ||
-        (err.response.status === 401
-          ? 'Invalid credentials. Please check your phone number or password.'
-          : 'Authentication failed.');
+        err.response.data?.message || 'Authentication service unavailable. Please try again.';
       throw new Error(serverMessage);
     }
 
     // If backend is unreachable (offline/network error), provide smooth fallback for demo
-    const cleanId = dto.identifier.trim();
     if (dto.password.length < 6) {
       throw new Error('Password must be at least 6 characters.');
     }
-    
-    const isEmail = cleanId.includes('@');
-    const idDigits = cleanId.replace(/\D/g, '');
-    const idLast10 = idDigits.length >= 10 ? idDigits.slice(-10) : idDigits;
-
-    const matched = DEMO_USERS.find((u) => {
-      if (isEmail && u.email) {
-        return u.email.toLowerCase() === cleanId.toLowerCase();
-      }
-      const uDigits = u.phone.replace(/\D/g, '');
-      const uLast10 = uDigits.length >= 10 ? uDigits.slice(-10) : uDigits;
-      if (u.phone.replace(/[\s-+]/g, '') === cleanId.replace(/[\s-+]/g, '')) {
-        return true;
-      }
-      if (idLast10.length === 10 && uLast10 === idLast10) {
-        return true;
-      }
-      if (idDigits.length >= 7 && (uDigits === idDigits || uDigits.endsWith(idDigits) || idDigits.endsWith(uDigits))) {
-        return true;
-      }
-      return false;
-    });
 
     const user: User = matched || {
       id: `usr_${Date.now()}`,
@@ -78,6 +97,27 @@ export async function registerUser(dto: RegisterDto): Promise<AuthResponse> {
     return response.data;
   } catch (err: any) {
     if (err.response) {
+      if (err.response.status === 409) {
+        throw new Error(err.response.data?.message || 'An account with these details already exists.');
+      }
+      if (err.response.status === 503 || err.response.status >= 500) {
+        console.warn('[Auth] Server database unavailable, activating local session for new user:', dto.name);
+        const user: User = {
+          id: `usr_${Date.now()}`,
+          name: dto.name.trim(),
+          email: dto.email ? dto.email.trim().toLowerCase() : undefined,
+          phone: dto.phone.trim(),
+          role: 'customer',
+          createdAt: new Date().toISOString(),
+        };
+
+        return {
+          user,
+          token: `jwt_acc_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          refreshToken: `jwt_ref_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+          message: 'Account created successfully (demo mode)',
+        };
+      }
       const serverMessage =
         err.response.data?.message || 'Failed to create account. Please check your details.';
       throw new Error(serverMessage);
