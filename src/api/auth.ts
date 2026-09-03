@@ -18,7 +18,16 @@ export async function loginUser(dto: LoginDto): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>('/auth/login', dto);
     return response.data;
   } catch (err: any) {
-    // If backend is unreachable or not yet migrated, provide smooth fallback for demo
+    if (err.response) {
+      const serverMessage =
+        err.response.data?.message ||
+        (err.response.status === 401
+          ? 'Invalid credentials. Please check your phone number or password.'
+          : 'Authentication failed.');
+      throw new Error(serverMessage);
+    }
+
+    // If backend is unreachable (offline/network error), provide smooth fallback for demo
     const cleanId = dto.identifier.trim();
     if (dto.password.length < 6) {
       throw new Error('Password must be at least 6 characters.');
@@ -68,6 +77,12 @@ export async function registerUser(dto: RegisterDto): Promise<AuthResponse> {
     const response = await apiClient.post<AuthResponse>('/auth/register', dto);
     return response.data;
   } catch (err: any) {
+    if (err.response) {
+      const serverMessage =
+        err.response.data?.message || 'Failed to create account. Please check your details.';
+      throw new Error(serverMessage);
+    }
+
     const user: User = {
       id: `usr_${Date.now()}`,
       name: dto.name.trim(),
@@ -95,7 +110,11 @@ export async function requestPasswordReset(dto: ForgotPasswordDto): Promise<{ me
   try {
     const response = await apiClient.post<{ message: string; code?: string }>('/auth/forgot-password', dto);
     return response.data;
-  } catch {
+  } catch (err: any) {
+    if (err.response) {
+      const serverMessage = err.response.data?.message || 'Could not send verification code.';
+      throw new Error(serverMessage);
+    }
     // Return mock verification code for seamless local testing
     return {
       message: `A 6-digit verification code has been sent to ${dto.identifier}`,
@@ -108,7 +127,11 @@ export async function resetPassword(dto: ResetPasswordDto): Promise<{ message: s
   try {
     const response = await apiClient.post<{ message: string }>('/auth/reset-password', dto);
     return response.data;
-  } catch {
+  } catch (err: any) {
+    if (err.response) {
+      const serverMessage = err.response.data?.message || 'Could not reset password.';
+      throw new Error(serverMessage);
+    }
     return {
       message: 'Your password has been successfully reset. You can now log in.',
     };

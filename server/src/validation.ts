@@ -235,7 +235,8 @@ export const registerZodSchema = z.object({
     .email('Please enter a valid email address.')
     .toLowerCase()
     .optional()
-    .nullable(),
+    .nullable()
+    .or(z.literal('')),
   phone: z
     .string()
     .trim()

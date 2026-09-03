@@ -53,7 +53,8 @@ import type { TripType } from '../types/api';
 import { isSameOrAfterDay, startOfToday, toLocalDateOnly } from '../utils/dates';
 import { emptyToNull, extractErrorMessage } from '../utils/errors';
 import { hapticFeedback } from '../utils/haptics';
-import { normalizeNepalPhone } from '../utils/phone';
+import { normalizeNepalPhone, normalizePhone } from '../utils/phone';
+import { getOfflineVouchers, saveOfflineVouchers } from '../utils/offlineVoucherStorage';
 
 const VEHICLE_META: Record<number, { subtitle: string; capacity: string; tag: string }> = {
   1: { subtitle: 'Swift, Dzire, Etios (AC & Sedan Comfort)', capacity: '👥 4 Seats • 🧳 2 Bags', tag: 'City & Highway' },
@@ -152,7 +153,7 @@ export function BookingScreen({
   useEffect(() => {
     const params = initialParams ?? routeParams;
     if (!params) return;
-    if (!params.intentId && !params.pickupLocation && !params.vehicleTypeId) {
+    if (!params.intentId && !params.pickupLocation && !params.dropoffLocation && !params.vehicleTypeId) {
       return;
     }
 
@@ -184,6 +185,7 @@ export function BookingScreen({
       update('trip_type', 'Return');
     } else {
       update('trip_type', 'One Way');
+      update('return_date', null);
     }
   };
 
@@ -217,11 +219,12 @@ export function BookingScreen({
     if (!form.dropoff_location.trim()) next.dropoff_location = 'Destination is required.';
     if (!form.pickup_date) next.pickup_date = 'Pickup date is required.';
     if (!form.pickup_time.trim()) next.pickup_time = 'Pickup departure time is required.';
-    if (selectedTripMode === 'Return' && !form.return_date) {
-      next.return_date = 'Return date is required for return trips.';
-    }
-    if (form.pickup_date && form.return_date && !isSameOrAfterDay(form.return_date, form.pickup_date)) {
-      next.return_date = 'Return date must be after pickup date.';
+    if (selectedTripMode === 'Return') {
+      if (!form.return_date) {
+        next.return_date = 'Return date is required for return trips.';
+      } else if (form.pickup_date && !isSameOrAfterDay(form.return_date, form.pickup_date)) {
+        next.return_date = 'Return date must be on or after pickup date.';
+      }
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -251,7 +254,7 @@ export function BookingScreen({
       const fullPickupDate = form.pickup_time ? `${dateStr} ${form.pickup_time}` : dateStr;
       const numericUserId = isAuthenticated && user?.id && !isNaN(Number(user.id)) ? Number(user.id) : undefined;
       const passengerName = (user?.name || form.full_name || 'Passenger').trim();
-      const passengerPhone = normalizeNepalPhone(user?.phone || form.phone_number || '9841234567');
+      const passengerPhone = normalizePhone(user?.phone || form.phone_number || '9841234567');
       const passengerEmail = emptyToNull(user?.email || form.email);
 
       const combinedDetails = [
@@ -261,7 +264,7 @@ export function BookingScreen({
         .filter(Boolean)
         .join(' | ');
 
-      await submitBooking({
+      const bookingRes = await submitBooking({
         user_id: numericUserId,
         full_name: passengerName,
         phone_number: passengerPhone,
@@ -280,9 +283,10 @@ export function BookingScreen({
       });
 
       const randomRefNum = Math.floor(1000 + Math.random() * 9000);
+      const bookingRef = bookingRes?.bookingRef || `DK-2026-${randomRefNum}`;
       const newBookingRecord = {
-        id: `trip_${Date.now()}`,
-        bookingRef: `DK-2026-${randomRefNum}`,
+        id: bookingRes?.bookingId ? `trip_${bookingRes.bookingId}` : `trip_${Date.now()}`,
+        bookingRef,
         pickup: form.pickup_location.trim(),
         dropoff: form.dropoff_location.trim(),
         date: dateStr || 'Tomorrow',
@@ -293,6 +297,15 @@ export function BookingScreen({
         fare: budget.trim() ? budget.trim() : 'NPR 12,000',
         status: 'confirmed' as const,
       };
+
+      // Persist to offline vouchers immediately for mountain emergency & offline access
+      try {
+        const existingVouchers = await getOfflineVouchers();
+        const updatedVouchers = [newBookingRecord, ...existingVouchers.filter((v) => v.bookingRef !== bookingRef)];
+        await saveOfflineVouchers(updatedVouchers);
+      } catch (cacheErr) {
+        console.warn('[BookingScreen] Failed to cache offline voucher:', cacheErr);
+      }
 
       hapticFeedback.success();
       setForm(emptyForm);

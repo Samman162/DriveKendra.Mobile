@@ -174,19 +174,41 @@ bookingsRoute.post('/', async (c) => {
     // 2. Atomic Multi-Table Transaction
     await client.query('BEGIN');
     try {
-      // Step 1: Upsert user record
-      const userRes = await client.query<{ user_id: number }>(
-        `INSERT INTO dka_users (full_name, phone_number, email)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (phone_number)
-         DO UPDATE SET
-             full_name = EXCLUDED.full_name,
-             email = COALESCE(NULLIF(EXCLUDED.email, ''), dka_users.email),
-             updated_at = NOW()
-         RETURNING user_id`,
-        [booking.full_name, booking.phone_number, booking.email],
-      );
-      const userId = userRes.rows[0]?.user_id;
+      // Step 1: Resolve or upsert user record
+      let userId = booking.user_id;
+
+      if (!userId) {
+        const existingUser = await client.query<{ user_id: number }>(
+          `SELECT user_id FROM dka_users 
+           WHERE phone_number = $1 OR (email IS NOT NULL AND email != '' AND email = $2)`,
+          [booking.phone_number, booking.email || ''],
+        );
+
+        if (existingUser.rows.length > 0) {
+          userId = existingUser.rows[0].user_id;
+          await client.query(
+            `UPDATE dka_users
+             SET full_name = COALESCE($1, full_name),
+                 updated_at = NOW()
+             WHERE user_id = $2`,
+            [booking.full_name, userId],
+          );
+        } else {
+          const userRes = await client.query<{ user_id: number }>(
+            `INSERT INTO dka_users (full_name, phone_number, email)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (phone_number)
+             DO UPDATE SET
+                 full_name = EXCLUDED.full_name,
+                 email = COALESCE(NULLIF(EXCLUDED.email, ''), dka_users.email),
+                 updated_at = NOW()
+             RETURNING user_id`,
+            [booking.full_name, booking.phone_number, booking.email],
+          );
+          userId = userRes.rows[0]?.user_id;
+        }
+      }
+
       if (!userId) {
         throw new HttpError(500, 'Failed to save traveler details.');
       }

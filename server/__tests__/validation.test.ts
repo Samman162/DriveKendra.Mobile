@@ -3,9 +3,11 @@ import {
   bookingZodSchema,
   isValidNepalPhone,
   isValidPhone,
+  loginZodSchema,
   normalizeNepalPhone,
   normalizePhone,
   parseBooking,
+  registerZodSchema,
 } from '../src/validation.js';
 
 describe('Phone Validation & Normalization', () => {
@@ -207,5 +209,60 @@ describe('User Schema Validation in Booking', () => {
 
     const parsed = parseBooking(booking);
     expect(parsed.user_id).toBe(42);
+  });
+
+  describe('User Registration & Login Validation', () => {
+    it('accepts valid registration with email', () => {
+      const result = registerZodSchema.safeParse({
+        name: 'Samman Chhetri',
+        email: 'samman@example.com',
+        phone: '+977 9851363783',
+        password: 'password123',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts valid registration with empty string email', () => {
+      const result = registerZodSchema.safeParse({
+        name: 'Samman Chhetri',
+        email: '',
+        phone: '+977 9851363783',
+        password: 'password123',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects registration with invalid email format', () => {
+      const result = registerZodSchema.safeParse({
+        name: 'Samman Chhetri',
+        email: 'not-an-email',
+        phone: '+977 9851363783',
+        password: 'password123',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects registration with short password', () => {
+      const result = registerZodSchema.safeParse({
+        name: 'Samman Chhetri',
+        phone: '+977 9851363783',
+        password: '123',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('validates login schema credentials', () => {
+      const valid = loginZodSchema.safeParse({
+        identifier: '+977 9851363783',
+        password: 'password123',
+      });
+      expect(valid.success).toBe(true);
+
+      const invalid = loginZodSchema.safeParse({
+        identifier: '',
+        password: '123',
+      });
+      expect(invalid.success).toBe(false);
+    });
   });
 });

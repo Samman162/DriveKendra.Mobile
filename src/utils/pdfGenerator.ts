@@ -453,6 +453,13 @@ export async function generateAndShareVoucher(
 ): Promise<{ uri: string }> {
   try {
     const html = generateVoucherHtml(data);
+
+    // On Web, printToFileAsync & Sharing are unsupported; invoke print dialog directly
+    if (Platform.OS === 'web') {
+      await Print.printAsync({ html });
+      return { uri: '' };
+    }
+
     const { uri } = await Print.printToFileAsync({
       html,
       base64: false,

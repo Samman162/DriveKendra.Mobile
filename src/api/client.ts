@@ -69,9 +69,16 @@ apiClient.interceptors.response.use(
     }
 
     const status = error.response?.status;
+    const requestUrl = originalRequest.url || '';
+    const isAuthEndpoint =
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/register') ||
+      requestUrl.includes('/auth/refresh') ||
+      requestUrl.includes('/auth/forgot-password') ||
+      requestUrl.includes('/auth/reset-password');
 
-    // Handle 401 Unauthorized -> Refresh Access Token Flow
-    if (status === 401 && !originalRequest._retry) {
+    // Handle 401 Unauthorized -> Refresh Access Token Flow (protected endpoints only)
+    if (status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         // Queue parallel requests until token refresh completes
         return new Promise<string>((resolve, reject) => {

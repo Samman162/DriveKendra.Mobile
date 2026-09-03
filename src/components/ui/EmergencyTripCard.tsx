@@ -133,6 +133,9 @@ Status: Emergency assistance/mechanical support required.`;
 
   const handleCopyBookingRef = () => {
     hapticFeedback.selection();
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(voucher.bookingRef).catch(() => {});
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

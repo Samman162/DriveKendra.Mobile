@@ -25,7 +25,7 @@ app.use(
 
 app.onError((error, c) => {
   if (error instanceof HttpError) {
-      return c.json({ message: error.message }, error.status as 400 | 500);
+    return c.json({ message: error.message }, error.status as any);
   }
   console.error(error);
   return c.json({ message: 'Something went wrong. Please try again.' }, 500);

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Hono } from 'hono';
 
 import { withPublicClient } from '../db.js';
@@ -11,6 +12,23 @@ import {
 } from '../validation.js';
 
 export const authRoute = new Hono();
+
+export function hashPassword(password: string): string {
+  return createHash('sha256').update(password + '_drivekendra_salt_v1').digest('hex');
+}
+
+export function verifyPassword(password: string, storedHash: string | null): boolean {
+  if (!storedHash) return false;
+  // Demo seed accounts in database.sql
+  if (storedHash.startsWith('$2b$10$demoHashedPassword')) {
+    return true;
+  }
+  const hashed = hashPassword(password);
+  if (storedHash === hashed) return true;
+  // Backward-compatible fallback for raw string
+  if (storedHash === password) return true;
+  return false;
+}
 
 // Login route
 authRoute.post('/login', async (c) => {
@@ -31,12 +49,12 @@ authRoute.post('/login', async (c) => {
     let params: any[];
 
     if (isEmail) {
-      query = `SELECT user_id, full_name, email, phone_number, role, created_at
+      query = `SELECT user_id, full_name, email, phone_number, password_hash, role, created_at
        FROM dka_users
        WHERE LOWER(email) = LOWER($1)`;
       params = [identifier.trim()];
     } else {
-      query = `SELECT user_id, full_name, email, phone_number, role, created_at
+      query = `SELECT user_id, full_name, email, phone_number, password_hash, role, created_at
        FROM dka_users
        WHERE phone_number = $1
           OR phone_number = $2
@@ -51,6 +69,7 @@ authRoute.post('/login', async (c) => {
       full_name: string;
       email: string | null;
       phone_number: string;
+      password_hash: string | null;
       role: string;
       created_at: Date;
     }>(query, params);
@@ -60,6 +79,10 @@ authRoute.post('/login', async (c) => {
     }
 
     const row = existing.rows[0];
+    if (!verifyPassword(password, row.password_hash)) {
+      throw new HttpError(401, 'Invalid password. Please check your credentials and try again.');
+    }
+
     await client.query(
       `UPDATE dka_users SET last_login_at = NOW(), updated_at = NOW() WHERE user_id = $1`,
       [row.user_id],
@@ -94,47 +117,61 @@ authRoute.post('/register', async (c) => {
   }
 
   const { name, email, phone, password } = result.data;
+  const passwordHash = hashPassword(password);
 
-  const user = await withPublicClient(async (client) => {
-    const inserted = await client.query<{
-      user_id: number;
-      full_name: string;
-      email: string | null;
-      phone_number: string;
-      role: string;
-      created_at: Date;
-    }>(
-      `INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_active, is_verified, last_login_at, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'customer', TRUE, TRUE, NOW(), NOW(), NOW())
-       ON CONFLICT (phone_number) DO UPDATE SET
-           full_name = EXCLUDED.full_name,
-           email = COALESCE(EXCLUDED.email, dka_users.email),
-           last_login_at = NOW(),
-           updated_at = NOW()
-       RETURNING user_id, full_name, email, phone_number, role, created_at`,
-      [name, phone, email || null, password],
-    );
+  try {
+    const user = await withPublicClient(async (client) => {
+      const inserted = await client.query<{
+        user_id: number;
+        full_name: string;
+        email: string | null;
+        phone_number: string;
+        role: string;
+        created_at: Date;
+      }>(
+        `INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_active, is_verified, last_login_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, 'customer', TRUE, TRUE, NOW(), NOW(), NOW())
+         ON CONFLICT (phone_number) DO UPDATE SET
+             full_name = EXCLUDED.full_name,
+             email = COALESCE(EXCLUDED.email, dka_users.email),
+             password_hash = EXCLUDED.password_hash,
+             last_login_at = NOW(),
+             updated_at = NOW()
+         RETURNING user_id, full_name, email, phone_number, role, created_at`,
+        [name, phone, email || null, passwordHash],
+      );
 
-    const row = inserted.rows[0];
-    return {
-      id: String(row.user_id),
-      name: row.full_name,
-      email: row.email || undefined,
-      phone: row.phone_number,
-      role: row.role || 'customer',
-      createdAt: row.created_at.toISOString(),
-    };
-  });
+      const row = inserted.rows[0];
+      return {
+        id: String(row.user_id),
+        name: row.full_name,
+        email: row.email || undefined,
+        phone: row.phone_number,
+        role: row.role || 'customer',
+        createdAt: row.created_at.toISOString(),
+      };
+    });
 
-  const token = `jwt_acc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-  const refreshToken = `jwt_ref_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const token = `jwt_acc_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const refreshToken = `jwt_ref_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-  return c.json({
-    user,
-    token,
-    refreshToken,
-    message: 'Account created successfully',
-  });
+    return c.json({
+      user,
+      token,
+      refreshToken,
+      message: 'Account created successfully',
+    });
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error;
+    if (error?.code === '23505') {
+      const detail = error?.detail || '';
+      if (detail.includes('email')) {
+        throw new HttpError(409, 'An account with this email address already exists.');
+      }
+      throw new HttpError(409, 'An account with this phone number already exists.');
+    }
+    throw error;
+  }
 });
 
 // Refresh token route
@@ -179,6 +216,42 @@ authRoute.post('/reset-password', async (c) => {
   if (!result.success) {
     throw new HttpError(400, result.error.issues[0]?.message || 'Invalid reset details.');
   }
+
+  const { identifier, newPassword } = result.data;
+  const isEmail = identifier.includes('@');
+  const cleanPhone = normalizePhone(identifier);
+  const rawDigits = identifier.replace(/\D/g, '');
+  const last10 = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
+  const hashedPassword = hashPassword(newPassword);
+
+  await withPublicClient(async (client) => {
+    let whereClause: string;
+    let params: any[];
+
+    if (isEmail) {
+      whereClause = `LOWER(email) = LOWER($1)`;
+      params = [identifier.trim(), hashedPassword];
+    } else {
+      whereClause = `phone_number = $1
+         OR phone_number = $2
+         OR REPLACE(phone_number, ' ', '') = $2
+         OR REGEXP_REPLACE(phone_number, '[^0-9]', '', 'g') = $3
+         OR ($4::text != '' AND RIGHT(REGEXP_REPLACE(phone_number, '[^0-9]', '', 'g'), 10) = $4)`;
+      params = [identifier.trim(), cleanPhone, rawDigits, last10.length === 10 ? last10 : '', hashedPassword];
+    }
+
+    const res = await client.query(
+      `UPDATE dka_users
+       SET password_hash = $${params.length},
+           updated_at = NOW()
+       WHERE ${whereClause}`,
+      params,
+    );
+
+    if (res.rowCount === 0) {
+      throw new HttpError(404, 'No account found with these details.');
+    }
+  });
 
   return c.json({
     message: 'Your password has been successfully reset. You can now log in.',

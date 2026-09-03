@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -54,6 +54,7 @@ export function FullScreenMapPicker({
   const styles = useThemedStyles(createStyles);
   const insets = useSafeAreaInsets();
   const webViewRef = useRef<WebView>(null);
+  const iframeRef = useRef<any>(null);
 
   // Compute starting coordinates
   const startingCoords = useMemo(() => {
@@ -120,18 +121,43 @@ export function FullScreenMapPicker({
   );
 
   // Handle messages from the embedded Leaflet Map
-  const handleMessage = (event: any) => {
+  const handleMessage = useCallback((event: any) => {
     try {
       const raw = typeof event.nativeEvent?.data === 'string' ? event.nativeEvent.data : event.data;
-      const data = JSON.parse(raw);
+      const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
-      if (data.type === 'MOVE_START') {
+      if (data?.type === 'MOVE_START') {
         handleMapMoveStart();
-      } else if (data.type === 'MOVE_END') {
+      } else if (data?.type === 'MOVE_END' && typeof data.lat === 'number' && typeof data.lng === 'number') {
         handleMapMoveEnd(data.lat, data.lng);
       }
     } catch {
       // Ignore unparseable post messages
+    }
+  }, [handleMapMoveStart, handleMapMoveEnd]);
+
+  // Listen for Web postMessage events from the embedded iframe
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onWindowMessage = (event: MessageEvent) => {
+      handleMessage(event);
+    };
+    window.addEventListener('message', onWindowMessage);
+    return () => window.removeEventListener('message', onWindowMessage);
+  }, [handleMessage]);
+
+  const executeMapScript = (script: string) => {
+    if (Platform.OS === 'web') {
+      try {
+        const win = iframeRef.current?.contentWindow;
+        if (win) {
+          win.eval?.(script);
+        }
+      } catch {
+        // Fallback for isolated contexts
+      }
+    } else {
+      webViewRef.current?.injectJavaScript(script);
     }
   };
 
@@ -148,7 +174,7 @@ export function FullScreenMapPicker({
         const lat = loc.coords.latitude;
         const lng = loc.coords.longitude;
         const script = `window.flyToLocation(${lat}, ${lng}, 15);`;
-        webViewRef.current?.injectJavaScript(script);
+        executeMapScript(script);
       }
     } catch (e) {
       console.warn('[MapPicker] GPS error:', e);
@@ -233,6 +259,7 @@ export function FullScreenMapPicker({
       <View style={StyleSheet.absoluteFill}>
         {Platform.OS === 'web' ? (
           <iframe
+            ref={iframeRef}
             srcDoc={mapHtml}
             style={{ width: '100%', height: '100%', border: 'none' }}
             title="Interactive Map Location Picker"
@@ -314,7 +341,7 @@ export function FullScreenMapPicker({
         <Pressable
           onPress={() => {
             hapticFeedback.light();
-            webViewRef.current?.injectJavaScript('window.zoomIn();');
+            executeMapScript('window.zoomIn();');
           }}
           style={styles.floatCircleBtn}
           accessibilityLabel="Zoom In"
@@ -325,7 +352,7 @@ export function FullScreenMapPicker({
         <Pressable
           onPress={() => {
             hapticFeedback.light();
-            webViewRef.current?.injectJavaScript('window.zoomOut();');
+            executeMapScript('window.zoomOut();');
           }}
           style={styles.floatCircleBtn}
           accessibilityLabel="Zoom Out"
