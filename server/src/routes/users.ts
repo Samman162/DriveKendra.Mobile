@@ -10,7 +10,7 @@ export const usersRoute = new Hono();
  */
 usersRoute.put('/profile', async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const { userId, fullName, avatarUrl, phone } = body;
+  const { userId, fullName, avatarUrl, phone, email } = body;
 
   const effectiveUserId = userId ? Number(userId) : null;
 
@@ -21,9 +21,10 @@ usersRoute.put('/profile', async (c) => {
          SET full_name = COALESCE($1, full_name),
              avatar_url = COALESCE($2, avatar_url),
              phone_number = COALESCE($3, phone_number),
+             email = COALESCE($4, email),
              updated_at = NOW()
-         WHERE user_id = $4`,
-        [fullName || null, avatarUrl || null, phone || null, effectiveUserId],
+         WHERE user_id = $5`,
+        [fullName || null, avatarUrl || null, phone || null, email || null, effectiveUserId],
       );
     });
   }

@@ -66,7 +66,7 @@ function ThemedApp() {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         {isOnboardingChecked && (
           <AppNavigator
-            initialRouteName={isOnboardingCompleted ? 'MainTabs' : 'Onboarding'}
+            isOnboardingCompleted={isOnboardingCompleted}
           />
         )}
       </NavigationContainer>

@@ -72,7 +72,7 @@ describe('OnboardingScreen Component Tests', () => {
     });
   });
 
-  it('skipping onboarding saves status and resets navigation to MainTabs', async () => {
+  it('skipping onboarding saves status and resets navigation to Auth screen', async () => {
     let tree: renderer.ReactTestRenderer | null = null;
     act(() => {
       tree = renderer.create(
@@ -90,9 +90,8 @@ describe('OnboardingScreen Component Tests', () => {
     });
 
     expect(mockNavigation.reset).toHaveBeenCalledWith({
-      index: 1,
+      index: 0,
       routes: [
-        { name: 'MainTabs' },
         { name: 'Auth', params: { initialMode: 'signin' } },
       ],
     });

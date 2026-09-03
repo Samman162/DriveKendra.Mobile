@@ -12,6 +12,7 @@ import { MyTripsScreen } from '../screens/MyTripsScreen';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { useTheme } from '../theme/ThemeProvider';
+import { useAuth } from '../context/AuthContext';
 import { hapticFeedback } from '../utils/haptics';
 import type { RootStackParamList, RootTabParamList } from './types';
 
@@ -20,6 +21,7 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 interface AppNavigatorProps {
   initialRouteName?: keyof RootStackParamList;
+  isOnboardingCompleted?: boolean;
 }
 
 function stackScreenOptions(colors: ReturnType<typeof useTheme>['colors'], title?: string) {
@@ -104,66 +106,131 @@ function MainTabsNavigator() {
   );
 }
 
-export function AppNavigator({ initialRouteName = 'MainTabs' }: AppNavigatorProps) {
+export function AppNavigator({
+  initialRouteName,
+  isOnboardingCompleted = true,
+}: AppNavigatorProps) {
   const { colors } = useTheme();
+  const { isAuthenticated } = useAuth();
 
   return (
-    <RootStack.Navigator initialRouteName={initialRouteName}>
-      {/* 4-Tab Bottom Shell */}
-      <RootStack.Screen
-        name="MainTabs"
-        component={MainTabsNavigator}
-        options={{ headerShown: false }}
-      />
+    <RootStack.Navigator
+      initialRouteName={
+        isAuthenticated
+          ? (initialRouteName || 'MainTabs')
+          : (isOnboardingCompleted ? 'Auth' : 'Onboarding')
+      }
+    >
+      {isAuthenticated ? (
+        // ================= AUTHENTICATED ACCESS =================
+        <>
+          {/* 4-Tab Bottom Shell */}
+          <RootStack.Screen
+            name="MainTabs"
+            component={MainTabsNavigator}
+            options={{ headerShown: false }}
+          />
 
-      {/* First-Launch Onboarding Walkthrough */}
-      <RootStack.Screen
-        name="Onboarding"
-        component={OnboardingScreen}
-        options={{
-          headerShown: false,
-          animation: 'fade',
-        }}
-      />
+          {/* Booking Form Presented as Animated Full Modal Dialog */}
+          <RootStack.Screen
+            name="BookingModal"
+            component={BookingScreen}
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+              animation: 'slide_from_bottom',
+            }}
+          />
 
-      {/* Booking Form Presented as Animated Full Modal Dialog */}
-      <RootStack.Screen
-        name="BookingModal"
-        component={BookingScreen}
-        options={{
-          presentation: 'modal',
-          headerShown: false,
-          animation: 'slide_from_bottom',
-        }}
-      />
+          {/* 24/7 Support Desk */}
+          <RootStack.Screen
+            name="Contact"
+            component={ContactScreen}
+            options={stackScreenOptions(colors, '24/7 Support Desk')}
+          />
 
-      {/* Authentication Modal */}
-      <RootStack.Screen
-        name="Auth"
-        component={AuthScreen}
-        options={{
-          presentation: 'modal',
-          headerShown: false,
-        }}
-      />
+          <RootStack.Screen
+            name="MyTrips"
+            component={MyTripsScreen}
+            options={stackScreenOptions(colors, 'My Reservations')}
+          />
+          <RootStack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={stackScreenOptions(colors, 'Profile')}
+          />
 
-      {/* 24/7 Support Desk */}
-      <RootStack.Screen
-        name="Contact"
-        component={ContactScreen}
-        options={stackScreenOptions(colors, '24/7 Support Desk')}
-      />
+          {/* Onboarding Replay Screen */}
+          <RootStack.Screen
+            name="Onboarding"
+            component={OnboardingScreen}
+            options={{
+              headerShown: false,
+              animation: 'fade',
+            }}
+          />
 
-      <RootStack.Screen
-        name="MyTrips"
-        component={MyTripsScreen}
-        options={stackScreenOptions(colors, 'My Reservations')}
-      />
-      <RootStack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={stackScreenOptions(colors, 'Profile')}
-      />
+          {/* Authentication Screen Modal (Allows account switching) */}
+          <RootStack.Screen
+            name="Auth"
+            component={AuthScreen}
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+        </>
+      ) : (
+        // ================= UNAUTHENTICATED AUTH GATE =================
+        <>
+          {!isOnboardingCompleted ? (
+            <>
+              <RootStack.Screen
+                name="Onboarding"
+                component={OnboardingScreen}
+                options={{
+                  headerShown: false,
+                  animation: 'fade',
+                }}
+              />
+              <RootStack.Screen
+                name="Auth"
+                component={AuthScreen}
+                options={{
+                  headerShown: false,
+                  animation: 'fade',
+                }}
+              />
+            </>
+          ) : (
+            <>
+              <RootStack.Screen
+                name="Auth"
+                component={AuthScreen}
+                options={{
+                  headerShown: false,
+                  animation: 'fade',
+                }}
+              />
+              <RootStack.Screen
+                name="Onboarding"
+                component={OnboardingScreen}
+                options={{
+                  headerShown: false,
+                  animation: 'fade',
+                }}
+              />
+            </>
+          )}
+
+          {/* 24/7 Support Desk */}
+          <RootStack.Screen
+            name="Contact"
+            component={ContactScreen}
+            options={stackScreenOptions(colors, '24/7 Support Desk')}
+          />
+        </>
+      )}
     </RootStack.Navigator>
   );
 }

@@ -51,23 +51,30 @@ export function ProfileScreen() {
   const { user, isAuthenticated, signOut, updateUser } = useAuth();
 
   // Profile Form States
-  const [name, setName] = useState<string>(user?.name || 'Samman Budhathoki');
-  const [phone, setPhone] = useState<string>(user?.phone || '+977 9819923926');
+  const [name, setName] = useState<string>(user?.name || '');
+  const [phone, setPhone] = useState<string>(user?.phone || '');
+  const [email, setEmail] = useState<string>(user?.email || '');
   const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatarUrl || null);
   const [isSaved, setIsSaved] = useState<boolean>(false);
   const [isNameFocused, setIsNameFocused] = useState<boolean>(false);
+  const [isEmailFocused, setIsEmailFocused] = useState<boolean>(false);
 
   // Sync state when user context updates
   useEffect(() => {
     if (user?.name) setName(user.name);
     if (user?.phone) setPhone(user.phone);
+    if (user?.email !== undefined) setEmail(user.email || '');
     if (user?.avatarUrl) setAvatarUri(user.avatarUrl);
   }, [user]);
 
   // Determine if profile fields or avatar have changed
-  const initialName = user?.name || 'Samman Budhathoki';
+  const initialName = user?.name || '';
+  const initialEmail = user?.email || '';
   const initialAvatar = user?.avatarUrl || null;
-  const isDirty = name.trim() !== initialName.trim() || avatarUri !== initialAvatar;
+  const isDirty =
+    name.trim() !== initialName.trim() ||
+    email.trim() !== initialEmail.trim() ||
+    avatarUri !== initialAvatar;
 
   const handlePickImage = async () => {
     hapticFeedback.selection();
@@ -110,13 +117,26 @@ export function ProfileScreen() {
       return;
     }
 
+    const trimmedEmail = email.trim();
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      hapticFeedback.error();
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
     try {
-      await updateUser({ name: trimmed, phone, avatarUrl: avatarUri || undefined });
+      await updateUser({
+        name: trimmed,
+        phone,
+        email: trimmedEmail || undefined,
+        avatarUrl: avatarUri || undefined,
+      });
 
       if (user?.id) {
         void updateUserProfile({
           userId: user.id,
           fullName: trimmed,
+          email: trimmedEmail || undefined,
           avatarUrl: avatarUri || undefined,
           phone,
         });
@@ -169,7 +189,7 @@ export function ProfileScreen() {
             <Text style={styles.guestTitle}>Join Drive Kendra</Text>
             <Text style={styles.guestSubtitle}>
               Sign in to manage your Himalayan car bookings, access offline vouchers, and unlock
-              exclusive VIP expedition rates.
+              exclusive member expedition rates.
             </Text>
 
             <View style={styles.guestActions}>
@@ -321,14 +341,30 @@ export function ProfileScreen() {
 
           <View style={styles.fieldDivider} />
 
-          {/* Email Address Field */}
+          {/* Email Address Field (Add / Edit Email) */}
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Email Address</Text>
-            <View style={styles.staticFieldRow}>
-              <View style={styles.fieldIconPrefix}>
-                <Mail size={18} color={colors.subtle} />
-              </View>
-              <Text style={styles.staticFieldValue}>{user.email || 'traveler@drivekendra.com'}</Text>
+            <View style={styles.fieldLabelRow}>
+              <Text style={styles.fieldLabel}>Email Address</Text>
+              {!user?.email && !email.trim() && (
+                <Text style={styles.optionalBadge}>Optional • Add for receipts</Text>
+              )}
+            </View>
+            <View style={[styles.inputRow, isEmailFocused && styles.inputRowFocused]}>
+              <Mail size={18} color={isEmailFocused ? colors.accent : colors.subtle} />
+              <TextInput
+                style={styles.nameInput}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Add your email address"
+                placeholderTextColor={colors.muted}
+                onFocus={() => setIsEmailFocused(true)}
+                onBlur={() => setIsEmailFocused(false)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSaveProfile}
+              />
             </View>
           </View>
         </View>
@@ -516,6 +552,17 @@ function createStyles(colors: ThemeColors) {
     },
     fieldBlock: {
       paddingVertical: spacing.xs,
+    },
+    fieldLabelRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 6,
+    },
+    optionalBadge: {
+      fontSize: 11,
+      color: colors.highlight,
+      fontWeight: '600',
     },
     fieldLabel: {
       fontSize: 11,

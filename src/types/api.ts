@@ -40,4 +40,7 @@ export interface BookingRecordDto {
 
 export interface ApiMessageResponse {
   message: string;
+  bookingId?: number;
+  bookingRef?: string;
+  status?: string;
 }

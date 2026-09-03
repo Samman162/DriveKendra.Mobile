@@ -75,14 +75,34 @@ const honeypotValidator = z
     message: 'Invalid submission.',
   });
 
-// Nepal Phone Number Zod Validator
-export const nepalPhoneSchema = z
+export function normalizePhone(value: string): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  const hasPlus = trimmed.startsWith('+');
+  const digits = trimmed.replace(/\D/g, '');
+  return hasPlus ? `+${digits}` : digits;
+}
+
+export function isValidPhone(value: string): boolean {
+  if (!value) return false;
+  const normalized = normalizePhone(value);
+  const rawDigits = normalized.replace(/\D/g, '');
+  if (rawDigits.length < 7 || rawDigits.length > 15) {
+    return false;
+  }
+  return /^\+?[1-9]\d{6,14}$/.test(normalized) || NEPAL_PHONE_DIGITS.test(rawDigits);
+}
+
+// International & Nepal Phone Number Zod Validator
+export const phoneSchema = z
   .string()
   .min(1, 'Phone number is required.')
-  .transform(normalizeNepalPhone)
-  .refine(isValidNepalPhone, {
-    message: NEPAL_PHONE_ERROR,
+  .transform(normalizePhone)
+  .refine(isValidPhone, {
+    message: 'Please enter a valid phone number with country code (e.g. +977 9851363783 or +1 415 555 2671).',
   });
+
+export const nepalPhoneSchema = phoneSchema;
 
 // Trip Booking Zod Schema
 export const bookingZodSchema = z
@@ -203,19 +223,32 @@ export function parseBooking(body: unknown): BookingInput {
 
 // Auth Schemas
 export const loginZodSchema = z.object({
-  identifier: z.string().trim().min(1, 'Identifier (email or phone) is required.'),
+  identifier: z.string().trim().min(1, 'Phone number is required.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
 export const registerZodSchema = z.object({
   name: z.string().trim().min(1, 'Full name is required.').max(100),
-  email: z.string().trim().email('Please enter a valid email address.').toLowerCase(),
-  phone: z.string().trim().min(1, 'Phone number is required.'),
+  email: z
+    .string()
+    .trim()
+    .email('Please enter a valid email address.')
+    .toLowerCase()
+    .optional()
+    .nullable(),
+  phone: z
+    .string()
+    .trim()
+    .min(1, 'Phone number is required.')
+    .transform(normalizePhone)
+    .refine(isValidPhone, {
+      message: 'Please enter a valid phone number with country code (e.g. +977 9851363783 or +1 415 555 2671).',
+    }),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
 export const forgotPasswordZodSchema = z.object({
-  identifier: z.string().trim().min(1, 'Email or phone number is required.'),
+  identifier: z.string().trim().min(1, 'Phone number is required.'),
 });
 
 export const resetPasswordZodSchema = z.object({

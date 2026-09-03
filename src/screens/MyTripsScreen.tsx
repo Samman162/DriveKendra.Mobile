@@ -46,8 +46,10 @@ import { radius, spacing } from '../theme/spacing';
 import type { BookingRecordDto } from '../types/api';
 import { hapticFeedback } from '../utils/haptics';
 import {
+  clearOfflineVouchers,
   formatToOfflineVoucher,
   getActiveOfflineVoucher,
+  getOfflineVouchers,
   saveOfflineVouchers,
   type OfflineVoucher,
 } from '../utils/offlineVoucherStorage';
@@ -67,48 +69,6 @@ export interface TripRecord {
   status: 'confirmed' | 'completed' | 'cancelled';
 }
 
-const INITIAL_TRIPS: TripRecord[] = [
-  {
-    id: 'trip_101',
-    bookingRef: 'DK-2026-8492',
-    pickup: 'Hotel Shanker, Lazimpat, Kathmandu',
-    dropoff: 'Lakeside Center, Pokhara (Muktinath Highway)',
-    date: 'Tomorrow, 19 Aug 2026',
-    time: '7:00 AM',
-    tripType: 'One Way',
-    vehicleName: 'Mahindra Scorpio 4x4 (AC)',
-    vehiclePlate: 'Ba 2 Cha 8492',
-    fare: 'NPR 12,000',
-    status: 'confirmed',
-  },
-  {
-    id: 'trip_102',
-    bookingRef: 'DK-2026-7210',
-    pickup: 'Tribhuvan International Airport (TIA)',
-    dropoff: 'Thamel City Center',
-    date: '12 Aug 2026',
-    time: '2:30 PM',
-    tripType: 'One Way',
-    vehicleName: 'Toyota Corolla Sedan',
-    vehiclePlate: 'Ba 1 Cha 4102',
-    fare: 'NPR 1,500',
-    status: 'completed',
-  },
-  {
-    id: 'trip_103',
-    bookingRef: 'DK-2026-6190',
-    pickup: 'Boudhanath Stupa Gate',
-    dropoff: 'Manakamana Cable Car Station',
-    date: '28 Jul 2026',
-    time: '6:00 AM',
-    tripType: 'Round Trip',
-    vehicleName: 'Toyota HiAce (14-Seater)',
-    vehiclePlate: 'Ba 3 Cha 9912',
-    fare: 'NPR 9,500',
-    status: 'completed',
-  },
-];
-
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList, 'MyBookings'>,
   NativeStackNavigationProp<RootStackParamList>
@@ -121,7 +81,8 @@ export function MyTripsScreen() {
   const { user } = useAuth();
   const { isOffline } = useNetworkStatus();
 
-  const [trips, setTrips] = useState<TripRecord[]>(INITIAL_TRIPS);
+  const [trips, setTrips] = useState<TripRecord[]>([]);
+  const [isLoadingTrips, setIsLoadingTrips] = useState<boolean>(true);
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [mountainModeManual, setMountainModeManual] = useState<boolean>(false);
   const [cachedVoucher, setCachedVoucher] = useState<OfflineVoucher | null>(null);
@@ -131,10 +92,20 @@ export function MyTripsScreen() {
 
   // Fetch live bookings from PostgreSQL backend when user is authenticated
   useEffect(() => {
+    let isMounted = true;
     async function fetchLiveBookings() {
-      if (!user?.id && !user?.phone) return;
+      if (!user?.id && !user?.phone) {
+        if (isMounted) {
+          setTrips([]);
+          setIsLoadingTrips(false);
+        }
+        return;
+      }
+      if (isMounted) setIsLoadingTrips(true);
       try {
         const live = await getUserBookings({ userId: user?.id, phoneNumber: user?.phone });
+        if (!isMounted) return;
+
         if (live && live.length > 0) {
           const formatted: TripRecord[] = live.map((b: BookingRecordDto) => ({
             id: `trip_${b.bookingId}`,
@@ -150,24 +121,56 @@ export function MyTripsScreen() {
             status: b.status.toLowerCase() === 'completed' ? 'completed' : b.status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
           }));
           setTrips(formatted);
+        } else {
+          setTrips([]);
+          await clearOfflineVouchers();
         }
       } catch (e) {
         console.warn('[MyTrips] Offline or failed to sync live bookings:', e);
+        if (!isMounted) return;
+        const cached = await getOfflineVouchers();
+        if (cached && cached.length > 0) {
+          const converted: TripRecord[] = cached.map((cv) => ({
+            id: cv.id,
+            bookingRef: cv.bookingRef,
+            pickup: cv.pickup,
+            dropoff: cv.dropoff,
+            date: cv.date,
+            time: cv.time,
+            tripType: (cv.tripType === 'Return' || cv.tripType === 'Round Trip' ? cv.tripType : 'One Way') as TripRecord['tripType'],
+            vehicleName: cv.vehicleName,
+            vehiclePlate: cv.vehiclePlate,
+            fare: cv.fare,
+            status: (cv.status === 'completed' || cv.status === 'cancelled' ? cv.status : 'confirmed') as TripRecord['status'],
+          }));
+          setTrips(converted);
+        } else {
+          setTrips([]);
+        }
+      } finally {
+        if (isMounted) setIsLoadingTrips(false);
       }
     }
     fetchLiveBookings();
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   // Auto-cache trips to local storage for offline / mountain road access
   useEffect(() => {
-    saveOfflineVouchers(trips);
-    getActiveOfflineVoucher().then((voucher) => {
-      if (voucher) {
-        setCachedVoucher(voucher);
-      } else if (trips.length > 0) {
-        setCachedVoucher(formatToOfflineVoucher(trips[0]));
-      }
-    });
+    if (trips.length > 0) {
+      saveOfflineVouchers(trips);
+      getActiveOfflineVoucher().then((voucher) => {
+        if (voucher) {
+          setCachedVoucher(voucher);
+        } else {
+          setCachedVoucher(formatToOfflineVoucher(trips[0]));
+        }
+      });
+    } else {
+      setCachedVoucher(null);
+    }
   }, [trips]);
 
   const shouldShowEmergencyVoucher = isOffline || mountainModeManual;
@@ -362,7 +365,14 @@ export function MyTripsScreen() {
         </View>
 
         {/* Trips List */}
-        {filteredTrips.length === 0 ? (
+        {isLoadingTrips ? (
+          <View style={{ paddingVertical: spacing.xxl, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color={colors.accent} />
+            <Text style={{ marginTop: spacing.md, color: colors.subtle, fontSize: 13, fontWeight: '600' }}>
+              Loading your reservations...
+            </Text>
+          </View>
+        ) : filteredTrips.length === 0 ? (
           <View style={styles.emptyStateCard}>
             <View style={styles.emptyIconCircle}>
               <Car size={32} color={colors.accent} />

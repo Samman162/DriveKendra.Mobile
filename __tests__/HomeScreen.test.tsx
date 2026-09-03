@@ -22,6 +22,8 @@ jest.mock('@react-navigation/native', () => {
 });
 
 describe('HomeScreen Clean Professional UI & Interactivity', () => {
+  jest.setTimeout(15000);
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

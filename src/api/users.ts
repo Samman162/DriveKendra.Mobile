@@ -37,6 +37,7 @@ export interface UpdateUserProfilePayload {
   fullName?: string;
   avatarUrl?: string;
   phone?: string;
+  email?: string;
 }
 
 export interface UpdateUserProfileResponse {

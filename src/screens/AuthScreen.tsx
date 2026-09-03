@@ -38,8 +38,8 @@ import { useTheme } from '../theme/ThemeProvider';
 import { useThemedStyles } from '../theme/useThemedStyles';
 import { extractErrorMessage } from '../utils/errors';
 import { hapticFeedback } from '../utils/haptics';
-import { isValidNepalPhone } from '../utils/phone';
-import { NEPAL_PHONE_ERROR } from '../constants/validation';
+import { isValidNepalPhone, isValidPhone, normalizePhone } from '../utils/phone';
+import { NEPAL_PHONE_ERROR, PHONE_ERROR } from '../constants/validation';
 
 export type AuthMode = 'signin' | 'signup' | 'forgot';
 
@@ -75,7 +75,6 @@ export function AuthScreen({
   // Form Fields
   const [identifier, setIdentifier] = useState('');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -117,7 +116,9 @@ export function AuthScreen({
     clearErrors();
     const newErrors: Record<string, string> = {};
     if (!identifier.trim()) {
-      newErrors.identifier = 'Please enter your phone number or email.';
+      newErrors.identifier = 'Please enter your phone number.';
+    } else if (!isValidPhone(identifier)) {
+      newErrors.identifier = PHONE_ERROR;
     }
     if (!password) {
       newErrors.password = 'Please enter your password.';
@@ -148,11 +149,8 @@ export function AuthScreen({
     clearErrors();
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'Please enter your full name.';
-    if (!phone.trim()) newErrors.phone = 'Please enter your mobile phone number.';
-    else if (!isValidNepalPhone(phone)) newErrors.phone = NEPAL_PHONE_ERROR;
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      newErrors.email = 'Please enter a valid email address.';
-    }
+    if (!phone.trim()) newErrors.phone = 'Please enter your phone number.';
+    else if (!isValidPhone(phone)) newErrors.phone = PHONE_ERROR;
     if (!password || password.length < 6) newErrors.password = 'Password must be at least 6 characters.';
     if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match.';
     if (!agreeTerms) newErrors.terms = 'Please accept terms & conditions to continue.';
@@ -165,8 +163,8 @@ export function AuthScreen({
 
     setSubmitting(true);
     try {
-      const userEmail = email.trim() || `${phone.replace(/[^0-9]/g, '')}@drivekendra.com`;
-      await signUp({ name, email: userEmail, phone, password });
+      const cleanPhone = normalizePhone(phone);
+      await signUp({ name: name.trim(), phone: cleanPhone, password });
       hapticFeedback.success();
       if (navigation.canGoBack?.()) {
         navigation.goBack();
@@ -182,7 +180,7 @@ export function AuthScreen({
   const handleSendResetCode = async () => {
     clearErrors();
     if (!identifier.trim()) {
-      setErrors({ identifier: 'Please enter your registered phone or email.' });
+      setErrors({ identifier: 'Please enter your registered phone number.' });
       return;
     }
 
@@ -277,18 +275,25 @@ export function AuthScreen({
         >
           {/* Top Bar with Back Button */}
           <View style={styles.topBar}>
-            {navigation.canGoBack?.() && (
+            {(mode !== 'signin' || navigation.canGoBack?.()) ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
-                onPress={() => navigation.goBack()}
+                onPress={() => {
+                  if (mode !== 'signin') {
+                    setMode('signin');
+                    clearErrors();
+                  } else if (navigation.canGoBack?.()) {
+                    navigation.goBack();
+                  }
+                }}
                 style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
                 hitSlop={12}
                 testID="auth-back-btn"
               >
                 <ArrowLeft size={24} color={colors.text} />
               </Pressable>
-            )}
+            ) : null}
           </View>
 
           {/* ================= HERO SECTION ================= */}
@@ -317,6 +322,10 @@ export function AuthScreen({
                 <Text style={styles.brandHeadline}>
                   <Text style={styles.brandOrange}>Drive </Text>
                   <Text style={styles.brandNavy}>Kendra</Text>
+                </Text>
+                <Text style={styles.welcomeHeading}>Create Customer Account</Text>
+                <Text style={styles.welcomeSub}>
+                  Welcome to Drive Kendra! Sign up as our customer to book rides across Nepal.
                 </Text>
               </>
             )}
@@ -357,21 +366,21 @@ export function AuthScreen({
               <View>
                 {/* Phone Field */}
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Phone</Text>
+                  <Text style={styles.fieldLabel}>Phone Number</Text>
                   <View
                     style={[
                       styles.inputContainer,
                       errors.identifier ? styles.inputErrorBorder : null,
                     ]}
                   >
-                    <Text style={styles.phonePrefix}>(+977) | </Text>
+                    <PhoneIcon size={18} color={colors.subtle} style={{ marginRight: 10 }} />
                     <TextInput
                       value={identifier}
                       onChangeText={(text) => {
                         setIdentifier(text);
                         if (errors.identifier) clearErrors();
                       }}
-                      placeholder="Enter Phone Number"
+                      placeholder="Enter phone number (e.g. +977 9851363783)"
                       placeholderTextColor={colors.subtle}
                       keyboardType="phone-pad"
                       autoCapitalize="none"
@@ -512,23 +521,23 @@ export function AuthScreen({
                   {errors.name ? <Text style={styles.fieldError}>{errors.name}</Text> : null}
                 </View>
 
-                {/* Phone Number (Added per user request) */}
+                {/* Phone Number */}
                 <View style={styles.fieldGroup}>
-                  <Text style={styles.fieldLabel}>Phone</Text>
+                  <Text style={styles.fieldLabel}>Phone Number</Text>
                   <View
                     style={[
                       styles.inputContainer,
                       errors.phone ? styles.inputErrorBorder : null,
                     ]}
                   >
-                    <Text style={styles.phonePrefix}>(+977) | </Text>
+                    <PhoneIcon size={18} color={colors.subtle} style={{ marginRight: 10 }} />
                     <TextInput
                       value={phone}
                       onChangeText={(text) => {
                         setPhone(text);
                         if (errors.phone) clearErrors();
                       }}
-                      placeholder="Enter Phone Number"
+                      placeholder="e.g. +977 9851363783 or +1 415 555 2671"
                       placeholderTextColor={colors.subtle}
                       keyboardType="phone-pad"
                       style={styles.textInputField}
@@ -704,24 +713,25 @@ export function AuthScreen({
                   <View>
                     <Text style={styles.stepTitle}>Find Your Account</Text>
                     <Text style={styles.stepDesc}>
-                      Enter your mobile number or email address and we'll send a 6-digit recovery code.
+                      Enter your mobile phone number and we'll send a 6-digit recovery code.
                     </Text>
 
                     <View style={styles.fieldGroup}>
-                      <Text style={styles.fieldLabel}>Phone or Email</Text>
+                      <Text style={styles.fieldLabel}>Phone Number</Text>
                       <View
                         style={[
                           styles.inputContainer,
                           errors.identifier ? styles.inputErrorBorder : null,
                         ]}
                       >
-                        <Text style={styles.phonePrefix}>(+977) | </Text>
+                        <PhoneIcon size={18} color={colors.subtle} style={{ marginRight: 10 }} />
                         <TextInput
                           value={identifier}
                           onChangeText={setIdentifier}
-                          placeholder="Enter Phone Number"
+                          placeholder="e.g. +977 9851363783 or +1 415 555 2671"
                           placeholderTextColor={colors.subtle}
                           keyboardType="phone-pad"
+                          autoCapitalize="none"
                           style={styles.textInputField}
                         />
                       </View>

@@ -1,7 +1,7 @@
 export interface User {
   id: string;
   name: string;
-  email: string;
+  email?: string;
   phone: string;
   avatarUrl?: string;
   role?: 'customer' | 'admin';
@@ -16,15 +16,15 @@ export interface AuthState {
 }
 
 export interface LoginDto {
-  identifier: string; // Email or Phone number
+  identifier: string; // Phone number
   password: string;
 }
 
 export interface RegisterDto {
   name: string;
-  email: string;
   phone: string;
   password: string;
+  email?: string; // Optional: can be added in profile
 }
 
 export interface ForgotPasswordDto {

@@ -2,31 +2,60 @@ import { describe, expect, it } from '@jest/globals';
 import {
   bookingZodSchema,
   isValidNepalPhone,
+  isValidPhone,
   normalizeNepalPhone,
+  normalizePhone,
   parseBooking,
 } from '../src/validation.js';
 
-describe('Nepal Phone Validation', () => {
-  it('validates mobile numbers (98XXXXXXXX and 97XXXXXXXX)', () => {
-    expect(isValidNepalPhone('9851363783')).toBe(true);
-    expect(isValidNepalPhone('9779851363783')).toBe(true);
-    expect(isValidNepalPhone('+977 985-1363783')).toBe(true);
-    expect(isValidNepalPhone('9741234567')).toBe(true);
+describe('Phone Validation & Normalization', () => {
+  describe('Nepal Phone Specifics', () => {
+    it('validates mobile numbers (98XXXXXXXX and 97XXXXXXXX)', () => {
+      expect(isValidNepalPhone('9851363783')).toBe(true);
+      expect(isValidNepalPhone('9779851363783')).toBe(true);
+      expect(isValidNepalPhone('+977 985-1363783')).toBe(true);
+      expect(isValidNepalPhone('9741234567')).toBe(true);
+    });
+
+    it('validates Kathmandu landline numbers (01XXXXXXX)', () => {
+      expect(isValidNepalPhone('014412345')).toBe(true);
+      expect(isValidNepalPhone('977014412345')).toBe(true);
+    });
+
+    it('rejects invalid or too-short phone numbers', () => {
+      expect(isValidNepalPhone('12345')).toBe(false);
+      expect(isValidNepalPhone('8881234567')).toBe(false);
+      expect(isValidNepalPhone('985136378')).toBe(false); // only 9 digits
+    });
+
+    it('normalizes formatting characters', () => {
+      expect(normalizeNepalPhone('+977 (985) 136-3783')).toBe('9779851363783');
+    });
   });
 
-  it('validates Kathmandu landline numbers (01XXXXXXX)', () => {
-    expect(isValidNepalPhone('014412345')).toBe(true);
-    expect(isValidNepalPhone('977014412345')).toBe(true);
-  });
+  describe('International Phone Validation', () => {
+    it('validates international phone numbers from different countries', () => {
+      expect(isValidPhone('+1 415 555 2671')).toBe(true); // USA
+      expect(isValidPhone('+91 9876543210')).toBe(true); // India
+      expect(isValidPhone('+44 7911 123456')).toBe(true); // UK
+      expect(isValidPhone('+61 412 345 678')).toBe(true); // Australia
+      expect(isValidPhone('+81 90 1234 5678')).toBe(true); // Japan
+      expect(isValidPhone('+977 9851363783')).toBe(true); // Nepal
+      expect(isValidPhone('9851363783')).toBe(true); // Local Nepal
+      expect(isValidPhone('014412345')).toBe(true); // Nepal landline
+    });
 
-  it('rejects invalid or too-short phone numbers', () => {
-    expect(isValidNepalPhone('12345')).toBe(false);
-    expect(isValidNepalPhone('8881234567')).toBe(false);
-    expect(isValidNepalPhone('985136378')).toBe(false); // only 9 digits
-  });
+    it('rejects numbers that are too short or invalid', () => {
+      expect(isValidPhone('12345')).toBe(false);
+      expect(isValidPhone('+1')).toBe(false);
+      expect(isValidPhone('')).toBe(false);
+    });
 
-  it('normalizes formatting characters', () => {
-    expect(normalizeNepalPhone('+977 (985) 136-3783')).toBe('9779851363783');
+    it('normalizes international numbers preserving leading plus', () => {
+      expect(normalizePhone('+1 (415) 555-2671')).toBe('+14155552671');
+      expect(normalizePhone('+977 985-1363783')).toBe('+9779851363783');
+      expect(normalizePhone('9851363783')).toBe('9851363783');
+    });
   });
 });
 
@@ -36,9 +65,9 @@ describe('Booking Zod Validation & Honeypot', () => {
 
   it('successfully parses valid one-way booking', () => {
     const raw = {
-      full_name: 'Aarav Sharma',
+      full_name: 'Samman Chhetri',
       phone_number: '9851363783',
-      email: 'aarav@drivekendra.com',
+      email: 'samman@drivekendra.com',
       pickup_location: 'Kathmandu',
       dropoff_location: 'Pokhara',
       pickup_date: tomorrow,
@@ -49,7 +78,7 @@ describe('Booking Zod Validation & Honeypot', () => {
     };
 
     const parsed = parseBooking(raw);
-    expect(parsed.full_name).toBe('Aarav Sharma');
+    expect(parsed.full_name).toBe('Samman Chhetri');
     expect(parsed.trip_type).toBe('One Way');
     expect(parsed.vehicle_type_id).toBe(2);
     expect(parsed.return_date).toBeNull();
@@ -57,7 +86,7 @@ describe('Booking Zod Validation & Honeypot', () => {
 
   it('successfully parses pickup date containing departure time (e.g. 07:00 AM)', () => {
     const raw = {
-      full_name: 'Aarav Sharma',
+      full_name: 'Samman Chhetri',
       phone_number: '9851363783',
       pickup_location: 'Kathmandu',
       dropoff_location: 'Pokhara',
@@ -74,7 +103,7 @@ describe('Booking Zod Validation & Honeypot', () => {
 
   it('successfully parses valid round-trip booking', () => {
     const raw = {
-      full_name: 'Suman Shrestha',
+      full_name: 'Rajesh KC',
       phone_number: '9841234567',
       pickup_location: 'Kathmandu',
       dropoff_location: 'Chitwan',
@@ -88,6 +117,23 @@ describe('Booking Zod Validation & Honeypot', () => {
     const parsed = parseBooking(raw);
     expect(parsed.trip_type).toBe('Round Trip');
     expect(parsed.return_date).not.toBeNull();
+  });
+
+  it('successfully parses booking with international phone number', () => {
+    const raw = {
+      full_name: 'John Doe',
+      phone_number: '+1 (415) 555-2671',
+      pickup_location: 'Tribhuvan International Airport',
+      dropoff_location: 'Thamel, Kathmandu',
+      pickup_date: tomorrow,
+      passenger_count: 2,
+      trip_type: 'One Way',
+      vehicle_type_id: 1,
+    };
+
+    const parsed = parseBooking(raw);
+    expect(parsed.phone_number).toBe('+14155552671');
+    expect(parsed.full_name).toBe('John Doe');
   });
 
   it('rejects submissions with filled honeypot', () => {
@@ -108,7 +154,7 @@ describe('Booking Zod Validation & Honeypot', () => {
 
   it('rejects round trip missing return date', () => {
     const invalidRound = {
-      full_name: 'Aarav',
+      full_name: 'Samman',
       phone_number: '9851363783',
       pickup_location: 'Kathmandu',
       dropoff_location: 'Pokhara',

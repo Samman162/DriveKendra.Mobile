@@ -93,13 +93,14 @@ export function OnboardingScreen({ navigation }: Props) {
   const handleFinish = async () => {
     hapticFeedback.success();
     await setCompletedOnboarding();
-    navigation.reset({
-      index: 1,
-      routes: [
-        { name: 'MainTabs' },
-        { name: 'Auth', params: { initialMode: 'signin' } },
-      ],
-    });
+    if (navigation.canGoBack?.()) {
+      navigation.goBack();
+    } else {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Auth', params: { initialMode: 'signin' } }],
+      });
+    }
   };
 
   const goToSlide = (index: number) => {

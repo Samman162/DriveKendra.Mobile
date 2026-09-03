@@ -59,23 +59,18 @@ export function SocialAuthButtons({
         <View style={styles.demoBox}>
           <View style={styles.demoHeader}>
             <KeyRound size={14} color={colors.highlight} />
-            <Text style={styles.demoTitle}>Quick Demo Logins</Text>
+            <Text style={styles.demoTitle}>Quick Demo Login</Text>
           </View>
           <View style={styles.demoButtonsRow}>
             <Pressable
-              onPress={() => onQuickDemoFill('aarav@drivekendra.com', 'password123')}
+              onPress={() => onQuickDemoFill('+977 9851363783', 'password123')}
               style={({ pressed }) => [styles.demoChip, pressed && styles.btnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Quick fill demo credentials for Samman Chhetri"
+              testID="demo-login-samman-btn"
             >
-              <Sparkles size={12} color={colors.accent} style={{ marginRight: 4 }} />
-              <Text style={styles.demoChipText}>Aarav (Customer)</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => onQuickDemoFill('suman@drivekendra.com', 'password123')}
-              style={({ pressed }) => [styles.demoChip, pressed && styles.btnPressed]}
-            >
-              <Sparkles size={12} color={colors.accent} style={{ marginRight: 4 }} />
-              <Text style={styles.demoChipText}>Suman (VIP)</Text>
+              <Sparkles size={14} color={colors.accent} style={{ marginRight: 6 }} />
+              <Text style={styles.demoChipText}>Samman Chhetri (Customer)</Text>
             </Pressable>
           </View>
         </View>
@@ -161,8 +156,8 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 8,
+      paddingVertical: 10,
+      paddingHorizontal: spacing.md,
       borderRadius: radius.sm,
       backgroundColor: colors.surface,
       borderWidth: 1,
@@ -170,7 +165,7 @@ function createStyles(colors: ThemeColors) {
     },
     demoChipText: {
       color: colors.text,
-      fontSize: 12,
+      fontSize: 13,
       fontWeight: '600',
     },
   });

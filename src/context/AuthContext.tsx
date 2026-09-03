@@ -17,6 +17,7 @@ import {
 } from '../api/auth';
 import type { LoginDto, RegisterDto, ResetPasswordDto, User } from '../types/auth';
 import { secureStorage } from '../utils/secureStorage';
+import { clearOfflineVouchers } from '../utils/offlineVoucherStorage';
 
 type AuthContextType = {
   user: User | null;
@@ -215,7 +216,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setRefreshToken(null);
       setIsBiometricLocked(false);
-      await secureStorage.clearAuthCredentials();
+      await Promise.all([
+        secureStorage.clearAuthCredentials(),
+        clearOfflineVouchers(),
+      ]);
     } finally {
       setIsLoading(false);
     }

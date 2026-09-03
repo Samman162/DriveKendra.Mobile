@@ -40,21 +40,23 @@ const DEFAULT_TOURIST_POLICE = '1144';
  * Format a trip record into a persistent offline voucher with emergency metadata
  */
 export function formatToOfflineVoucher(trip: any): OfflineVoucher {
+  const ref = String(trip.bookingRef || 'DK-REF');
+  const refDigits = ref.replace(/\D/g, '') || '0000';
   return {
     id: String(trip.id || `trip_${Date.now()}`),
-    bookingRef: String(trip.bookingRef || 'DK-2026-8492'),
-    pickup: String(trip.pickup || 'Kathmandu'),
-    dropoff: String(trip.dropoff || 'Pokhara'),
-    date: String(trip.date || 'Today'),
-    time: String(trip.time || '7:00 AM'),
+    bookingRef: ref,
+    pickup: String(trip.pickup || ''),
+    dropoff: String(trip.dropoff || ''),
+    date: String(trip.date || ''),
+    time: String(trip.time || ''),
     tripType: trip.tripType || 'One Way',
     passengerCount: trip.passengerCount ?? 1,
-    vehicleName: String(trip.vehicleName || 'Mahindra Scorpio 4x4 (AC)'),
-    vehiclePlate: String(trip.vehiclePlate || 'Ba 2 Cha 8492'),
-    fare: String(trip.fare || 'NPR 12,000'),
+    vehicleName: String(trip.vehicleName || 'Vehicle'),
+    vehiclePlate: String(trip.vehiclePlate || 'TBD'),
+    fare: String(trip.fare || 'NPR 0'),
     status: trip.status || 'confirmed',
     cachedAt: new Date().toISOString(),
-    verificationCode: `DK-VERIFY-${(trip.bookingRef || '8492').replace(/\D/g, '') || '8492'}-${Math.floor(1000 + Math.random() * 9000)}`,
+    verificationCode: `DK-VERIFY-${refDigits}-${Math.floor(1000 + Math.random() * 9000)}`,
     emergencyHotline: DEFAULT_EMERGENCY_HOTLINE,
     policeEmergency: DEFAULT_POLICE,
     touristPolice: DEFAULT_TOURIST_POLICE,
@@ -71,7 +73,10 @@ export function formatToOfflineVoucher(trip: any): OfflineVoucher {
  */
 export async function saveOfflineVouchers(trips: any[]): Promise<void> {
   try {
-    if (!trips || trips.length === 0) return;
+    if (!trips || trips.length === 0) {
+      await clearOfflineVouchers();
+      return;
+    }
 
     const vouchers: OfflineVoucher[] = trips.map(formatToOfflineVoucher);
     await AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_VOUCHERS, JSON.stringify(vouchers));
@@ -80,6 +85,8 @@ export async function saveOfflineVouchers(trips: any[]): Promise<void> {
     const active = vouchers.find((v) => v.status === 'confirmed') || vouchers[0];
     if (active) {
       await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_VOUCHER, JSON.stringify(active));
+    } else {
+      await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVE_VOUCHER);
     }
   } catch (error) {
     console.warn('[OfflineVoucher] Failed to save vouchers to AsyncStorage:', error);

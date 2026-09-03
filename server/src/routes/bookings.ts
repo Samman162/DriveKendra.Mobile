@@ -4,6 +4,7 @@ import { withPublicClient } from '../db.js';
 import {
   computeRequestHash,
   HttpError,
+  normalizePhone,
   parseBooking,
 } from '../validation.js';
 
@@ -14,14 +15,44 @@ export const bookingsRoute = new Hono();
  * Retrieve user's booking history by userId or phoneNumber
  */
 bookingsRoute.get('/', async (c) => {
-  const userId = c.req.query('userId');
-  const phoneNumber = c.req.query('phoneNumber');
+  const rawUserId = c.req.query('userId');
+  const rawPhone = c.req.query('phoneNumber');
 
-  if (!userId && !phoneNumber) {
-    throw new HttpError(400, 'Either userId or phoneNumber query parameter is required.');
+  const numericUserId = rawUserId && !isNaN(Number(rawUserId)) ? Number(rawUserId) : null;
+  const phoneNumber = rawPhone ? rawPhone.trim() : null;
+
+  if (!numericUserId && !phoneNumber) {
+    throw new HttpError(400, 'Either a valid numeric userId or phoneNumber query parameter is required.');
   }
 
+  const cleanPhone = phoneNumber ? normalizePhone(phoneNumber) : '';
+  const rawDigits = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
+  const last10 = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
+
   const result = await withPublicClient(async (client) => {
+    let whereClause: string;
+    let params: any[];
+
+    if (numericUserId && phoneNumber) {
+      whereClause = `b.user_id = $1
+         OR u.phone_number = $2
+         OR u.phone_number = $3
+         OR REPLACE(u.phone_number, ' ', '') = $3
+         OR REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g') = $4
+         OR ($5::text != '' AND RIGHT(REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g'), 10) = $5)`;
+      params = [numericUserId, phoneNumber, cleanPhone, rawDigits, last10.length === 10 ? last10 : ''];
+    } else if (numericUserId) {
+      whereClause = `b.user_id = $1`;
+      params = [numericUserId];
+    } else {
+      whereClause = `u.phone_number = $1
+         OR u.phone_number = $2
+         OR REPLACE(u.phone_number, ' ', '') = $2
+         OR REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g') = $3
+         OR ($4::text != '' AND RIGHT(REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g'), 10) = $4)`;
+      params = [phoneNumber!, cleanPhone, rawDigits, last10.length === 10 ? last10 : ''];
+    }
+
     return await client.query<{
       booking_id: number;
       user_id: number;
@@ -48,9 +79,9 @@ bookingsRoute.get('/', async (c) => {
        FROM dka_bookings b
        JOIN dka_users u ON b.user_id = u.user_id
        LEFT JOIN dka_vehicle_types vt ON b.vehicle_type_id = vt.vehicle_type_id
-       WHERE ${userId ? 'b.user_id = $1' : 'u.phone_number = $1'}
+       WHERE ${whereClause}
        ORDER BY b.created_at DESC`,
-      [userId ? Number(userId) : phoneNumber],
+      params,
     );
   });
 

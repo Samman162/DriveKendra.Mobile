@@ -132,7 +132,6 @@ ON CONFLICT (vehicle_type_id) DO NOTHING;
 
 INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_active, is_verified)
 VALUES
-    ('Aarav Sharma', '+977 9851363783', 'aarav@drivekendra.com', '$2b$10$demoHashedPasswordAarav1234567890', 'customer', TRUE, TRUE),
-    ('Suman Thapa', '+977 9841234567', 'suman@drivekendra.com', '$2b$10$demoHashedPasswordSuman1234567890', 'customer', TRUE, TRUE),
+    ('Samman Chhetri', '+977 9851363783', 'samman@drivekendra.com', '$2b$10$demoHashedPasswordSamman1234567890', 'customer', TRUE, TRUE),
     ('Drive Kendra Admin', '+977 9801000000', 'admin@drivekendra.com', '$2b$10$demoHashedPasswordAdmin1234567890', 'admin', TRUE, TRUE)
 ON CONFLICT (phone_number) DO NOTHING;

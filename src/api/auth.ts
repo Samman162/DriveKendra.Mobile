@@ -4,18 +4,10 @@ import type { AuthResponse, ForgotPasswordDto, LoginDto, RegisterDto, ResetPassw
 // In-memory demo store fallback for seamless testing
 const DEMO_USERS: User[] = [
   {
-    id: 'usr_demo_1',
-    name: 'Aarav Sharma',
-    email: 'aarav@drivekendra.com',
+    id: 'usr_demo_samman',
+    name: 'Samman Chhetri',
+    email: 'samman@drivekendra.com',
     phone: '+977 9851363783',
-    role: 'customer',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'usr_demo_2',
-    name: 'Suman Shrestha',
-    email: 'suman@drivekendra.com',
-    phone: '+977 9841234567',
     role: 'customer',
     createdAt: new Date().toISOString(),
   },
@@ -27,20 +19,37 @@ export async function loginUser(dto: LoginDto): Promise<AuthResponse> {
     return response.data;
   } catch (err: any) {
     // If backend is unreachable or not yet migrated, provide smooth fallback for demo
-    const cleanId = dto.identifier.trim().toLowerCase();
+    const cleanId = dto.identifier.trim();
     if (dto.password.length < 6) {
       throw new Error('Password must be at least 6 characters.');
     }
     
-    const matched = DEMO_USERS.find(
-      (u) => u.email.toLowerCase() === cleanId || u.phone.replace(/[\s-+]/g, '').includes(cleanId.replace(/[\s-+]/g, '')),
-    );
+    const isEmail = cleanId.includes('@');
+    const idDigits = cleanId.replace(/\D/g, '');
+    const idLast10 = idDigits.length >= 10 ? idDigits.slice(-10) : idDigits;
+
+    const matched = DEMO_USERS.find((u) => {
+      if (isEmail && u.email) {
+        return u.email.toLowerCase() === cleanId.toLowerCase();
+      }
+      const uDigits = u.phone.replace(/\D/g, '');
+      const uLast10 = uDigits.length >= 10 ? uDigits.slice(-10) : uDigits;
+      if (u.phone.replace(/[\s-+]/g, '') === cleanId.replace(/[\s-+]/g, '')) {
+        return true;
+      }
+      if (idLast10.length === 10 && uLast10 === idLast10) {
+        return true;
+      }
+      if (idDigits.length >= 7 && (uDigits === idDigits || uDigits.endsWith(idDigits) || idDigits.endsWith(uDigits))) {
+        return true;
+      }
+      return false;
+    });
 
     const user: User = matched || {
       id: `usr_${Date.now()}`,
-      name: cleanId.includes('@') ? cleanId.split('@')[0].replace('.', ' ') : 'Drive Kendra Member',
-      email: cleanId.includes('@') ? cleanId : `${cleanId}@drivekendra.com`,
-      phone: cleanId.includes('@') ? '+977 9851363783' : cleanId,
+      name: 'Drive Kendra Member',
+      phone: cleanId,
       role: 'customer',
       createdAt: new Date().toISOString(),
     };
@@ -62,7 +71,7 @@ export async function registerUser(dto: RegisterDto): Promise<AuthResponse> {
     const user: User = {
       id: `usr_${Date.now()}`,
       name: dto.name.trim(),
-      email: dto.email.trim().toLowerCase(),
+      email: dto.email ? dto.email.trim().toLowerCase() : undefined,
       phone: dto.phone.trim(),
       role: 'customer',
       createdAt: new Date().toISOString(),

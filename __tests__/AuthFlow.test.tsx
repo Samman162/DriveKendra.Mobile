@@ -1,6 +1,6 @@
 import { secureStorage } from '../src/utils/secureStorage';
 import { offlineQueue } from '../src/api/offlineQueue';
-import { isValidNepalPhone, normalizeNepalPhone } from '../src/utils/phone';
+import { isValidNepalPhone, isValidPhone, normalizeNepalPhone, normalizePhone } from '../src/utils/phone';
 
 describe('State, Security & Storage Test Suite', () => {
   beforeEach(async () => {
@@ -41,10 +41,31 @@ describe('State, Security & Storage Test Suite', () => {
     });
   });
 
+  describe('International Phone Formatting & Validation', () => {
+    it('accepts valid phone numbers from various countries', () => {
+      expect(isValidPhone('+1 415 555 2671')).toBe(true); // USA
+      expect(isValidPhone('+91 9876543210')).toBe(true); // India
+      expect(isValidPhone('+44 7911 123456')).toBe(true); // UK
+      expect(isValidPhone('+61 412 345 678')).toBe(true); // Australia
+      expect(isValidPhone('+977 9851363783')).toBe(true); // Nepal with country code
+      expect(isValidPhone('9851363783')).toBe(true); // Nepal mobile local
+    });
+
+    it('rejects numbers with invalid lengths', () => {
+      expect(isValidPhone('12345')).toBe(false);
+      expect(isValidPhone('+1')).toBe(false);
+    });
+
+    it('normalizes international numbers correctly', () => {
+      expect(normalizePhone('+1 (415) 555-2671')).toBe('+14155552671');
+      expect(normalizePhone('+977 985-1363783')).toBe('+9779851363783');
+    });
+  });
+
   describe('Offline Booking Queue & Network Resilience', () => {
     it('enqueues pending bookings and flushes successfully when back online', async () => {
       const mockBooking = {
-        full_name: 'Aarav Sharma',
+        full_name: 'Samman Chhetri',
         phone_number: '9851363783',
         pickup_location: 'Kathmandu',
         dropoff_location: 'Pokhara',
@@ -59,7 +80,7 @@ describe('State, Security & Storage Test Suite', () => {
 
       const queue = await offlineQueue.getQueue();
       expect(queue.length).toBe(1);
-      expect(queue[0].payload.full_name).toBe('Aarav Sharma');
+      expect(queue[0].payload.full_name).toBe('Samman Chhetri');
 
       const mockSubmit = jest.fn().mockResolvedValue({ message: 'Success' });
       const result = await offlineQueue.flush(mockSubmit);
