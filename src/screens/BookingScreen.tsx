@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -23,16 +23,13 @@ import {
   ChevronRight,
   CreditCard,
   FileText,
-  Info,
   MapPin,
   Minus,
-  Navigation as NavigationIcon,
+  Phone,
   Plus,
-  Search,
   ShieldCheck,
   Sparkles,
   Users,
-  X,
 } from 'lucide-react-native';
 
 import { submitBooking } from '../api/bookings';
@@ -107,7 +104,7 @@ export function BookingScreen({
   isModal,
   initialParams,
 }: BookingScreenProps = {}) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -314,20 +311,60 @@ export function BookingScreen({
   };
 
   const selectedVehicleObj = VEHICLE_TYPES.find((v) => v.id === form.vehicle_type_id);
-  const selectedVehicleLabel = selectedVehicleObj ? selectedVehicleObj.name : 'Preferred Vehicle Type';
+  const selectedVehicleLabel = selectedVehicleObj ? selectedVehicleObj.name : 'Select Vehicle Category';
+  const canGoBack = Boolean(isModal || onClose || navigation.canGoBack());
 
   return (
     <Screen scroll={false} padded={false}>
-      {/* MINIMAL TOP NAV BAR */}
+      {/* BALANCED TOP HEADER BAR */}
       <View style={styles.topNavRow}>
-        <Pressable
-          onPress={handleDismiss}
-          style={styles.backArrowBtn}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <ArrowLeft size={20} color={colors.text} />
-        </Pressable>
+        <View style={styles.headerLeftCol}>
+          {canGoBack ? (
+            <Pressable
+              onPress={handleDismiss}
+              style={styles.backArrowBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <ArrowLeft size={18} color={colors.text} />
+            </Pressable>
+          ) : (
+            <View style={styles.headerBrandingBadge}>
+              <Car size={18} color={colors.accent} />
+            </View>
+          )}
+        </View>
+
+        <View style={styles.headerCenterWrap}>
+          <Text style={styles.headerTitle}>Reserve a Vehicle</Text>
+        </View>
+
+        <View style={styles.headerRightCol}>
+          <Pressable
+            onPress={() => {
+              hapticFeedback.light();
+              Alert.alert(
+                '24/7 Kathmandu Dispatch',
+                `Need immediate assistance or custom route arrangements?\n\nCall our 24/7 operations desk at ${CONTACT_INFO.phoneDisplay}.`,
+                [
+                  { text: 'Close', style: 'cancel' },
+                  {
+                    text: 'Call Desk',
+                    onPress: () => {
+                      Linking.openURL(CONTACT_INFO.telLink).catch(() => { });
+                    },
+                  },
+                ]
+              );
+            }}
+            style={styles.headerHelpBtn}
+            accessibilityRole="button"
+            accessibilityLabel="24/7 Support Desk"
+          >
+            <Phone size={12} color={colors.accent} />
+            <Text style={styles.headerHelpText}>24/7 Help</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -344,22 +381,30 @@ export function BookingScreen({
           </View>
         ) : null}
 
-        {/* MAIN SLEEK FORM CARD (CENTERED) */}
+        {/* MAIN SLEEK FORM CARD */}
         <View style={styles.mainFormCard}>
-          {/* TRIP TYPE RADIO PILLS */}
-          <View style={styles.tripRadioRow}>
+          {/* TRIP TYPE SEGMENTED PILL */}
+          <View style={styles.tripSegmentRow}>
             {(['One Way', 'Return'] as const).map((modeOption) => {
               const isSelected = selectedTripMode === modeOption;
               return (
                 <Pressable
                   key={modeOption}
                   onPress={() => handleTripModeChange(modeOption)}
-                  style={styles.radioOption}
+                  style={[
+                    styles.tripSegmentBtn,
+                    isSelected && styles.tripSegmentBtnActive,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${modeOption} trip`}
+                  accessibilityState={{ selected: isSelected }}
                 >
-                  <View style={[styles.radioCircle, isSelected && styles.radioCircleActive]}>
-                    {isSelected && <View style={styles.radioDot} />}
-                  </View>
-                  <Text style={[styles.radioLabel, isSelected && styles.radioLabelActive]}>
+                  <Text
+                    style={[
+                      styles.tripSegmentBtnText,
+                      isSelected && styles.tripSegmentBtnTextActive,
+                    ]}
+                  >
                     {modeOption}
                   </Text>
                 </Pressable>
@@ -367,8 +412,8 @@ export function BookingScreen({
             })}
           </View>
 
-          {/* PICKUP & DESTINATION CONNECTED TRACK */}
-          <View style={styles.routeContainer}>
+          {/* PICKUP & DESTINATION CONNECTED TRACK CARD */}
+          <View style={styles.routeCard}>
             {/* Left Track Graphic */}
             <View style={styles.routeTrackCol}>
               <View style={styles.pickupCircleRing} />
@@ -377,7 +422,7 @@ export function BookingScreen({
                 <View style={styles.dot} />
                 <View style={styles.dot} />
               </View>
-              <MapPin size={18} color="#EF4444" style={styles.destPinIcon} />
+              <MapPin size={16} color={colors.error} style={styles.destPinIcon} />
             </View>
 
             {/* Right Input Fields */}
@@ -385,11 +430,14 @@ export function BookingScreen({
               {/* Pickup Row */}
               <Pressable
                 onPress={() => openLocationPicker('pickup')}
-                style={styles.formRowInput}
+                style={({ pressed }) => [
+                  styles.formRowInput,
+                  pressed && styles.rowInputPressed,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Select Pickup Location"
               >
-                <Text style={styles.fieldSubLabel}>Pickup Location</Text>
+                <Text style={styles.fieldSubLabel}>PICKUP LOCATION</Text>
                 <Text
                   style={[
                     styles.fieldMainValue,
@@ -404,16 +452,19 @@ export function BookingScreen({
                 <Text style={styles.rowErrorText}>{errors.pickup_location}</Text>
               ) : null}
 
-              <View style={styles.rowDivider} />
+              <View style={styles.routeDivider} />
 
               {/* Destination Row */}
               <Pressable
                 onPress={() => openLocationPicker('dropoff')}
-                style={styles.formRowInput}
+                style={({ pressed }) => [
+                  styles.formRowInput,
+                  pressed && styles.rowInputPressed,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Select Destination Location"
               >
-                <Text style={styles.fieldSubLabel}>Destination Location</Text>
+                <Text style={styles.fieldSubLabel}>DESTINATION LOCATION</Text>
                 <Text
                   style={[
                     styles.fieldMainValue,
@@ -430,12 +481,18 @@ export function BookingScreen({
             </View>
 
             {/* Swap Button on Right */}
-            <Pressable onPress={swapLocations} style={styles.swapBtn} accessibilityLabel="Swap Route">
+            <Pressable
+              onPress={swapLocations}
+              style={({ pressed }) => [
+                styles.swapBtn,
+                pressed && styles.swapBtnPressed,
+              ]}
+              accessibilityLabel="Swap Route"
+              accessibilityRole="button"
+            >
               <ArrowUpDown size={14} color={colors.accent} />
             </Pressable>
           </View>
-
-          <View style={styles.rowDivider} />
 
           {/* PICKUP DATE & TIME ROW */}
           <Pressable
@@ -444,12 +501,18 @@ export function BookingScreen({
               setDateModalMode('pickup');
               setDateTimeModalVisible(true);
             }}
-            style={styles.linearFormRow}
+            style={({ pressed }) => [
+              styles.linearFormRow,
+              pressed && styles.linearFormRowPressed,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Select Pickup Date and Time"
           >
-            <Calendar size={18} color={colors.muted} style={styles.rowLeftIcon} />
-            <View style={{ flex: 1 }}>
+            <View style={styles.rowIconBadge}>
+              <Calendar size={17} color={colors.accent} />
+            </View>
+            <View style={styles.rowContentWrap}>
+              <Text style={styles.rowSubLabel}>PICKUP SCHEDULE</Text>
               <Text
                 style={[
                   styles.linearRowValue,
@@ -459,7 +522,7 @@ export function BookingScreen({
               >
                 {form.pickup_date
                   ? `${toLocalDateOnly(form.pickup_date)}${form.pickup_time ? ' • ' + form.pickup_time : ''}`
-                  : 'Select Pickup Date'}
+                  : 'Select Pickup Date & Time'}
               </Text>
             </View>
             <ChevronRight size={16} color={colors.subtle} />
@@ -478,12 +541,18 @@ export function BookingScreen({
                   setDateModalMode('return');
                   setDateTimeModalVisible(true);
                 }}
-                style={styles.linearFormRow}
+                style={({ pressed }) => [
+                  styles.linearFormRow,
+                  pressed && styles.linearFormRowPressed,
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel="Select Return Date"
               >
-                <Calendar size={18} color={colors.accent} style={styles.rowLeftIcon} />
-                <View style={{ flex: 1 }}>
+                <View style={[styles.rowIconBadge, styles.rowIconBadgeHighlight]}>
+                  <Calendar size={17} color={colors.highlight} />
+                </View>
+                <View style={styles.rowContentWrap}>
+                  <Text style={styles.rowSubLabel}>RETURN SCHEDULE</Text>
                   <Text
                     style={[
                       styles.linearRowValue,
@@ -506,10 +575,15 @@ export function BookingScreen({
 
           {/* NUMBER OF PASSENGERS ROW */}
           <View style={styles.linearFormRow}>
-            <Users size={18} color={colors.muted} style={styles.rowLeftIcon} />
-            <Text style={styles.linearRowValue}>
-              {form.passenger_count} {form.passenger_count === 1 ? 'Passenger' : 'Passengers'}
-            </Text>
+            <View style={styles.rowIconBadge}>
+              <Users size={17} color={colors.accent} />
+            </View>
+            <View style={styles.rowContentWrap}>
+              <Text style={styles.rowSubLabel}>PASSENGERS</Text>
+              <Text style={styles.linearRowValue}>
+                {form.passenger_count} {form.passenger_count === 1 ? 'Passenger' : 'Passengers'}
+              </Text>
+            </View>
             <View style={styles.inlineStepper}>
               <Pressable
                 onPress={() => {
@@ -518,9 +592,14 @@ export function BookingScreen({
                     update('passenger_count', form.passenger_count - 1);
                   }
                 }}
-                style={styles.stepperBtn}
+                style={({ pressed }) => [
+                  styles.stepperBtn,
+                  pressed && styles.stepperBtnPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Decrease passenger count"
               >
-                <Minus size={14} color={colors.text} />
+                <Minus size={13} color={colors.text} />
               </Pressable>
               <Text style={styles.stepperNum}>{form.passenger_count}</Text>
               <Pressable
@@ -530,9 +609,14 @@ export function BookingScreen({
                     update('passenger_count', form.passenger_count + 1);
                   }
                 }}
-                style={styles.stepperBtn}
+                style={({ pressed }) => [
+                  styles.stepperBtn,
+                  pressed && styles.stepperBtnPressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Increase passenger count"
               >
-                <Plus size={14} color={colors.text} />
+                <Plus size={13} color={colors.text} />
               </Pressable>
             </View>
           </View>
@@ -545,21 +629,36 @@ export function BookingScreen({
               hapticFeedback.selection();
               setVehiclePickerVisible(true);
             }}
-            style={styles.linearFormRow}
+            style={({ pressed }) => [
+              styles.linearFormRow,
+              pressed && styles.linearFormRowPressed,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Preferred Vehicle Type"
           >
-            <Car size={18} color={colors.muted} style={styles.rowLeftIcon} />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.linearRowValue,
-                  !selectedVehicleObj && styles.fieldPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {selectedVehicleLabel}
-              </Text>
+            <View style={styles.rowIconBadge}>
+              <Car size={17} color={colors.accent} />
+            </View>
+            <View style={styles.rowContentWrap}>
+              <Text style={styles.rowSubLabel}>VEHICLE TYPE</Text>
+              <View style={styles.vehicleValueRow}>
+                <Text
+                  style={[
+                    styles.linearRowValue,
+                    !selectedVehicleObj && styles.fieldPlaceholder,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {selectedVehicleLabel}
+                </Text>
+                {selectedVehicleObj && VEHICLE_META[selectedVehicleObj.id] ? (
+                  <View style={styles.selectedTagBadge}>
+                    <Text style={styles.selectedTagText}>
+                      {VEHICLE_META[selectedVehicleObj.id].tag}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
             <ChevronRight size={16} color={colors.subtle} />
           </Pressable>
@@ -571,15 +670,20 @@ export function BookingScreen({
 
           {/* ADDITIONAL DETAILS (OPTIONAL) ROW */}
           <View style={styles.linearFormRow}>
-            <FileText size={18} color={colors.muted} style={styles.rowLeftIcon} />
-            <TextInput
-              value={form.additional_details}
-              onChangeText={(val) => update('additional_details', val)}
-              placeholder="Additional Details (Optional)"
-              placeholderTextColor={colors.subtle}
-              style={styles.inlineTextInput}
-              maxLength={LIMITS.additionalDetails}
-            />
+            <View style={styles.rowIconBadge}>
+              <FileText size={17} color={colors.accent} />
+            </View>
+            <View style={styles.rowContentWrap}>
+              <Text style={styles.rowSubLabel}>TRIP NOTES (OPTIONAL)</Text>
+              <TextInput
+                value={form.additional_details}
+                onChangeText={(val) => update('additional_details', val)}
+                placeholder="Flight details, luggage, child seat..."
+                placeholderTextColor={colors.subtle}
+                style={styles.inlineTextInput}
+                maxLength={LIMITS.additionalDetails}
+              />
+            </View>
           </View>
 
           <View style={styles.rowDivider} />
@@ -591,26 +695,39 @@ export function BookingScreen({
               setTempBudget(budget);
               setBudgetModalVisible(true);
             }}
-            style={styles.linearFormRow}
+            style={({ pressed }) => [
+              styles.linearFormRow,
+              pressed && styles.linearFormRowPressed,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Enter Your Budget"
           >
-            <CreditCard size={18} color={colors.muted} style={styles.rowLeftIcon} />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.linearRowValue,
-                  !budget && styles.fieldPlaceholder,
-                ]}
-                numberOfLines={1}
-              >
-                {budget ? `Your Budget: ${budget}` : 'Your Budget (Optional)'}
-              </Text>
+            <View style={[styles.rowIconBadge, budget ? styles.rowIconBadgeSuccess : undefined]}>
+              <CreditCard size={17} color={budget ? colors.success : colors.accent} />
+            </View>
+            <View style={styles.rowContentWrap}>
+              <Text style={styles.rowSubLabel}>TARGET BUDGET (OPTIONAL)</Text>
+              <View style={styles.budgetValueRow}>
+                <Text
+                  style={[
+                    styles.linearRowValue,
+                    !budget && styles.fieldPlaceholder,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {budget ? budget : 'Custom fare offer in NPR'}
+                </Text>
+                {budget ? (
+                  <View style={styles.budgetConfirmedBadge}>
+                    <Text style={styles.budgetConfirmedText}>Custom Target</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
             <ChevronRight size={16} color={colors.subtle} />
           </Pressable>
 
-          {/* GET OFFER / SUBMIT BUTTON */}
+          {/* GET OFFER / SUBMIT BUTTON & TRUST ROW */}
           <View style={styles.btnWrap}>
             <Pressable
               onPress={onSubmit}
@@ -622,11 +739,22 @@ export function BookingScreen({
               accessibilityLabel="Submit Booking"
             >
               {submitting ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.onAccent} />
               ) : (
-                <Text style={styles.getOfferBtnText}>Submit Booking</Text>
+                <View style={styles.btnInnerContent}>
+                  <Sparkles size={16} color={colors.onAccent} style={styles.btnSparkleIcon} />
+                  <Text style={styles.getOfferBtnText}>Submit Booking Request</Text>
+                </View>
               )}
             </Pressable>
+
+            {/* Reassuring trust micro-indicator */}
+            <View style={styles.trustFooterRow}>
+              <ShieldCheck size={13} color={colors.success} />
+              <Text style={styles.trustFooterText}>
+                No upfront payment required • Free cancellation
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -690,7 +818,7 @@ export function BookingScreen({
                   </View>
 
                   <View style={[styles.vehicleRadioCircle, isSelected && styles.vehicleRadioCircleActive]}>
-                    {isSelected && <Check size={14} color="#FFFFFF" />}
+                    {isSelected && <Check size={14} color={colors.onAccent} />}
                   </View>
                 </View>
 
@@ -941,22 +1069,76 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'space-between',
       paddingHorizontal: spacing.md,
       paddingTop: spacing.xs,
-      paddingBottom: spacing.xs,
+      paddingBottom: spacing.xs + 2,
+    },
+    headerLeftCol: {
+      width: 44,
+      alignItems: 'flex-start',
+      justifyContent: 'center',
     },
     backArrowBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
+      width: 38,
+      height: 38,
+      borderRadius: radius.pill,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
+      shadowOpacity: 0.08,
       shadowRadius: 4,
       elevation: 2,
+    },
+    headerBrandingBadge: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.pill,
+      backgroundColor: colors.accentSoft,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerCenterWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.text,
+      letterSpacing: -0.2,
+    },
+    headerSubtitle: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.subtle,
+      marginTop: 1,
+    },
+    headerRightCol: {
+      width: 68,
+      alignItems: 'flex-end',
+      justifyContent: 'center',
+    },
+    headerHelpBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    headerHelpText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.accent,
+      letterSpacing: 0.2,
     },
     scrollBody: {
       flex: 1,
@@ -973,72 +1155,73 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.surface,
       borderRadius: 24,
       paddingVertical: spacing.md,
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md + 2,
       borderWidth: 1,
       borderColor: colors.border,
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.08,
+      shadowOpacity: 0.1,
       shadowRadius: 16,
       elevation: 4,
     },
-    tripRadioRow: {
+    tripSegmentRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'flex-start',
-      gap: spacing.xl,
-      paddingBottom: spacing.sm + 4,
-      marginBottom: 4,
+      backgroundColor: colors.elevated,
+      borderRadius: radius.pill,
+      padding: 3,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.sm + 2,
     },
-    radioOption: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7,
-    },
-    radioCircle: {
-      width: 18,
-      height: 18,
-      borderRadius: 9,
-      borderWidth: 2,
-      borderColor: colors.subtle,
+    tripSegmentBtn: {
+      flex: 1,
+      paddingVertical: 8,
       alignItems: 'center',
       justifyContent: 'center',
+      borderRadius: radius.pill,
     },
-    radioCircleActive: {
-      borderColor: colors.accent,
+    tripSegmentBtnActive: {
+      backgroundColor: colors.surface,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 4,
+      elevation: 2,
     },
-    radioDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.accent,
-    },
-    radioLabel: {
-      fontSize: 13,
+    tripSegmentBtnText: {
+      fontSize: 12,
       fontWeight: '600',
       color: colors.muted,
     },
-    radioLabelActive: {
+    tripSegmentBtnTextActive: {
+      fontSize: 12,
+      fontWeight: '800',
       color: colors.text,
-      fontWeight: '700',
     },
-    routeContainer: {
+    routeCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: spacing.xs,
+      backgroundColor: colors.elevated,
+      borderRadius: radius.lg,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: spacing.xs + 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.xs,
     },
     routeTrackCol: {
-      width: 24,
+      width: 22,
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingVertical: 6,
+      paddingVertical: 8,
     },
     pickupCircleRing: {
-      width: 14,
-      height: 14,
-      borderRadius: 7,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
       borderWidth: 3,
-      borderColor: '#3B82F6',
+      borderColor: colors.accent,
     },
     dottedLine: {
       height: 24,
@@ -1052,23 +1235,28 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.subtle,
     },
     destPinIcon: {
-      marginTop: 2,
+      marginTop: 1,
     },
     routeInputsCol: {
       flex: 1,
       paddingLeft: spacing.xs,
     },
     formRowInput: {
-      paddingVertical: 6,
+      paddingVertical: 5,
+      borderRadius: radius.sm,
+    },
+    rowInputPressed: {
+      opacity: 0.7,
     },
     fieldSubLabel: {
-      fontSize: 11,
-      fontWeight: '600',
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.6,
       color: colors.subtle,
       marginBottom: 1,
     },
     fieldMainValue: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '700',
       color: colors.text,
     },
@@ -1076,59 +1264,147 @@ function createStyles(colors: ThemeColors) {
       color: colors.subtle,
       fontWeight: '500',
     },
+    routeDivider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 4,
+    },
     swapBtn: {
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: colors.elevated,
+      backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
       marginLeft: spacing.xs,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 3,
+      elevation: 2,
+    },
+    swapBtnPressed: {
+      transform: [{ scale: 0.92 }],
+      backgroundColor: colors.accentSoft,
     },
     rowDivider: {
       height: 1,
       backgroundColor: colors.border,
-      marginVertical: spacing.xs + 2,
+      marginVertical: spacing.xs + 1,
     },
     linearFormRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 8,
+      paddingVertical: 6,
     },
-    rowLeftIcon: {
-      marginRight: 12,
+    linearFormRowPressed: {
+      opacity: 0.75,
+    },
+    rowIconBadge: {
+      width: 34,
+      height: 34,
+      borderRadius: radius.md,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 10,
+    },
+    rowIconBadgeHighlight: {
+      backgroundColor: colors.accentSoft,
+    },
+    rowIconBadgeSuccess: {
+      backgroundColor: colors.successSoft,
+    },
+    rowContentWrap: {
+      flex: 1,
+    },
+    rowSubLabel: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      color: colors.subtle,
+      marginBottom: 1,
     },
     linearRowValue: {
-      fontSize: 14,
-      fontWeight: '600',
+      fontSize: 13,
+      fontWeight: '700',
       color: colors.text,
-      flex: 1,
+    },
+    vehicleValueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+    },
+    selectedTagBadge: {
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: 6,
+      paddingVertical: 1.5,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    selectedTagText: {
+      fontSize: 9,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+    budgetValueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexWrap: 'wrap',
+    },
+    budgetConfirmedBadge: {
+      backgroundColor: colors.successSoft,
+      paddingHorizontal: 6,
+      paddingVertical: 1.5,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    budgetConfirmedText: {
+      fontSize: 9,
+      fontWeight: '700',
+      color: colors.success,
     },
     inlineStepper: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 8,
       backgroundColor: colors.elevated,
       borderRadius: radius.pill,
-      paddingHorizontal: 8,
+      paddingHorizontal: 6,
       paddingVertical: 3,
       borderWidth: 1,
       borderColor: colors.border,
     },
     stepperBtn: {
-      padding: 3,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    stepperBtnPressed: {
+      backgroundColor: colors.accentSoft,
+      transform: [{ scale: 0.9 }],
     },
     stepperNum: {
       fontSize: 13,
       fontWeight: '800',
       color: colors.text,
+      minWidth: 18,
+      textAlign: 'center',
     },
     inlineTextInput: {
-      flex: 1,
-      fontSize: 14,
-      fontWeight: '500',
+      fontSize: 13,
+      fontWeight: '600',
       color: colors.text,
       paddingVertical: 0,
     },
@@ -1139,40 +1415,60 @@ function createStyles(colors: ThemeColors) {
       marginTop: 2,
     },
     btnWrap: {
-      marginTop: spacing.lg,
+      marginTop: spacing.md,
       alignItems: 'center',
     },
     getOfferBtn: {
       backgroundColor: colors.accent,
       borderRadius: radius.pill,
-      paddingVertical: 14,
-      paddingHorizontal: 48,
+      paddingVertical: 13,
+      paddingHorizontal: 24,
       alignItems: 'center',
       justifyContent: 'center',
-      minWidth: 180,
+      width: '100%',
       shadowColor: colors.accent,
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.35,
-      shadowRadius: 10,
-      elevation: 6,
+      shadowOpacity: 0.28,
+      shadowRadius: 8,
+      elevation: 4,
     },
     getOfferBtnPressed: {
       opacity: 0.9,
       transform: [{ scale: 0.98 }],
     },
+    btnInnerContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    btnSparkleIcon: {
+      marginRight: 6,
+    },
     getOfferBtnText: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: colors.onAccent,
+      letterSpacing: -0.2,
+    },
+    trustFooterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginTop: spacing.xs + 2,
+    },
+    trustFooterText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.subtle,
     },
     errorAlert: {
       backgroundColor: colors.errorSoft,
       padding: spacing.sm,
       borderRadius: radius.md,
-      marginBottom: spacing.md,
+      marginBottom: spacing.sm,
     },
     errorAlertText: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600',
       color: colors.error,
       textAlign: 'center',
@@ -1247,7 +1543,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
     },
     vehicleTagTextActive: {
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
     vehicleCardSubtitle: {
       fontSize: 11,
@@ -1314,12 +1610,12 @@ function createStyles(colors: ThemeColors) {
       color: colors.text,
     },
     quickDayChipTextActive: {
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
     dialogDoneBtn: {
       backgroundColor: colors.accent,
       borderRadius: radius.pill,
-      paddingVertical: 14,
+      paddingVertical: 13,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: spacing.md,
@@ -1332,7 +1628,7 @@ function createStyles(colors: ThemeColors) {
     dialogDoneBtnText: {
       fontSize: 15,
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
 
     // Budget Drawer Styles
@@ -1350,7 +1646,7 @@ function createStyles(colors: ThemeColors) {
       borderWidth: 1.5,
       borderColor: colors.accent,
       paddingHorizontal: spacing.sm,
-      height: 52,
+      height: 50,
       marginBottom: spacing.xs,
     },
     budgetCurrencyBadge: {
@@ -1441,7 +1737,7 @@ function createStyles(colors: ThemeColors) {
     budgetSaveBtnText: {
       fontSize: 15,
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
   });
 }

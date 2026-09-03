@@ -10,6 +10,8 @@ if (typeof globalThis !== 'undefined') {
     log: jest.fn(),
     warn: jest.fn(),
     error: jest.fn(),
+    addListener: jest.fn(),
+    removeListeners: jest.fn(),
   };
   if (!(globalThis as any).dispatchEvent) {
     (globalThis as any).dispatchEvent = jest.fn();
