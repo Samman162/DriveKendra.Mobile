@@ -44,12 +44,16 @@ authRoute.post('/login', async (c) => {
   const rawDigits = identifier.replace(/\D/g, '');
   const last10 = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
 
+  const isAdminDemo =
+    (rawDigits === '9800000000' || cleanPhone === '+9779800000000') &&
+    password === 'admin@123';
+
   const isDemoAccount =
-    (rawDigits === '9851363783' ||
+    ((rawDigits === '9851363783' ||
       cleanPhone === '+9779851363783' ||
       identifier.trim() === '+977 9851363783' ||
       identifier.toLowerCase().trim() === 'samman@drivekendra.com') &&
-    password.length >= 6;
+    password.length >= 6) || isAdminDemo;
 
   let user: {
     id: string;
@@ -118,17 +122,31 @@ authRoute.post('/login', async (c) => {
       throw error;
     }
     if (isDemoAccount) {
-      console.warn(
-        '[Auth] Database unavailable; returning seeded demo user session for Samman Chhetri.',
-      );
-      user = {
-        id: '1',
-        name: 'Samman Chhetri',
-        email: 'samman@drivekendra.com',
-        phone: '+977 9851363783',
-        role: 'customer',
-        createdAt: new Date().toISOString(),
-      };
+      if (isAdminDemo) {
+        console.warn(
+          '[Auth] Database unavailable; returning seeded demo admin session for Drive Kendra Admin.',
+        );
+        user = {
+          id: '2',
+          name: 'Drive Kendra Admin',
+          email: 'admin@drivekendra.com',
+          phone: '+977 9800000000',
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+        };
+      } else {
+        console.warn(
+          '[Auth] Database unavailable; returning seeded demo user session for Samman Chhetri.',
+        );
+        user = {
+          id: '1',
+          name: 'Samman Chhetri',
+          email: 'samman@drivekendra.com',
+          phone: '+977 9851363783',
+          role: 'customer',
+          createdAt: new Date().toISOString(),
+        };
+      }
     } else {
       console.error('[Auth] Database connection or query error during login:', error?.message || error);
       throw new HttpError(

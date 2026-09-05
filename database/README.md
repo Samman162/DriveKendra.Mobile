@@ -21,19 +21,21 @@ This directory contains the canonical PostgreSQL database schema, migration patc
 
 ## 📑 Table of Contents
 
-- [Database Architecture (4 Core Tables)](#-database-architecture-4-core-tables)
+- [Database Architecture (6 Core Tables)](#-database-architecture-6-core-tables)
 - [Schema Table Definitions](#-schema-table-definitions)
   - [1. `dka_users`](#1-dka_users)
   - [2. `dka_vehicle_types`](#2-dka_vehicle_types)
-  - [3. `dka_bookings`](#3-dka_bookings)
-  - [4. `dka_idempotency_keys`](#4-dka_idempotency_keys)
+  - [3. `dka_vehicles`](#3-dka_vehicles)
+  - [4. `dka_bookings`](#4-dka_bookings)
+  - [5. `dka_notifications`](#5-dka_notifications)
+  - [6. `dka_idempotency_keys`](#6-dka_idempotency_keys)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
 - [Seed Data (Pre-configured Catalog & Accounts)](#-seed-data-pre-configured-catalog--accounts)
 - [Initializing Database from Scratch](#-initializing-database-from-scratch)
 
 ---
 
-## 🏗 Database Architecture (4 Core Tables)
+## 🏗 Database Architecture (6 Core Tables)
 
 ```
                        ┌─────────────────────────┐
@@ -41,9 +43,14 @@ This directory contains the canonical PostgreSQL database schema, migration patc
                        └───────────┬─────────────┘
                                    │ 1:N
                                    ▼
-┌─────────────────┐ 1:N   ┌─────────────────┐
-│    dka_users    ├──────►│  dka_bookings   │
-└────────┬────────┘       └─────────────────┘
+                       ┌─────────────────────────┐
+                       │      dka_vehicles       │
+                       └───────────┬─────────────┘
+                                   │ 1:N
+                                   ▼
+┌─────────────────┐ 1:N   ┌─────────────────┐ 1:N   ┌───────────────────┐
+│    dka_users    ├──────►│  dka_bookings   ├──────►│ dka_notifications │
+└────────┬────────┘       └─────────────────┘       └───────────────────┘
          │ 1:N
          ▼
 ┌──────────────────────┐
@@ -87,7 +94,26 @@ Lookup catalog defining categories of vehicles available for booking.
 
 ---
 
-### 3. `dka_bookings`
+### 3. `dka_vehicles`
+Fleet inventory tracking with real-time assignment and maintenance state.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `vehicle_id` | `SERIAL` | `PRIMARY KEY` | Unique vehicle ID |
+| `vehicle_type_id` | `INTEGER` | `REFERENCES dka_vehicle_types ON DELETE SET NULL` | Linked catalog type |
+| `model` | `VARCHAR(100)` | `NOT NULL` | e.g. Mahindra Scorpio S11 4x4 |
+| `registration_plate` | `VARCHAR(50)` | `UNIQUE NOT NULL` | Vehicle license plate (e.g. `BA 2 PA 4521`) |
+| `category` | `VARCHAR(50)` | `NOT NULL` | `SUV`, `Sedan`, `HiAce`, `Bus` |
+| `seats` | `INTEGER` | `NOT NULL DEFAULT 4` | Passenger capacity |
+| `fuel_type` | `VARCHAR(30)` | `NOT NULL DEFAULT 'Diesel'` | `Diesel`, `Petrol`, `EV` |
+| `image_url` | `TEXT` | | Vehicle photo URL |
+| `status` | `VARCHAR(30)` | `NOT NULL DEFAULT 'available'` | `available`, `assigned`, `in_transit`, `maintenance` |
+| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp (Auto-updated via trigger) |
+
+---
+
+### 4. `dka_bookings`
 Primary trip and vehicle booking records with vehicle assignment tracking.
 
 | Column | Type | Constraints | Description |
@@ -95,6 +121,7 @@ Primary trip and vehicle booking records with vehicle assignment tracking.
 | `booking_id` | `SERIAL` | `PRIMARY KEY` | Reservation ID |
 | `user_id` | `INTEGER` | `NOT NULL REFERENCES dka_users(user_id) ON DELETE CASCADE` | Linked user/traveler |
 | `vehicle_type_id` | `INTEGER` | `REFERENCES dka_vehicle_types ON DELETE SET NULL` | Chosen vehicle category |
+| `assigned_vehicle_id` | `INTEGER` | `REFERENCES dka_vehicles ON DELETE SET NULL` | Assigned fleet vehicle |
 | `pickup_location` | `VARCHAR(255)` | `NOT NULL` | Origin address or landmark |
 | `dropoff_location` | `VARCHAR(255)` | `NOT NULL` | Destination address or landmark |
 | `pickup_date` | `TIMESTAMPTZ` | `NOT NULL` | Departure date & timestamp |
@@ -104,6 +131,7 @@ Primary trip and vehicle booking records with vehicle assignment tracking.
 | `trip_type` | `VARCHAR(50)` | `NOT NULL DEFAULT 'One Way'` | `One Way` or `Round Trip` |
 | `estimated_fare` | `VARCHAR(50)` | | Target budget or quoted fare (e.g. `NPR 12,000`) |
 | `additional_details` | `TEXT` | | Special instructions & luggage notes |
+| `rejection_reason` | `TEXT` | | Stated reason when booking cancelled/rejected |
 | `booking_status` | `VARCHAR(50)` | `NOT NULL DEFAULT 'Pending'` | `Pending`, `Confirmed`, `Completed`, `Cancelled` |
 | `assigned_vehicle_plate` | `VARCHAR(50)` | | Vehicle number plate |
 | `assigned_vehicle_model` | `VARCHAR(100)` | | Vehicle model / trim details |
@@ -112,7 +140,23 @@ Primary trip and vehicle booking records with vehicle assignment tracking.
 
 ---
 
-### 4. `dka_idempotency_keys`
+### 5. `dka_notifications`
+Dispatched customer trip notifications and approval alerts.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `notification_id` | `SERIAL` | `PRIMARY KEY` | Unique notification ID |
+| `user_id` | `INTEGER` | `NOT NULL REFERENCES dka_users ON DELETE CASCADE` | Recipient user |
+| `booking_id` | `INTEGER` | `REFERENCES dka_bookings ON DELETE CASCADE` | Related booking |
+| `title` | `VARCHAR(255)` | `NOT NULL` | Notification title |
+| `message` | `TEXT` | `NOT NULL` | Notification body |
+| `type` | `VARCHAR(50)` | `NOT NULL DEFAULT 'booking_update'` | Event classification |
+| `is_read` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | Read status |
+| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp |
+
+---
+
+### 6. `dka_idempotency_keys`
 Prevents duplicate transactions when mobile clients retry on unstable mountain cellular networks.
 
 | Column | Type | Constraints | Description |

@@ -6,6 +6,7 @@ import { cors } from 'hono/cors';
 config();
 
 const { pingDatabase } = await import('./db.js');
+const { adminRoute } = await import('./routes/admin.js');
 const { authRoute } = await import('./routes/auth.js');
 const { bookingsRoute } = await import('./routes/bookings.js');
 const { usersRoute } = await import('./routes/users.js');
@@ -45,6 +46,7 @@ app.get('/health', async (c) => {
   });
 });
 
+app.route('/api/admin', adminRoute);
 app.route('/api/auth', authRoute);
 app.route('/api/bookings', bookingsRoute);
 app.route('/api/users', usersRoute);

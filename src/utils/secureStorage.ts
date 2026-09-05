@@ -10,6 +10,8 @@ export const SECURE_STORAGE_KEYS = {
   REFRESH_TOKEN: 'drivekendra_jwt_refresh_token',
   USER_META: 'drivekendra_user_meta',
   BIOMETRIC_ENABLED: 'drivekendra_biometric_enabled',
+  ADMIN_ACCESS_TOKEN: 'drivekendra_admin_jwt_access_token',
+  ADMIN_SESSION_META: 'drivekendra_admin_session_meta',
 } as const;
 
 /**
@@ -142,6 +144,54 @@ export const secureStorage = {
       this.removeItem(SECURE_STORAGE_KEYS.ACCESS_TOKEN),
       this.removeItem(SECURE_STORAGE_KEYS.REFRESH_TOKEN),
       this.removeItem(SECURE_STORAGE_KEYS.USER_META),
+    ]);
+  },
+
+  // =========================================================================
+  // ISOLATED ADMIN CREDENTIAL & SESSION HELPERS
+  // =========================================================================
+
+  /**
+   * Get hardware-secured Admin JWT token
+   */
+  async getAdminAccessToken(): Promise<string | null> {
+    return await this.getItem(SECURE_STORAGE_KEYS.ADMIN_ACCESS_TOKEN);
+  },
+
+  /**
+   * Set hardware-secured Admin JWT token
+   */
+  async setAdminAccessToken(token: string): Promise<void> {
+    await this.setItem(SECURE_STORAGE_KEYS.ADMIN_ACCESS_TOKEN, token);
+  },
+
+  /**
+   * Get encrypted admin session metadata
+   */
+  async getAdminUserData<T = any>(): Promise<T | null> {
+    const raw = await this.getItem(SECURE_STORAGE_KEYS.ADMIN_SESSION_META);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Set encrypted admin session metadata
+   */
+  async setAdminUserData<T = any>(admin: T): Promise<void> {
+    await this.setItem(SECURE_STORAGE_KEYS.ADMIN_SESSION_META, JSON.stringify(admin));
+  },
+
+  /**
+   * Atomically clear admin credentials on admin logout
+   */
+  async clearAdminCredentials(): Promise<void> {
+    await Promise.all([
+      this.removeItem(SECURE_STORAGE_KEYS.ADMIN_ACCESS_TOKEN),
+      this.removeItem(SECURE_STORAGE_KEYS.ADMIN_SESSION_META),
     ]);
   },
 };

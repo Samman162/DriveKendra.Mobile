@@ -232,6 +232,7 @@ export function ProfileScreen() {
               <ChevronRight size={18} color={colors.subtle} />
             </Pressable>
           </View>
+
         </View>
       </Screen>
     );
@@ -432,7 +433,7 @@ function createStyles(colors: ThemeColors) {
       borderBottomLeftRadius: 32,
       borderBottomRightRadius: 32,
       alignItems: 'center',
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.15,
       shadowRadius: 10,
@@ -460,7 +461,7 @@ function createStyles(colors: ThemeColors) {
       minWidth: 64,
       alignItems: 'center',
       justifyContent: 'center',
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 3,
@@ -497,9 +498,9 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'center',
       borderWidth: 4,
       borderColor: colors.surface,
-      backgroundColor: '#E2E8F0',
+      backgroundColor: colors.border,
       overflow: 'hidden',
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.25,
       shadowRadius: 8,
@@ -517,12 +518,12 @@ function createStyles(colors: ThemeColors) {
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: '#FFFFFF',
+      backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
       borderColor: colors.accent,
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 3,

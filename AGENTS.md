@@ -64,7 +64,7 @@ Always run and verify these commands before concluding a task:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Run automated test suites (9 Client Suites / 54 Tests, 2 Server Suites / 36 Tests - 90 Total)
+# 2. Run automated test suites (10 Client Suites / 58 Tests, 3 Server Suites / 58 Tests - 116 Total)
 npm test
 npm test --prefix server
 ```

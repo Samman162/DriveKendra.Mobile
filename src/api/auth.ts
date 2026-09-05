@@ -11,6 +11,14 @@ const DEMO_USERS: User[] = [
     role: 'customer',
     createdAt: new Date().toISOString(),
   },
+  {
+    id: 'usr_demo_admin',
+    name: 'Drive Kendra Admin',
+    email: 'admin@drivekendra.com',
+    phone: '+977 9800000000',
+    role: 'admin',
+    createdAt: new Date().toISOString(),
+  },
 ];
 
 export function findDemoUser(identifier: string): User | undefined {

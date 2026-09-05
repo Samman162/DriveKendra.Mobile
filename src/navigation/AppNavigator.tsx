@@ -14,6 +14,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuth } from '../context/AuthContext';
 import { hapticFeedback } from '../utils/haptics';
+import { AdminNavigator } from './AdminNavigator';
 import type { RootStackParamList, RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -231,6 +232,17 @@ export function AppNavigator({
           />
         </>
       )}
+
+      {/* ================= ADMIN 2FA PIN GATE ================= */}
+      <RootStack.Screen
+        name="AdminPinGate"
+        component={AdminNavigator}
+        options={{
+          presentation: 'fullScreenModal',
+          headerShown: false,
+          animation: 'slide_from_bottom',
+        }}
+      />
     </RootStack.Navigator>
   );
 }

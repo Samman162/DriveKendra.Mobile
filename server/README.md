@@ -3,9 +3,9 @@
 [![Hono API](https://img.shields.io/badge/API-Hono%20v4-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![Tests](https://img.shields.io/badge/Tests-36%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-58%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
-The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, user authentication, profile updates, and idempotency handling.
+The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, 2FA admin portal operations, fleet inventory management, user authentication, profile updates, and idempotency handling.
 
 ---
 
@@ -21,8 +21,9 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
   - [2. Authentication](#2-authentication)
   - [3. Bookings & Idempotency](#3-bookings--idempotency)
   - [4. Users & Profile](#4-users--profile)
+  - [5. Admin Portal Subsystem](#5-admin-portal-subsystem)
 - [Database Security & Row-Level Security (RLS)](#-database-security--row-level-security-rls)
-- [Testing & Quality Assurance (36 Tests)](#-testing--quality-assurance-36-tests)
+- [Testing & Quality Assurance (58 Tests)](#-testing--quality-assurance-58-tests)
 
 ---
 
@@ -310,30 +311,71 @@ Registers or updates a client device push notification token.
 
 ---
 
+### 5. Admin Portal Subsystem
+
+All administrative endpoints require two-factor authentication (2FA) and issue a signed 24h JWT with `role: 'admin'`.
+
+#### `POST /api/admin/login`
+Step-1 verification for primary operator credentials (phone: `9800000000`, password: `admin@123`).
+- **Response**: `{ "success": true, "pinRequired": true, "challengeToken": "adm_chal_..." }`
+
+#### `POST /api/admin/verify-pin`
+Step-2 verification for 4-digit security PIN (`6767`).
+- **Response**: `{ "success": true, "token": "jwt_admin_...", "admin": { "id": "1", "name": "Drive Kendra Admin", "role": "admin" } }`
+
+#### `GET /api/admin/stats`
+Returns aggregated control room metrics: `{ "pendingRequests": 2, "activeFleet": 4, "totalUsers": 4, "totalTrips": 3, "totalRevenue": "NPR 148,500" }`.
+
+#### `GET /api/admin/users`
+Lists registered customers with reservation counts and lifetime expenditure. Supports `?q=` search.
+
+#### `GET /api/admin/trips`
+Retrieves incoming bookings for dispatch review (supports `?status=Pending|Confirmed|Cancelled`).
+
+#### `PATCH /api/admin/trips/:id/approve`
+Approves a reservation and atomically assigns a fleet vehicle (`{ "vehicleId": 1 }`), updating vehicle status to `assigned` and dispatching customer notification.
+
+#### `PATCH /api/admin/trips/:id/reject`
+Cancels reservation with stated reason (`{ "reason": "Severe weather on highway." }`).
+
+#### `GET /api/admin/vehicles` & `POST /api/admin/vehicles`
+Fleet inventory endpoints for listing, filtering, and registering new vehicles.
+
+#### `PATCH /api/admin/vehicles/:id`
+Updates vehicle status (e.g. toggles between `available` and `maintenance`).
+
+---
+
 ## 🔒 Database Security & Row-Level Security (RLS)
 
 All database queries executed via `withPublicClient` in `src/db.ts` automatically set:
 ```sql
 SET LOCAL app.is_admin = 'false';
 ```
+For administrative requests, the `requireAdminAuth` middleware verifies the signed admin JWT and sets:
+```sql
+SET LOCAL app.is_admin = 'true';
+```
 This isolates unauthenticated public requests from administrative operations and enforces strict database tenant safety. All SQL statements use `$1, $2, ...` positional parameterization to ensure complete protection against SQL injection.
 
 ---
 
-## 🧪 Testing & Quality Assurance (36 Tests)
+## 🧪 Testing & Quality Assurance (58 Tests)
 
-The server test suite includes **36 automated tests** across **2 test suites**:
+The server test suite includes **58 automated tests** across **3 test suites**:
 - **`validation.test.ts` (11 tests)**: Unit tests for Zod schemas, honeypot bot trap filtering (`website_hp`), and Nepal phone number sanitization (`normalizePhone`).
-- **`apiEndpoints.test.ts` (25 tests)**: Full integration tests for `/health`, `/api/auth/*` (login, registration, OTP reset sequence), `/api/bookings` (GET with query filters, POST with transactional multi-table writes and `X-Idempotency-Key` deduplication), and `/api/users/*` (profile and push tokens).
+- **`apiEndpoints.test.ts` (25 tests)**: Integration tests for `/health`, `/api/auth/*` (login, registration, OTP reset sequence), `/api/bookings` (GET with query filters, POST with transactional multi-table writes and `X-Idempotency-Key` deduplication), and `/api/users/*` (profile and push tokens).
+- **`adminEndpoints.test.ts` (22 tests)**: Complete integration suite for 2FA primary login, PIN gate verification, RLS auth guards, customer directory, trip approval/rejection, and fleet inventory management.
 
 ### Run Test Suites
 ```bash
-# Run all server tests (36 tests)
+# Run all server tests (58 tests)
 npm test --prefix server
 
 # Run individual test suites
 npm test --prefix server -- __tests__/validation.test.ts
 npm test --prefix server -- __tests__/apiEndpoints.test.ts
+npm test --prefix server -- __tests__/adminEndpoints.test.ts
 ```
 
 ### Run TypeScript Typechecking

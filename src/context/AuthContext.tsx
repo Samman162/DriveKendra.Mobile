@@ -25,6 +25,7 @@ type AuthContextType = {
   refreshToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   biometricEnabled: boolean;
   isBiometricSupported: boolean;
   isBiometricEnrolled: boolean;
@@ -33,7 +34,7 @@ type AuthContextType = {
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
   authenticateWithBiometrics: (promptMessage?: string) => Promise<boolean>;
   unlockSessionWithBiometrics: () => Promise<boolean>;
-  signIn: (dto: LoginDto) => Promise<void>;
+  signIn: (dto: LoginDto) => Promise<User>;
   signUp: (dto: RegisterDto) => Promise<void>;
   sendPasswordResetCode: (identifier: string) => Promise<{ message: string; code?: string }>;
   resetPassword: (dto: ResetPasswordDto) => Promise<{ message: string }>;
@@ -163,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await secureStorage.setBiometricEnabled(enabled);
   };
 
-  const signIn = async (dto: LoginDto) => {
+  const signIn = async (dto: LoginDto): Promise<User> => {
     setIsLoading(true);
     try {
       const res = await loginUser(dto);
@@ -177,6 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         secureStorage.setAccessToken(res.token),
         res.refreshToken ? secureStorage.setRefreshToken(res.refreshToken) : Promise.resolve(),
       ]);
+
+      return res.user;
     } finally {
       setIsLoading(false);
     }
@@ -232,6 +235,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await secureStorage.setUserData(updated);
   };
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <AuthContext.Provider
       value={{
@@ -240,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshToken,
         isLoading,
         isAuthenticated: !!user && !!token && !isBiometricLocked,
+        isAdmin,
         biometricEnabled,
         isBiometricSupported,
         isBiometricEnrolled,

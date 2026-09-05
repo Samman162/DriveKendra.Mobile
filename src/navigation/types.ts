@@ -26,6 +26,11 @@ export type RootTabParamList = {
   Profile: undefined;
 };
 
+export type AdminStackParamList = {
+  AdminPin: { challengeToken?: string } | undefined;
+  AdminDashboard: undefined;
+};
+
 /**
  * Root Stack Navigation: Encapsulates MainTabs and all full-screen & modal routes
  */
@@ -37,4 +42,5 @@ export type RootStackParamList = {
   Auth: AuthParams | undefined;
   MyTrips: { bookingId?: string | number } | undefined;
   Profile: undefined;
+  AdminPinGate: undefined;
 };

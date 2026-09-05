@@ -132,9 +132,11 @@ export function AuthScreen({
 
     setSubmitting(true);
     try {
-      await signIn({ identifier, password });
+      const signedInUser = await signIn({ identifier, password });
       hapticFeedback.success();
-      if (navigation.canGoBack?.()) {
+      if (signedInUser.role === 'admin') {
+        navigation.navigate('AdminPinGate');
+      } else if (navigation.canGoBack?.()) {
         navigation.goBack();
       }
     } catch (err) {
