@@ -26,6 +26,7 @@ This document details the high-level system design, data flows, security boundar
   - [Database Abstraction & Security Wrapper](#database-abstraction--security-wrapper)
 - [Offline-First & Himalayan Resilience Strategy](#-offline-first--himalayan-resilience-strategy)
 - [Security & Authentication Model](#-security--authentication-model)
+- [Testing & Quality Verification (90 Tests)](#-testing--quality-verification-90-tests)
 
 ---
 
@@ -137,9 +138,9 @@ This pattern ensures instantaneous theme switching, avoids memory leaks, and ena
 
 ### Route Modularity & Middleware
 The server entry point (`server/src/index.ts`) mounts distinct feature routes onto a unified Hono application:
-- `/health` ➔ Database ping & health check
+- `/health` ➔ Database connectivity & health check (returns `{ status, database, timestamp }`)
 - `/api/auth` ➔ Authentication and OTP recovery flow (`login`, `register`, `forgot-password`, `reset-password`)
-- `/api/bookings` ➔ GET active bookings and POST idempotent booking transactions
+- `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params; returns `{ bookings: [...] }`) and POST idempotent booking transactions (with `X-Idempotency-Key`)
 - `/api/users` ➔ User profile updates (`PUT /profile`) and push token registration (`POST /push-token`)
 
 ### Idempotency & Concurrency Handling
@@ -182,3 +183,24 @@ Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) fre
 - **Bot Honeypots**: Invisible form inputs filter automated bots.
 - **SQL Injection Immunization**: 100% of SQL queries use positional parameterization (`$1, $2`).
 - **Zero Live SQL Execution Rule**: Database modifications must follow the strict patch protocol ([`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/)).
+
+---
+
+## 🧪 Testing & Quality Verification (90 Tests)
+
+The system maintains **100% automated test pass rate** across **11 test suites and 90 total tests**:
+
+### 1. Mobile Client Test Suites (9 Suites / 54 Tests)
+- `__tests__/HomeScreen.test.tsx` ➔ Hero header, theme toggle, service navigation, and greeting
+- `__tests__/BookingScreen.test.tsx` ➔ Booking submission, honeypot traps, vehicle selection
+- `__tests__/AuthFlow.test.tsx` ➔ Login, registration, 6-digit OTP verification flow
+- `__tests__/LocationPicker.test.tsx` ➔ Landmark search across 77 districts and recent selections
+- `__tests__/GeocodingAndMapPicker.test.tsx` ➔ OpenStreetMap Leaflet integration & coordinate fallback
+- `__tests__/Onboarding.test.tsx` ➔ First-launch slide deck and AsyncStorage completion flag
+- `__tests__/ProfileScreen.test.tsx` ➔ Profile stats, guest/authenticated state, theme toggling
+- `__tests__/RecentSearches.test.tsx` ➔ LRU search history caching and eviction
+- `__tests__/BrandLogoAndSplash.test.tsx` ➔ Brand typography, SVG logo, and custom splash loader
+
+### 2. Backend Server Test Suites (2 Suites / 36 Tests)
+- `server/__tests__/validation.test.ts` (11 tests) ➔ Zod schemas, honeypot bot trap filtering, and Nepal phone regex
+- `server/__tests__/apiEndpoints.test.ts` (25 tests) ➔ Health ping, auth flows, bookings with idempotency caching, and profile management

@@ -107,12 +107,12 @@ npm run typecheck
 npm run typecheck --prefix server
 ```
 
-### 2. Unit Test Suites (53 Total Tests)
+### 2. Unit & Integration Test Suites (90 Total Tests)
 ```bash
-# Client test suites (8 suites / 42 tests: AuthFlow, BookingScreen, BrandLogoAndSplash, GeocodingAndMapPicker, LocationPicker, Onboarding, ProfileScreen, RecentSearches)
+# Client test suites (9 suites / 54 tests: AuthFlow, BookingScreen, BrandLogoAndSplash, GeocodingAndMapPicker, HomeScreen, LocationPicker, Onboarding, ProfileScreen, RecentSearches)
 npm test
 
-# Server test suite (1 suite / 11 tests: validation, regex, and honeypot)
+# Server test suites (2 suites / 36 tests: validation schemas, phone regex, honeypot, and full REST endpoints)
 npm test --prefix server
 ```
 
@@ -131,7 +131,7 @@ Use standard conventional commit prefixes:
 
 ### Pull Request Checklist
 - [ ] Code passes both client and server `npm run typecheck`.
-- [ ] All 53 automated tests pass (`npm test` and `npm test --prefix server`).
+- [ ] All 90 automated tests pass (`npm test` and `npm test --prefix server`).
 - [ ] Light and Dark theme visuals look crisp, accessible, and responsive.
 - [ ] Any database alterations include both `database/database.sql` updates and a new numbered patch in `database/patches/`.
 - [ ] Offline failover behaviors have been verified (e.g. offline trip vouchers, geocoding fallback, emergency SMS dispatch).

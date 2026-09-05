@@ -28,6 +28,7 @@ This directory contains the canonical PostgreSQL database schema, migration patc
   - [3. `dka_bookings`](#3-dka_bookings)
   - [4. `dka_idempotency_keys`](#4-dka_idempotency_keys)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
+- [Seed Data (Pre-configured Catalog & Accounts)](#-seed-data-pre-configured-catalog--accounts)
 - [Initializing Database from Scratch](#-initializing-database-from-scratch)
 
 ---
@@ -143,6 +144,26 @@ Prevents duplicate transactions when mobile clients retry on unstable mountain c
 - `idx_dka_idempotency_keys_user_id` ON `dka_idempotency_keys(user_id)`
 - `idx_dka_idempotency_keys_expires_at` ON `dka_idempotency_keys(expires_at)`
 - `idx_dka_idempotency_keys_hash` ON `dka_idempotency_keys(request_hash)`
+
+---
+
+## 🌱 Seed Data (Pre-configured Catalog & Accounts)
+
+[`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) includes idempotent seed inserts:
+
+### 1. Default Vehicle Types
+| ID | Type Name | Description |
+|---|---|---|
+| `1` | `Sedan / Hatchback` | Economical and comfortable for city rides and small groups (up to 4 passengers). |
+| `2` | `SUV / Scorpio 4x4` | Rugged 4WD vehicles suited for rough terrain, hills, and Himalayan expeditions. |
+| `3` | `HiAce / Van` | Spacious 14-seater vans for medium groups and family tours. |
+| `4` | `Coaster / Bus` | Comfortable 25-35 seater tourist buses for large groups. |
+
+### 2. Seed Accounts
+| Name | Phone | Email | Role |
+|---|---|---|---|
+| `Samman Chhetri` | `+977 9851363783` | `samman@drivekendra.com` | `customer` |
+| `Drive Kendra Admin` | `+977 9801000000` | `admin@drivekendra.com` | `admin` |
 
 ---
 

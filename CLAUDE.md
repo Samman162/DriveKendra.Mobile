@@ -21,17 +21,18 @@ npm run ios
 npm run web
 ```
 
-### Static Analysis & Testing (53 Automated Tests)
+### Static Analysis & Testing (90 Automated Tests)
 ```bash
 # Static TypeScript typecheck (Client & Server)
 npm run typecheck
 npm run typecheck --prefix server
 
-# Run Jest unit & integration test suites (Client: 8 suites / 42 tests, Server: 1 suite / 11 tests)
+# Run all Jest test suites (Client: 9 suites / 54 tests, Server: 2 suites / 36 tests - 90 Total)
 npm test
 npm test --prefix server
 
-# Run specific client test suites
+# Run specific client test suites (9 Suites)
+npx jest __tests__/HomeScreen.test.tsx
 npx jest __tests__/BookingScreen.test.tsx
 npx jest __tests__/AuthFlow.test.tsx
 npx jest __tests__/LocationPicker.test.tsx
@@ -40,6 +41,10 @@ npx jest __tests__/Onboarding.test.tsx
 npx jest __tests__/RecentSearches.test.tsx
 npx jest __tests__/BrandLogoAndSplash.test.tsx
 npx jest __tests__/ProfileScreen.test.tsx
+
+# Run specific server test suites (2 Suites)
+npm test --prefix server -- __tests__/validation.test.ts
+npm test --prefix server -- __tests__/apiEndpoints.test.ts
 ```
 
 ### Building & Packaging (EAS CLI)

@@ -3,7 +3,7 @@
 [![Hono API](https://img.shields.io/badge/API-Hono%20v4-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![Tests](https://img.shields.io/badge/Tests-11%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-36%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
 The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, user authentication, profile updates, and idempotency handling.
 
@@ -22,7 +22,7 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
   - [3. Bookings & Idempotency](#3-bookings--idempotency)
   - [4. Users & Profile](#4-users--profile)
 - [Database Security & Row-Level Security (RLS)](#-database-security--row-level-security-rls)
-- [Testing & Quality Assurance (11 Tests)](#-testing--quality-assurance-11-tests)
+- [Testing & Quality Assurance (36 Tests)](#-testing--quality-assurance-36-tests)
 
 ---
 
@@ -59,7 +59,8 @@ server/
 │   ├── index.ts              # Server entry point & CORS configuration
 │   └── validation.ts         # Zod schemas, honeypot filters, Nepal phone helpers
 ├── __tests__/
-│   └── validation.test.ts    # Unit tests for validation, regex, and honeypot (11 tests)
+│   ├── apiEndpoints.test.ts  # Integration tests for health, auth, bookings, users, idempotency (25 tests)
+│   └── validation.test.ts    # Unit tests for validation schemas, regex, and honeypot (11 tests)
 ├── .env.example              # Server environment template
 ├── package.json              # Dependencies and scripts
 └── tsconfig.json             # TypeScript configuration
@@ -114,7 +115,9 @@ Verifies database connectivity and server status.
 - **Response `200 OK`**:
 ```json
 {
-  "ok": true
+  "status": "online",
+  "database": "connected",
+  "timestamp": "2026-09-05T13:55:00.000Z"
 }
 ```
 
@@ -193,24 +196,36 @@ Completes password reset using verified OTP.
 ### 3. Bookings & Idempotency
 
 #### `GET /api/bookings`
-Retrieves the list of active bookings with assigned vehicle models and registration plates.
+Retrieves the list of active bookings with assigned vehicle models and registration plates. Requires either `userId` (numeric) or `phoneNumber` (Nepal phone string) as a query parameter.
 
+- **Query Parameters**:
+  - `userId` *(optional)*: Filter by customer ID (e.g. `?userId=1`)
+  - `phoneNumber` *(optional)*: Filter by customer phone number (e.g. `?phoneNumber=9851363783`)
 - **Response `200 OK`**:
 ```json
-[
-  {
-    "bookingId": 42,
-    "pickup": "Kathmandu Airport (TIA)",
-    "dropoff": "Pokhara Lakeside",
-    "pickupDate": "2026-09-01T06:00:00.000Z",
-    "tripType": "One Way",
-    "estimatedFare": "NPR 12,000",
-    "status": "Confirmed",
-    "assignedVehiclePlate": "Ba 2 Cha 8492",
-    "assignedVehicleModel": "Mahindra Scorpio 4x4",
-    "createdAt": "2026-08-30T10:00:00.000Z"
-  }
-]
+{
+  "bookings": [
+    {
+      "bookingId": 42,
+      "bookingRef": "DK-2026-0042",
+      "userId": 1,
+      "vehicleTypeId": 2,
+      "vehicleTypeName": "SUV / Scorpio 4x4",
+      "pickupLocation": "Kathmandu Airport (TIA)",
+      "dropoffLocation": "Pokhara Lakeside",
+      "pickupDate": "2026-09-01T06:00:00.000Z",
+      "pickupTime": "07:00 AM",
+      "returnDate": "2026-09-03T18:00:00.000Z",
+      "passengerCount": 4,
+      "tripType": "Round Trip",
+      "estimatedFare": "NPR 12,000",
+      "status": "Confirmed",
+      "assignedVehiclePlate": "Ba 2 Cha 8492",
+      "assignedVehicleModel": "Mahindra Scorpio 4x4",
+      "createdAt": "2026-08-30T10:00:00.000Z"
+    }
+  ]
+}
 ```
 
 #### `POST /api/bookings`
@@ -305,11 +320,20 @@ This isolates unauthenticated public requests from administrative operations and
 
 ---
 
-## 🧪 Testing & Quality Assurance (11 Tests)
+## 🧪 Testing & Quality Assurance (36 Tests)
 
-### Run Unit Tests
+The server test suite includes **36 automated tests** across **2 test suites**:
+- **`validation.test.ts` (11 tests)**: Unit tests for Zod schemas, honeypot bot trap filtering (`website_hp`), and Nepal phone number sanitization (`normalizePhone`).
+- **`apiEndpoints.test.ts` (25 tests)**: Full integration tests for `/health`, `/api/auth/*` (login, registration, OTP reset sequence), `/api/bookings` (GET with query filters, POST with transactional multi-table writes and `X-Idempotency-Key` deduplication), and `/api/users/*` (profile and push tokens).
+
+### Run Test Suites
 ```bash
+# Run all server tests (36 tests)
 npm test --prefix server
+
+# Run individual test suites
+npm test --prefix server -- __tests__/validation.test.ts
+npm test --prefix server -- __tests__/apiEndpoints.test.ts
 ```
 
 ### Run TypeScript Typechecking

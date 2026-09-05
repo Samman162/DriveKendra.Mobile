@@ -7,7 +7,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-success?style=for-the-badge)](https://drivekendra.com)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Samman162/DriveKendra.Mobile)
-[![Tests](https://img.shields.io/badge/Tests-60%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-90%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
 **Drive Kendra Mobile** is a standalone, production-grade cross-platform mobile application built with **React Native (Expo SDK 57)** and **TypeScript** for **Drive Kendra** — Nepal's premier vehicle rental and Himalayan tour transport service.
 
@@ -30,7 +30,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - [Prerequisites](#prerequisites)
   - [Installation & First Run](#installation--first-run)
   - [Connecting Physical Devices & Emulators](#connecting-physical-devices--emulators)
-- [Testing & Quality Verification (53 Tests)](#-testing--quality-verification-53-tests)
+- [Testing & Quality Verification (90 Tests)](#-testing--quality-verification-90-tests)
 - [Building with EAS (Android & iOS)](#-building-with-eas-android--ios)
 - [Design System & Theming](#-design-system--theming)
 - [Security & Anti-Spam Architecture](#-security--anti-spam-architecture)
@@ -229,7 +229,8 @@ DriveKendra.Mobile/
 │   │   ├── db.ts                 # PostgreSQL connection pool & RLS client
 │   │   ├── index.ts              # Hono app entry point & CORS configuration
 │   │   └── validation.ts         # Input schemas, honeypot & phone validation
-│   ├── __tests__/                # Server unit tests
+│   ├── __tests__/                # Server unit & integration tests (2 suites / 36 tests)
+│   │   ├── apiEndpoints.test.ts  # Endpoints, auth, bookings, and idempotency tests (25 tests)
 │   │   └── validation.test.ts    # Zod schemas & phone regex validation tests (11 tests)
 │   ├── .env.example              # Server environment template
 │   ├── package.json              # Server dependencies & scripts
@@ -318,11 +319,12 @@ DriveKendra.Mobile/
 │       ├── phone.ts              # Nepal phone number sanitization and checks
 │       ├── recentSearchesStorage.ts # Recents location search history
 │       └── secureStorage.ts      # Hardware encrypted credential storage
-├── __tests__/                    # Client unit & integration test suites (8 suites)
+├── __tests__/                    # Client unit & integration test suites (9 suites / 54 tests)
 │   ├── AuthFlow.test.tsx         # Auth & OTP interaction tests
 │   ├── BookingScreen.test.tsx    # Booking form submission tests
 │   ├── BrandLogoAndSplash.test.tsx # Brand assets and splash rendering tests
 │   ├── GeocodingAndMapPicker.test.tsx # OSM Geocoding & coordinate tests
+│   ├── HomeScreen.test.tsx       # Hero greeting, theme toggle, and services
 │   ├── LocationPicker.test.tsx   # Landmark selector & filtering tests
 │   ├── Onboarding.test.tsx       # First-launch onboarding walkthrough tests
 │   ├── ProfileScreen.test.tsx    # User profile interactions & auth gate tests
@@ -361,8 +363,8 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 
 | Method | Endpoint | Description | Headers / Body | Response |
 |---|---|---|---|---|
-| `GET` | `/health` | Server and PostgreSQL health check | — | `{ "ok": true }` |
-| `GET` | `/api/bookings` | Fetch active trip reservations with vehicle assignment | — | `BookingRecordDto[]` |
+| `GET` | `/health` | Server and PostgreSQL health check | — | `{ "status": "online", "database": "connected" }` |
+| `GET` | `/api/bookings` | Fetch active trip reservations with vehicle assignment | `?userId=` or `?phoneNumber=` | `{ "bookings": [...] }` |
 | `POST` | `/api/bookings` | Submit new booking with Idempotency | `X-Idempotency-Key`, `BookingEntryDto` | `{ "message": "Booking submitted successfully", "bookingRef": "..." }` |
 | `PUT` | `/api/users/profile` | Update user profile details | `{ userId, fullName, phone, avatarUrl }` | `{ "success": true }` |
 | `POST` | `/api/users/push-token` | Register Expo push token | `{ pushToken, customerId, phoneNumber }` | `{ "success": true }` |
@@ -449,7 +451,7 @@ PORT=8787
 
 ---
 
-## 🧪 Testing & Quality Verification (53 Tests)
+## 🧪 Testing & Quality Verification (90 Tests)
 
 Run the automated test suites and static analysis tools:
 
@@ -458,10 +460,10 @@ Run the automated test suites and static analysis tools:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Client Jest Unit & Integration Tests (8 Suites / 42 Tests)
+# 2. Client Jest Unit & Integration Tests (9 Suites / 54 Tests)
 npm test
 
-# 3. Server Jest Validation & Endpoint Tests (1 Suite / 11 Tests)
+# 3. Server Jest Validation & Endpoint Tests (2 Suites / 36 Tests)
 npm test --prefix server
 ```
 
@@ -552,7 +554,7 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
 | `npm run web` | `expo start --web` | Starts React Native Web development server |
 | `npm run server` | `npm run dev --prefix server` | Starts only the Hono backend server in watch mode |
 | `npm run typecheck` | `tsc --noEmit` | Runs static TypeScript typechecking across the client |
-| `npm test` | `jest` | Runs client unit and integration test suites (8 suites / 42 tests) |
+| `npm test` | `jest` | Runs client unit and integration test suites (9 suites / 54 tests) |
 
 ---
 
