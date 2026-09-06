@@ -27,7 +27,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.drivekendra.app',
-    versionCode: 1,
     adaptiveIcon: {
       backgroundColor: '#0F172A',
       foregroundImage: './assets/android-icon-foreground.png',
