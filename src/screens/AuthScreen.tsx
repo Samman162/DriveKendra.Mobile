@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -32,6 +32,7 @@ import { Screen } from '../components/ui/Screen';
 import { SocialAuthButtons } from '../components/ui/SocialAuthButtons';
 import { TextField } from '../components/ui/TextField';
 import { useAuth } from '../context/AuthContext';
+import { AdminAuthContext } from '../context/AdminAuthContext';
 import { radius, spacing } from '../theme/spacing';
 import type { ThemeColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeProvider';
@@ -66,6 +67,7 @@ export function AuthScreen({
   const { colors, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
   const { signIn, signUp, sendPasswordResetCode, resetPassword } = useAuth();
+  const adminAuth = useContext(AdminAuthContext);
 
   // Screen State
   const initialMode = route?.params?.initialMode || 'signin';
@@ -135,6 +137,13 @@ export function AuthScreen({
       const signedInUser = await signIn({ identifier, password });
       hapticFeedback.success();
       if (signedInUser.role === 'admin') {
+        if (adminAuth?.login) {
+          try {
+            await adminAuth.login(identifier, password);
+          } catch {
+            // fallback continues safely
+          }
+        }
         navigation.navigate('AdminPinGate');
       } else if (navigation.canGoBack?.()) {
         navigation.goBack();
@@ -489,7 +498,13 @@ export function AuthScreen({
                 </View>
 
                 {/* Quick Demo Fill */}
-                <SocialAuthButtons onQuickDemoFill={handleQuickDemoFill} />
+                <SocialAuthButtons
+                  onQuickDemoFill={handleQuickDemoFill}
+                  onAdminPress={() => {
+                    hapticFeedback.selection();
+                    navigation.navigate('AdminPinGate');
+                  }}
+                />
               </View>
             )}
 

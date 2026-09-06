@@ -3,10 +3,12 @@ import renderer from 'react-test-renderer';
 import { NavigationContainer } from '@react-navigation/native';
 
 import { ThemeProvider } from '../src/theme/ThemeProvider';
+import { AuthProvider } from '../src/context/AuthContext';
 import { AdminAuthProvider } from '../src/context/AdminAuthContext';
 import { AdminPinScreen } from '../src/screens/admin/AdminPinScreen';
 import { AdminDashboardScreen } from '../src/screens/admin/AdminDashboardScreen';
 import { AdminNavigator } from '../src/navigation/AdminNavigator';
+import { AppNavigator } from '../src/navigation/AppNavigator';
 import { secureStorage } from '../src/utils/secureStorage';
 
 // Mock navigation
@@ -38,6 +40,7 @@ jest.mock('react-native-safe-area-context', () => {
       Consumer: ({ children }: any) => children({ top: 0, bottom: 0, left: 0, right: 0 }),
       Provider: ({ children }: any) => children,
     },
+    SafeAreaView: ({ children, style }: any) => React.createElement('View', { style }, children),
   };
 });
 
@@ -259,6 +262,78 @@ describe('Admin Portal Subsystem Flow & Components', () => {
         tree?.unmount();
       });
     });
+
+    it('does not render back button during PIN entry (integral part of auth)', () => {
+      let tree: any = null;
+      renderer.act(() => {
+        tree = renderer.create(
+          <ThemeProvider>
+            <AdminAuthProvider>
+              <AdminPinScreen challengeToken="adm_chal_mock" />
+            </AdminAuthProvider>
+          </ThemeProvider>,
+        );
+      });
+
+      const root = tree.root;
+      expect(root.findAllByProps({ accessibilityLabel: 'Back to Admin Login' })).toHaveLength(0);
+
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
+
+    it('locks out and triggers return to login after 3 failed PIN attempts', async () => {
+      const { verifyAdminPin } = require('../src/api/admin');
+      (verifyAdminPin as jest.Mock).mockRejectedValue(new Error('Incorrect security PIN. Access denied.'));
+
+      const mockOnMaxAttemptsExceeded = jest.fn();
+      let tree: any = null;
+
+      await renderer.act(async () => {
+        tree = renderer.create(
+          <ThemeProvider>
+            <AdminAuthProvider>
+              <AdminPinScreen
+                challengeToken="adm_chal_mock"
+                onMaxAttemptsExceeded={mockOnMaxAttemptsExceeded}
+              />
+            </AdminAuthProvider>
+          </ThemeProvider>,
+        );
+      });
+
+      const root = tree.root;
+      const digit1 = root.findByProps({ accessibilityLabel: 'Digit 1' });
+
+      // Attempt 1: enter 1111
+      for (let i = 0; i < 4; i++) {
+        await renderer.act(async () => {
+          digit1.props.onPress();
+        });
+      }
+      expect(mockOnMaxAttemptsExceeded).not.toHaveBeenCalled();
+
+      // Attempt 2: enter 1111
+      for (let i = 0; i < 4; i++) {
+        await renderer.act(async () => {
+          digit1.props.onPress();
+        });
+      }
+      expect(mockOnMaxAttemptsExceeded).not.toHaveBeenCalled();
+
+      // Attempt 3: enter 1111 -> should trigger lockout and return to login screen
+      for (let i = 0; i < 4; i++) {
+        await renderer.act(async () => {
+          digit1.props.onPress();
+        });
+      }
+      expect(mockOnMaxAttemptsExceeded).toHaveBeenCalled();
+
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
   });
 
   describe('3. AdminDashboardScreen (Operations Desk, Fleet & Users)', () => {
@@ -312,6 +387,98 @@ describe('Admin Portal Subsystem Flow & Components', () => {
       const root = tree.root;
       expect(root.findByProps({ accessibilityLabel: 'Digit 6' })).toBeTruthy();
       expect(root.findByProps({ accessibilityLabel: 'Digit 7' })).toBeTruthy();
+
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
+  });
+
+  describe('5. Admin Role Isolation & Screen Separation', () => {
+    it('AppNavigator renders exclusively AdminNavigator and omits customer tabs for admin user', async () => {
+      (secureStorage.getUserData as jest.Mock).mockResolvedValue({
+        id: '2',
+        name: 'Drive Kendra Admin',
+        phone: '+977 9800000000',
+        role: 'admin',
+      });
+      (secureStorage.getAccessToken as jest.Mock).mockResolvedValue('admin_token_jwt');
+      (secureStorage.getAdminAccessToken as jest.Mock).mockResolvedValue('admin_token_jwt');
+      (secureStorage.getAdminUserData as jest.Mock).mockResolvedValue({
+        id: '2',
+        name: 'Drive Kendra Admin',
+        phone: '+977 9800000000',
+        role: 'admin',
+      });
+
+      let tree: any = null;
+      await renderer.act(async () => {
+        tree = renderer.create(
+          <NavigationContainer>
+            <ThemeProvider>
+              <AuthProvider>
+                <AdminAuthProvider>
+                  <AppNavigator />
+                </AdminAuthProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </NavigationContainer>,
+        );
+      });
+
+      const root = tree.root;
+      // Admin dashboard metrics / elements must be present
+      expect(root.findByProps({ accessibilityLabel: 'Sign out of Admin Portal' })).toBeTruthy();
+
+      // Customer bottom tab elements must NOT exist
+      const textNodes = root.findAllByType('Text' as any);
+      const texts = textNodes.map((t: any) => t.props.children).flat().join(' ');
+      expect(texts).toContain('Dispatch Desk');
+      expect(texts).not.toContain('Book Ride');
+
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
+
+    it('AppNavigator renders customer screens when user is a customer', async () => {
+      (secureStorage.getUserData as jest.Mock).mockResolvedValue({
+        id: '1',
+        name: 'Samman Chhetri',
+        phone: '+977 9851363783',
+        role: 'customer',
+      });
+      (secureStorage.getAccessToken as jest.Mock).mockResolvedValue('cust_jwt_token');
+      (secureStorage.getAdminAccessToken as jest.Mock).mockResolvedValue(null);
+      (secureStorage.getAdminUserData as jest.Mock).mockResolvedValue(null);
+
+      let tree: any = null;
+      await renderer.act(async () => {
+        tree = renderer.create(
+          <NavigationContainer>
+            <ThemeProvider>
+              <AuthProvider>
+                <AdminAuthProvider>
+                  <AppNavigator />
+                </AdminAuthProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </NavigationContainer>,
+        );
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      const root = tree.root;
+      // Customer tabs should be present
+      const textNodes = root.findAllByType('Text' as any);
+      const texts = textNodes.map((t: any) => t.props.children).flat().join(' ');
+      expect(texts).toContain('Home');
+      expect(texts).toContain('Book Ride');
+      expect(texts).toContain('My Trips');
+
+      // Admin portal controls must NOT be present
+      expect(texts).not.toContain('Dispatch Desk');
+      expect(texts).not.toContain('Fleet Manager');
 
       renderer.act(() => {
         tree?.unmount();

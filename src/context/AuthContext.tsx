@@ -42,7 +42,7 @@ type AuthContextType = {
   updateUser: (data: Partial<User>) => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -221,6 +221,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsBiometricLocked(false);
       await Promise.all([
         secureStorage.clearAuthCredentials(),
+        secureStorage.clearAdminCredentials(),
         clearOfflineVouchers(),
       ]);
     } finally {

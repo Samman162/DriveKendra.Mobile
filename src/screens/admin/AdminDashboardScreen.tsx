@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,19 +25,39 @@ import {
   ChevronUp,
   Clock,
   Compass,
+  ExternalLink,
+  Eye,
+  Filter,
+  Flame,
+  Globe,
+  Headphones,
+  History,
+  Layers,
+  Lock,
   LogOut,
   MapPin,
+  Maximize2,
+  Minimize2,
+  Navigation,
   Phone,
   Plus,
   RefreshCw,
   Search,
+  Send,
+  Shield,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  Tag,
   Trash2,
   TrendingUp,
+  Truck,
+  User,
   UserCheck,
   Users,
   Wrench,
   X,
+  XCircle,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -57,6 +77,7 @@ import {
   updateAdminVehicle,
 } from '../../api/admin';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { ThemeColors } from '../../theme/colors';
@@ -82,6 +103,7 @@ export function AdminDashboardScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const { logout, adminUser } = useAdminAuth();
+  const authCtx = useContext(AuthContext);
 
   const [activeTab, setActiveTab] = useState<TabType>('trips');
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -177,7 +199,13 @@ export function AdminDashboardScreen() {
         style: 'destructive',
         onPress: async () => {
           await logout();
-          navigation.goBack();
+          if (authCtx?.signOut) {
+            try {
+              await authCtx.signOut();
+            } catch {
+              // safely continue
+            }
+          }
         },
       },
     ]);

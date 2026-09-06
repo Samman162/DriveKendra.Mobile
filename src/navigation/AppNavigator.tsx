@@ -13,6 +13,7 @@ import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { useTheme } from '../theme/ThemeProvider';
 import { useAuth } from '../context/AuthContext';
+import { useAdminAuth } from '../context/AdminAuthContext';
 import { hapticFeedback } from '../utils/haptics';
 import { AdminNavigator } from './AdminNavigator';
 import type { RootStackParamList, RootTabParamList } from './types';
@@ -112,7 +113,28 @@ export function AppNavigator({
   isOnboardingCompleted = true,
 }: AppNavigatorProps) {
   const { colors } = useTheme();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, isAdmin } = useAuth();
+  const { isAdminAuthenticated, adminUser } = useAdminAuth();
+
+  const isAdminSession =
+    isAdmin ||
+    user?.role === 'admin' ||
+    isAdminAuthenticated ||
+    adminUser?.role === 'admin';
+
+  if (isAdminSession) {
+    // ================= STRICT ADMIN-ONLY NAVIGATION STACK =================
+    // Admin NEVER sees customer screens (no MainTabs, no Booking, no User Profile).
+    return (
+      <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+        <RootStack.Screen
+          name="AdminPinGate"
+          component={AdminNavigator}
+          options={{ headerShown: false }}
+        />
+      </RootStack.Navigator>
+    );
+  }
 
   return (
     <RootStack.Navigator
@@ -170,16 +192,6 @@ export function AppNavigator({
               animation: 'fade',
             }}
           />
-
-          {/* Authentication Screen Modal (Allows account switching) */}
-          <RootStack.Screen
-            name="Auth"
-            component={AuthScreen}
-            options={{
-              presentation: 'modal',
-              headerShown: false,
-            }}
-          />
         </>
       ) : (
         // ================= UNAUTHENTICATED AUTH GATE =================
@@ -230,19 +242,19 @@ export function AppNavigator({
             component={ContactScreen}
             options={stackScreenOptions(colors, '24/7 Support Desk')}
           />
+
+          {/* ================= ADMIN 2FA PIN GATE (Staff Access) ================= */}
+          <RootStack.Screen
+            name="AdminPinGate"
+            component={AdminNavigator}
+            options={{
+              presentation: 'fullScreenModal',
+              headerShown: false,
+              animation: 'slide_from_bottom',
+            }}
+          />
         </>
       )}
-
-      {/* ================= ADMIN 2FA PIN GATE ================= */}
-      <RootStack.Screen
-        name="AdminPinGate"
-        component={AdminNavigator}
-        options={{
-          presentation: 'fullScreenModal',
-          headerShown: false,
-          animation: 'slide_from_bottom',
-        }}
-      />
     </RootStack.Navigator>
   );
 }

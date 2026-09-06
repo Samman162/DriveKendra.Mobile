@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   Pressable,
   StyleSheet,
@@ -8,10 +9,11 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Delete, KeyRound, Lock, ShieldAlert, Sparkles } from 'lucide-react-native';
+import { Delete, KeyRound, Lock, ShieldAlert, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { AuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { ThemeColors } from '../../theme/colors';
@@ -23,6 +25,7 @@ interface AdminPinScreenProps {
   challengeToken?: string;
   onSuccess?: () => void;
   onBack?: () => void;
+  onMaxAttemptsExceeded?: () => void;
 }
 
 const KEYPAD_ROWS = [
@@ -43,16 +46,19 @@ const KEYPAD_ROWS = [
   ],
 ];
 
-export function AdminPinScreen({ onSuccess, onBack }: AdminPinScreenProps) {
+export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: AdminPinScreenProps) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { verifyPin, isLoading } = useAdminAuth();
+  const { verifyPin, isLoading, logout } = useAdminAuth();
+  const authCtx = useContext(AuthContext);
 
   const [pin, setPin] = useState<string>('');
   const [errorText, setErrorText] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [failedAttempts, setFailedAttempts] = useState<number>(0);
+  const MAX_PIN_ATTEMPTS = 3;
 
   // Shake animation for incorrect PIN
   const shakeAnim = useRef(new Animated.Value(0)).current;
@@ -80,6 +86,7 @@ export function AdminPinScreen({ onSuccess, onBack }: AdminPinScreenProps) {
     try {
       await verifyPin(pinCode);
       hapticFeedback.success();
+      setFailedAttempts(0);
       if (onSuccess) {
         onSuccess();
       } else {
@@ -91,9 +98,56 @@ export function AdminPinScreen({ onSuccess, onBack }: AdminPinScreenProps) {
     } catch (err: unknown) {
       hapticFeedback.error();
       triggerShake();
-      const msg = err instanceof Error ? err.message : 'Incorrect Security PIN. Access denied.';
-      setErrorText(msg);
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
       setPin(''); // Reset PIN on error
+
+      if (nextAttempts >= MAX_PIN_ATTEMPTS) {
+        setErrorText('Maximum PIN attempts exceeded. Returning to login screen...');
+        try {
+          await logout();
+        } catch {
+          // safely continue
+        }
+        if (authCtx?.signOut) {
+          try {
+            await authCtx.signOut();
+          } catch {
+            // safely continue
+          }
+        }
+        Alert.alert(
+          'Authentication Locked',
+          'Incorrect Security PIN entered 3 times. Returning to the login screen.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                if (onMaxAttemptsExceeded) {
+                  onMaxAttemptsExceeded();
+                } else if (onBack) {
+                  onBack();
+                } else if (navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              },
+            },
+          ],
+          { cancelable: false },
+        );
+
+        if (onMaxAttemptsExceeded) {
+          onMaxAttemptsExceeded();
+        } else if (onBack) {
+          onBack();
+        } else if (navigation.canGoBack()) {
+          navigation.goBack();
+        }
+      } else {
+        const remaining = MAX_PIN_ATTEMPTS - nextAttempts;
+        const attemptsMsg = remaining === 1 ? '1 attempt remaining' : `${remaining} attempts remaining`;
+        setErrorText(`Incorrect Security PIN. ${attemptsMsg}.`);
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -131,32 +185,14 @@ export function AdminPinScreen({ onSuccess, onBack }: AdminPinScreenProps) {
     setPin('6767');
   };
 
-  const handleBack = () => {
-    hapticFeedback.light();
-    if (onBack) {
-      onBack();
-    } else if (navigation.canGoBack()) {
-      navigation.goBack();
-    }
-  };
-
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* Top Header */}
       <View style={styles.topBar}>
-        <Pressable
-          onPress={handleBack}
-          style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Back to Admin Login"
-        >
-          <ArrowLeft size={20} color={colors.text} />
-        </Pressable>
         <View style={styles.secureHeaderPill}>
           <Lock size={12} color={colors.accent} style={{ marginRight: 4 }} />
           <Text style={styles.secureHeaderPillText}>2FA HARDWARE GATE</Text>
         </View>
-        <View style={{ width: 40 }} />
       </View>
 
       {/* Hero Section */}
@@ -287,19 +323,9 @@ function createStyles(colors: ThemeColors) {
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'center',
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
-    },
-    backBtn: {
-      width: 40,
-      height: 40,
-      borderRadius: radius.md,
-      backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
     },
     pressed: {
       opacity: 0.7,

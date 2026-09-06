@@ -22,7 +22,7 @@ interface AdminAuthContextType {
   setChallengeToken: (token: string | null) => void;
 }
 
-const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
+export const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
 export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
@@ -96,7 +96,10 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       setAdminToken(null);
       setAdminUser(null);
       setChallengeToken(null);
-      await secureStorage.clearAdminCredentials();
+      await Promise.all([
+        secureStorage.clearAdminCredentials(),
+        secureStorage.clearAuthCredentials(),
+      ]);
     } finally {
       setIsLoading(false);
     }

@@ -8,12 +8,14 @@ import { radius, spacing } from '../../theme/spacing';
 
 type SocialAuthButtonsProps = {
   onQuickDemoFill?: (email: string, pass: string) => void;
+  onAdminPress?: () => void;
   onGooglePress?: () => void;
   onApplePress?: () => void;
 };
 
 export function SocialAuthButtons({
   onQuickDemoFill,
+  onAdminPress,
   onGooglePress,
   onApplePress,
 }: SocialAuthButtonsProps) {
@@ -59,7 +61,7 @@ export function SocialAuthButtons({
         <View style={styles.demoBox}>
           <View style={styles.demoHeader}>
             <KeyRound size={14} color={colors.highlight} />
-            <Text style={styles.demoTitle}>Quick Demo Login</Text>
+            <Text style={styles.demoTitle}>Quick Demo Credentials</Text>
           </View>
           <View style={styles.demoButtonsRow}>
             <Pressable
@@ -70,10 +72,34 @@ export function SocialAuthButtons({
               testID="demo-login-samman-btn"
             >
               <Sparkles size={14} color={colors.accent} style={{ marginRight: 6 }} />
-              <Text style={styles.demoChipText}>Samman Chhetri (Customer)</Text>
+              <Text style={styles.demoChipText}>Customer</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => onQuickDemoFill('9800000000', 'admin@123')}
+              style={({ pressed }) => [styles.demoChip, styles.adminDemoChip, pressed && styles.btnPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Quick fill demo credentials for Drive Kendra Admin"
+              testID="demo-login-admin-btn"
+            >
+              <KeyRound size={14} color={colors.highlight} style={{ marginRight: 6 }} />
+              <Text style={styles.demoChipText}>Admin Portal</Text>
             </Pressable>
           </View>
         </View>
+      )}
+
+      {onAdminPress && (
+        <Pressable
+          onPress={onAdminPress}
+          style={({ pressed }) => [styles.adminDirectBtn, pressed && styles.btnPressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Open Admin 2FA Portal Directly"
+          testID="auth-open-admin-portal-btn"
+        >
+          <KeyRound size={14} color={colors.accent} style={{ marginRight: 6 }} />
+          <Text style={styles.adminDirectBtnText}>Direct Admin 2FA Gate →</Text>
+        </Pressable>
       )}
     </View>
   );
@@ -167,6 +193,26 @@ function createStyles(colors: ThemeColors) {
       color: colors.text,
       fontSize: 13,
       fontWeight: '600',
+    },
+    adminDemoChip: {
+      borderColor: colors.highlight,
+    },
+    adminDirectBtn: {
+      marginTop: spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.sm,
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    adminDirectBtnText: {
+      color: colors.accent,
+      fontSize: 13,
+      fontWeight: '700',
     },
   });
 }

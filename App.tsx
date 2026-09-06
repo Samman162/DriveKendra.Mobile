@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { navigationRef } from './src/navigation/navigationRef';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { AdminAuthProvider, useAdminAuth } from './src/context/AdminAuthContext';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { AppSplashScreen } from './src/components/ui/AppSplashScreen';
 import { hasCompletedOnboarding } from './src/utils/onboardingStorage';
@@ -20,7 +21,8 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function ThemedApp() {
   const { colors, isDark } = useTheme();
-  const { isLoading } = useAuth();
+  const { isLoading: isAuthLoading } = useAuth();
+  const { isLoading: isAdminAuthLoading } = useAdminAuth();
   const [isOnboardingChecked, setIsOnboardingChecked] = useState(false);
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(true);
 
@@ -58,7 +60,7 @@ function ThemedApp() {
     },
   };
 
-  const isAppReady = !isLoading && isOnboardingChecked;
+  const isAppReady = !isAuthLoading && !isAdminAuthLoading && isOnboardingChecked;
 
   return (
     <>
@@ -81,9 +83,11 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <BottomSheetModalProvider>
-              <ThemedApp />
-            </BottomSheetModalProvider>
+            <AdminAuthProvider>
+              <BottomSheetModalProvider>
+                <ThemedApp />
+              </BottomSheetModalProvider>
+            </AdminAuthProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>

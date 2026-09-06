@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { AdminAuthProvider, useAdminAuth } from '../context/AdminAuthContext';
+import { AdminAuthContext, AdminAuthProvider, useAdminAuth } from '../context/AdminAuthContext';
 import { AdminPinScreen } from '../screens/admin/AdminPinScreen';
 import { AdminDashboardScreen } from '../screens/admin/AdminDashboardScreen';
 import { useTheme } from '../theme/ThemeProvider';
@@ -41,6 +41,11 @@ function AdminNavigatorContent() {
 }
 
 export function AdminNavigator() {
+  const existing = useContext(AdminAuthContext);
+  if (existing) {
+    return <AdminNavigatorContent />;
+  }
+
   return (
     <AdminAuthProvider>
       <AdminNavigatorContent />
