@@ -14,15 +14,36 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.drivekendra.app',
+    infoPlist: {
+      NSLocationWhenInUseUsageDescription:
+        'Allow Drive Kendra to use your location for vehicle pickup, drop-off, and emergency SOS assistance.',
+      NSPhotoLibraryUsageDescription:
+        'Allow Drive Kendra to access your photos to upload driver license and identity verification documents.',
+      NSCameraUsageDescription:
+        'Allow Drive Kendra to access your camera to capture driver license and identity documents.',
+      NSFaceIDUsageDescription:
+        'Allow Drive Kendra to use Face ID for fast and secure biometric login.',
+    },
   },
   android: {
     package: 'com.drivekendra.app',
+    versionCode: 1,
     adaptiveIcon: {
       backgroundColor: '#0F172A',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
     },
+    permissions: [
+      'ACCESS_COARSE_LOCATION',
+      'ACCESS_FINE_LOCATION',
+      'CAMERA',
+      'READ_MEDIA_IMAGES',
+      'READ_EXTERNAL_STORAGE',
+      'VIBRATE',
+      'USE_BIOMETRIC',
+      'USE_FINGERPRINT',
+    ],
     predictiveBackGestureEnabled: false,
   },
   web: {
@@ -32,6 +53,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-status-bar',
     '@react-native-community/datetimepicker',
     'expo-dev-client',
+    [
+      'expo-location',
+      {
+        locationAlwaysAndWhenInUsePermission:
+          'Allow Drive Kendra to use your location for vehicle pickup, drop-off, and emergency SOS assistance.',
+      },
+    ],
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Allow Drive Kendra to access your photos to upload driver license and identity verification documents.',
+        cameraPermission:
+          'Allow Drive Kendra to access your camera to capture driver license and identity documents.',
+        microphonePermission: false,
+      },
+    ],
     [
       'expo-splash-screen',
       {

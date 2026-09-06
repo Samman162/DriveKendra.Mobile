@@ -122,8 +122,26 @@ export function MyTripsScreen() {
           }));
           setTrips(formatted);
         } else {
-          setTrips([]);
-          await clearOfflineVouchers();
+          // Preserve local offline vouchers if live server database has no active trips for this user
+          const cached = await getOfflineVouchers();
+          if (cached && cached.length > 0) {
+            const converted: TripRecord[] = cached.map((cv) => ({
+              id: cv.id,
+              bookingRef: cv.bookingRef,
+              pickup: cv.pickup,
+              dropoff: cv.dropoff,
+              date: cv.date,
+              time: cv.time,
+              tripType: (cv.tripType === 'Return' || cv.tripType === 'Round Trip' ? cv.tripType : 'One Way') as TripRecord['tripType'],
+              vehicleName: cv.vehicleName,
+              vehiclePlate: cv.vehiclePlate,
+              fare: cv.fare,
+              status: (cv.status === 'completed' || cv.status === 'cancelled' ? cv.status : 'confirmed') as TripRecord['status'],
+            }));
+            setTrips(converted);
+          } else {
+            setTrips([]);
+          }
         }
       } catch (e) {
         console.warn('[MyTrips] Offline or failed to sync live bookings:', e);

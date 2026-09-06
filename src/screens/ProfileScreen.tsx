@@ -3,6 +3,7 @@ import {
   Alert,
   Image,
   Keyboard,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -153,14 +154,21 @@ export function ProfileScreen() {
 
   const handleSignOut = () => {
     hapticFeedback.error();
+    const executeSignOut = async () => {
+      await signOut();
+    };
+
+    if (Platform.OS === 'web') {
+      void executeSignOut();
+      return;
+    }
+
     Alert.alert('Sign Out', 'Are you sure you want to sign out of Drive Kendra?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign Out',
         style: 'destructive',
-        onPress: async () => {
-          await signOut();
-        },
+        onPress: executeSignOut,
       },
     ]);
   };

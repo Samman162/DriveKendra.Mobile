@@ -145,8 +145,6 @@ export function AuthScreen({
           }
         }
         navigation.navigate('AdminPinGate');
-      } else if (navigation.canGoBack?.()) {
-        navigation.goBack();
       }
     } catch (err) {
       hapticFeedback.light();
@@ -177,9 +175,6 @@ export function AuthScreen({
       const cleanPhone = normalizePhone(phone);
       await signUp({ name: name.trim(), phone: cleanPhone, password });
       hapticFeedback.success();
-      if (navigation.canGoBack?.()) {
-        navigation.goBack();
-      }
     } catch (err) {
       hapticFeedback.light();
       setErrors({ form: extractErrorMessage(err, 'Failed to create account. Please try again.') });

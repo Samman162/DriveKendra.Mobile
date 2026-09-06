@@ -5,6 +5,7 @@ import {
   FlatList,
   Linking,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -192,21 +193,28 @@ export function AdminDashboardScreen() {
 
   const handleSignOut = () => {
     hapticFeedback.error();
+    const executeSignOut = async () => {
+      await logout();
+      if (authCtx?.signOut) {
+        try {
+          await authCtx.signOut();
+        } catch {
+          // safely continue
+        }
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      void executeSignOut();
+      return;
+    }
+
     Alert.alert('Lock Admin Session', 'Are you sure you want to sign out of the Admin Portal?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Lock & Exit',
         style: 'destructive',
-        onPress: async () => {
-          await logout();
-          if (authCtx?.signOut) {
-            try {
-              await authCtx.signOut();
-            } catch {
-              // safely continue
-            }
-          }
-        },
+        onPress: executeSignOut,
       },
     ]);
   };
