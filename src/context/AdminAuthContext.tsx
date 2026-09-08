@@ -9,6 +9,7 @@ import React, {
 import { loginAdmin, verifyAdminPin } from '../api/admin';
 import type { AdminUser } from '../types/admin';
 import { secureStorage } from '../utils/secureStorage';
+import { AuthContext } from './AuthContext';
 
 interface AdminAuthContextType {
   adminUser: AdminUser | null;
@@ -90,6 +91,8 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     [challengeToken],
   );
 
+  const authCtx = useContext(AuthContext);
+
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -99,11 +102,12 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
       await Promise.all([
         secureStorage.clearAdminCredentials(),
         secureStorage.clearAuthCredentials(),
+        authCtx?.signOut ? authCtx.signOut() : Promise.resolve(),
       ]);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [authCtx]);
 
   return (
     <AdminAuthContext.Provider

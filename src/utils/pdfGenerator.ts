@@ -141,7 +141,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
       letter-spacing: -0.5px;
     }
     .brand-title span {
-      color: #D97706;
+      color: #0284C7;
     }
     .brand-subtitle {
       font-size: 11px;
@@ -150,7 +150,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
     }
     .badge-voucher {
       display: inline-block;
-      background-color: #D97706;
+      background-color: #0284C7;
       color: #FFFFFF;
       font-weight: 800;
       font-size: 10px;
@@ -220,7 +220,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
       font-size: 12px;
     }
     .route-banner {
-      background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+      background: linear-gradient(135deg, #051A24 0%, #083344 50%, #0C4A6E 100%);
       color: #FFFFFF;
       padding: 16px 18px;
       border-radius: 8px;
@@ -240,7 +240,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
       margin-top: 2px;
     }
     .route-arrow {
-      color: #D97706;
+      color: #38BDF8;
       font-weight: 900;
       font-size: 14px;
       margin: 6px 0;
@@ -267,13 +267,13 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
       font-size: 14px;
       font-weight: 900;
       color: #0F172A;
-      border-top: 2px solid #0F172A;
-      background-color: #FFFBEB;
+      border-top: 2px solid #083344;
+      background-color: #F0F9FF;
     }
     .checkpoint-advisory {
-      background-color: #FFFBEB;
-      border: 1px solid #FDE68A;
-      color: #92400E;
+      background-color: #F0F9FF;
+      border: 1px solid #BAE6FD;
+      color: #0369A1;
       padding: 12px 14px;
       border-radius: 6px;
       font-size: 11px;
@@ -339,7 +339,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
         </div>
         <div class="data-row">
           <div class="data-label">Departure Date & Time:</div>
-          <div class="data-value" style="color:#D97706;">${data.date} at ${data.time}</div>
+          <div class="data-value" style="color:#0284C7;">${data.date} at ${data.time}</div>
         </div>
         <div class="data-row">
           <div class="data-label">Service Type:</div>
@@ -413,7 +413,7 @@ export function generateVoucherHtml(data: TripVoucherPdfData): string {
         <tr>
           <td>Remaining Balance Due</td>
           <td>Payable upon trip commencement</td>
-          <td style="text-align:right; color:#D97706; font-weight:700;">${balance}</td>
+          <td style="text-align:right; color:#0284C7; font-weight:700;">${balance}</td>
         </tr>
         <tr class="fare-total-row">
           <td colspan="2">TOTAL AGREED TRIP FARE</td>

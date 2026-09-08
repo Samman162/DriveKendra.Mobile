@@ -149,7 +149,7 @@ Status: Emergency assistance/mechanical support required.`;
             {isOffline ? (
               <WifiOff size={16} color="#DC2626" />
             ) : (
-              <Mountain size={16} color="#D97706" />
+              <Mountain size={16} color={colors.accent} />
             )}
           </View>
           <View>
@@ -231,7 +231,7 @@ Status: Emergency assistance/mechanical support required.`;
         {/* High Altitude Route Badge if applicable */}
         {voucher.altitudeNote && (
           <View style={styles.altitudePill}>
-            <Mountain size={13} color="#D97706" />
+            <Mountain size={13} color={colors.accent} />
             <Text style={styles.altitudeText}>{voucher.altitudeNote}</Text>
           </View>
         )}

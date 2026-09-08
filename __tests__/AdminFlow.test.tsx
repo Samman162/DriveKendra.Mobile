@@ -171,6 +171,7 @@ jest.mock('../src/utils/secureStorage', () => ({
     getAdminUserData: jest.fn().mockResolvedValue(null),
     setAdminUserData: jest.fn().mockResolvedValue(undefined),
     clearAdminCredentials: jest.fn().mockResolvedValue(undefined),
+    clearAuthCredentials: jest.fn().mockResolvedValue(undefined),
     getUserData: jest.fn().mockResolvedValue(null),
     getAccessToken: jest.fn().mockResolvedValue(null),
     getRefreshToken: jest.fn().mockResolvedValue(null),
@@ -480,6 +481,81 @@ describe('Admin Portal Subsystem Flow & Components', () => {
       expect(texts).not.toContain('Dispatch Desk');
       expect(texts).not.toContain('Fleet Manager');
 
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
+
+    it('AdminPinScreen renders Exit button and cancel link to safely return to login', async () => {
+      let tree: any = null;
+      await renderer.act(async () => {
+        tree = renderer.create(
+          <ThemeProvider>
+            <AdminAuthProvider>
+              <AdminPinScreen challengeToken="adm_chal_mock" />
+            </AdminAuthProvider>
+          </ThemeProvider>,
+        );
+      });
+
+      const root = tree.root;
+      const exitBtn = root.findByProps({ accessibilityLabel: 'Exit to Login' });
+      const cancelLink = root.findByProps({ accessibilityLabel: 'Cancel & Return to Login' });
+      expect(exitBtn).toBeTruthy();
+      expect(cancelLink).toBeTruthy();
+
+      await renderer.act(async () => {
+        exitBtn.props.onPress();
+      });
+      expect(mockGoBack).toHaveBeenCalled();
+
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
+
+    it('AdminDashboardScreen sign out invokes logout and clears credentials', async () => {
+      const { Alert } = require('react-native');
+      const alertSpy = jest.spyOn(Alert, 'alert');
+
+      let tree: any = null;
+      await renderer.act(async () => {
+        tree = renderer.create(
+          <ThemeProvider>
+            <AuthProvider>
+              <AdminAuthProvider>
+                <AdminDashboardScreen />
+              </AdminAuthProvider>
+            </AuthProvider>
+          </ThemeProvider>,
+        );
+      });
+
+      const root = tree.root;
+      const logoutBtn = root.findByProps({ accessibilityLabel: 'Sign out of Admin Portal' });
+      expect(logoutBtn).toBeTruthy();
+
+      await renderer.act(async () => {
+        logoutBtn.props.onPress();
+      });
+
+      expect(alertSpy).toHaveBeenCalledWith(
+        'Lock Admin Session',
+        'Are you sure you want to sign out of the Admin Portal?',
+        expect.any(Array),
+      );
+
+      const buttons = alertSpy.mock.calls[0][2] as any[];
+      const confirmBtn = buttons.find((b: any) => b.text === 'Lock & Exit');
+      expect(confirmBtn).toBeTruthy();
+
+      await renderer.act(async () => {
+        await confirmBtn.onPress();
+      });
+
+      expect(secureStorage.clearAdminCredentials).toHaveBeenCalled();
+
+      alertSpy.mockRestore();
       renderer.act(() => {
         tree?.unmount();
       });

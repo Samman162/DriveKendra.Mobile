@@ -126,7 +126,10 @@ export function AppNavigator({
     // ================= STRICT ADMIN-ONLY NAVIGATION STACK =================
     // Admin NEVER sees customer screens (no MainTabs, no Booking, no User Profile).
     return (
-      <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <RootStack.Navigator
+        key="admin-root-stack"
+        screenOptions={{ headerShown: false, animation: 'fade' }}
+      >
         <RootStack.Screen
           name="AdminPinGate"
           component={AdminNavigator}
@@ -138,6 +141,11 @@ export function AppNavigator({
 
   return (
     <RootStack.Navigator
+      key={
+        isAuthenticated
+          ? 'auth-stack'
+          : `unauth-stack-${isOnboardingCompleted ? 'completed' : 'pending'}`
+      }
       initialRouteName={
         isAuthenticated
           ? (initialRouteName || 'MainTabs')

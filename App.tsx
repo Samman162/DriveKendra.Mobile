@@ -14,7 +14,7 @@ import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './src/context/AdminAuthContext';
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { AppSplashScreen } from './src/components/ui/AppSplashScreen';
-import { hasCompletedOnboarding } from './src/utils/onboardingStorage';
+import { hasCompletedOnboarding, subscribeOnboarding } from './src/utils/onboardingStorage';
 
 // Keep native splash screen visible while app initializes JS engine & assets
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -42,8 +42,15 @@ function ThemedApp() {
         }
       });
 
+    const unsubscribe = subscribeOnboarding((completed) => {
+      if (isMounted) {
+        setIsOnboardingCompleted(completed);
+      }
+    });
+
     return () => {
       isMounted = false;
+      unsubscribe();
     };
   }, []);
 

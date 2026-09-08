@@ -10,7 +10,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
-  backgroundColor: '#F1F5F9',
+  backgroundColor: '#08151D',
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'com.drivekendra.app',
@@ -28,7 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.drivekendra.app',
     adaptiveIcon: {
-      backgroundColor: '#0F172A',
+      backgroundColor: '#083344',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
@@ -72,7 +72,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#08151D',
         image: './assets/splash-icon.png',
         resizeMode: 'contain',
       },

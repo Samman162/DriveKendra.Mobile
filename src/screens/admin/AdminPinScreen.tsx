@@ -9,8 +9,10 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Delete, KeyRound, Lock, ShieldAlert, Sparkles } from 'lucide-react-native';
+import { ArrowLeft, Delete, KeyRound, Lock, ShieldAlert, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { navigationRef } from '../../navigation/navigationRef';
 
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { AuthContext } from '../../context/AuthContext';
@@ -125,10 +127,8 @@ export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: Adm
               onPress: () => {
                 if (onMaxAttemptsExceeded) {
                   onMaxAttemptsExceeded();
-                } else if (onBack) {
-                  onBack();
-                } else if (navigation.canGoBack()) {
-                  navigation.goBack();
+                } else {
+                  void handleBack();
                 }
               },
             },
@@ -138,10 +138,8 @@ export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: Adm
 
         if (onMaxAttemptsExceeded) {
           onMaxAttemptsExceeded();
-        } else if (onBack) {
-          onBack();
-        } else if (navigation.canGoBack()) {
-          navigation.goBack();
+        } else {
+          void handleBack();
         }
       } else {
         const remaining = MAX_PIN_ATTEMPTS - nextAttempts;
@@ -150,6 +148,36 @@ export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: Adm
       }
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  const handleBack = async () => {
+    hapticFeedback.light();
+    try {
+      await logout();
+    } catch {
+      // safely continue
+    }
+    if (authCtx?.signOut) {
+      try {
+        await authCtx.signOut();
+      } catch {
+        // safely continue
+      }
+    }
+    if (onBack) {
+      onBack();
+    } else if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (navigationRef.isReady()) {
+      try {
+        navigationRef.resetRoot({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        });
+      } catch {
+        // safely continue
+      }
     }
   };
 
@@ -189,6 +217,16 @@ export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: Adm
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* Top Header */}
       <View style={styles.topBar}>
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Exit to Login"
+        >
+          <ArrowLeft size={16} color={colors.text} style={{ marginRight: 4 }} />
+          <Text style={styles.backBtnText}>Exit</Text>
+        </Pressable>
+
         <View style={styles.secureHeaderPill}>
           <Lock size={12} color={colors.accent} style={{ marginRight: 4 }} />
           <Text style={styles.secureHeaderPillText}>2FA HARDWARE GATE</Text>
@@ -308,6 +346,16 @@ export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: Adm
             <Delete size={22} color={colors.text} />
           </Pressable>
         </View>
+
+        {/* Cancel & Return to Login link */}
+        <Pressable
+          onPress={handleBack}
+          style={({ pressed }) => [styles.exitBtn, pressed && styles.pressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel & Return to Login"
+        >
+          <Text style={styles.exitBtnText}>Cancel & Return to Login</Text>
+        </Pressable>
       </View>
     </View>
   );
@@ -323,9 +371,36 @@ function createStyles(colors: ThemeColors) {
     topBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
+    },
+    backBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    backBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    exitBtn: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.sm,
+      marginTop: spacing.xs,
+    },
+    exitBtnText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.subtle,
+      textDecorationLine: 'underline',
     },
     pressed: {
       opacity: 0.7,

@@ -79,6 +79,7 @@ import {
 } from '../../api/admin';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { AuthContext } from '../../context/AuthContext';
+import { navigationRef } from '../../navigation/navigationRef';
 import { useTheme } from '../../theme/ThemeProvider';
 import { useThemedStyles } from '../../theme/useThemedStyles';
 import type { ThemeColors } from '../../theme/colors';
@@ -194,10 +195,24 @@ export function AdminDashboardScreen() {
   const handleSignOut = () => {
     hapticFeedback.error();
     const executeSignOut = async () => {
-      await logout();
+      try {
+        await logout();
+      } catch (err) {
+        console.warn('[AdminDashboard] Error during logout:', err);
+      }
       if (authCtx?.signOut) {
         try {
           await authCtx.signOut();
+        } catch {
+          // safely continue
+        }
+      }
+      if (navigationRef.isReady()) {
+        try {
+          navigationRef.resetRoot({
+            index: 0,
+            routes: [{ name: 'Auth' }],
+          });
         } catch {
           // safely continue
         }

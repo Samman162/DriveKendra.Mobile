@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useContext, useRef, useState } from 'react';
 import {
   FlatList,
   NativeScrollEvent,
@@ -25,6 +25,7 @@ import { useThemedStyles } from '../theme/useThemedStyles';
 import { radius, spacing } from '../theme/spacing';
 import { setCompletedOnboarding } from '../utils/onboardingStorage';
 import { hapticFeedback } from '../utils/haptics';
+import { AuthContext } from '../context/AuthContext';
 
 interface OnboardingSlide {
   id: string;
@@ -90,11 +91,19 @@ export function OnboardingScreen({ navigation }: Props) {
   const slideWidth = containerWidth > 0 ? containerWidth : windowWidth;
   const illustrationSize = Math.min(Math.round(slideWidth * 0.72), 280);
 
+  const auth = useContext(AuthContext);
+  const isAuthenticated = auth?.isAuthenticated ?? false;
+
   const handleFinish = async () => {
     hapticFeedback.success();
     await setCompletedOnboarding();
     if (navigation.canGoBack?.()) {
       navigation.goBack();
+    } else if (isAuthenticated) {
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainTabs' }],
+      });
     } else {
       navigation.reset({
         index: 0,

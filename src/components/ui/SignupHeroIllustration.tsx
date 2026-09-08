@@ -32,27 +32,27 @@ export function SignupHeroIllustration({
       <Svg width={width} height={height} viewBox="0 0 260 200">
         <Defs>
           <LinearGradient id="signupCardGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor={isDark ? '#1E293B' : '#FFFFFF'} />
-            <Stop offset="100%" stopColor={isDark ? '#0F172A' : '#FFF5EE'} />
+            <Stop offset="0%" stopColor={isDark ? '#0B212D' : '#FFFFFF'} />
+            <Stop offset="100%" stopColor={isDark ? '#08151D' : '#F0F9FF'} />
           </LinearGradient>
           <LinearGradient id="signupAccentGrad" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0%" stopColor="#FF8533" />
-            <Stop offset="100%" stopColor="#FF6B00" />
+            <Stop offset="0%" stopColor="#38BDF8" />
+            <Stop offset="100%" stopColor="#0284C7" />
           </LinearGradient>
           <LinearGradient id="signupAvatarGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#FFE0CC" />
-            <Stop offset="100%" stopColor="#FFC299" />
+            <Stop offset="0%" stopColor="#BAE6FD" />
+            <Stop offset="100%" stopColor="#7DD3FC" />
           </LinearGradient>
         </Defs>
 
         {/* Ambient base puffs & sparks */}
         <G opacity={0.6}>
-          <Circle cx="190" cy="180" r="14" fill="#FFE5D0" />
-          <Circle cx="210" cy="175" r="10" fill="#FFEFE2" />
-          <Circle cx="175" cy="185" r="8" fill="#FFD2B2" />
+          <Circle cx="190" cy="180" r="14" fill="#E0F2FE" />
+          <Circle cx="210" cy="175" r="10" fill="#F0F9FF" />
+          <Circle cx="175" cy="185" r="8" fill="#BAE6FD" />
           {/* Small spark stars */}
-          <Path d="M 230 145 L 232 140 L 234 145 L 239 147 L 234 149 L 232 154 L 230 149 L 225 147 Z" fill="#FFA366" />
-          <Path d="M 160 160 L 161 156 L 162 160 L 166 161 L 162 162 L 161 166 L 160 162 L 156 161 Z" fill="#FFA366" />
+          <Path d="M 230 145 L 232 140 L 234 145 L 239 147 L 234 149 L 232 154 L 230 149 L 225 147 Z" fill="#38BDF8" />
+          <Path d="M 160 160 L 161 156 L 162 160 L 166 161 L 162 162 L 161 166 L 160 162 L 156 161 Z" fill="#38BDF8" />
         </G>
 
         {/* Smartphone / Signup Card on the right */}
@@ -67,7 +67,7 @@ export function SignupHeroIllustration({
             height="150"
             rx="14"
             fill="url(#signupCardGrad)"
-            stroke="#FFB280"
+            stroke="#7DD3FC"
             strokeWidth="1.5"
           />
 
@@ -80,13 +80,13 @@ export function SignupHeroIllustration({
             cy="46"
             r="19"
             fill="url(#signupAvatarGrad)"
-            stroke="#FF8533"
+            stroke="#0284C7"
             strokeWidth="1.5"
           />
           {/* Avatar Face & Hair */}
           <Circle cx="188" cy="42" r="7" fill="#FCD34D" />
-          <Path d="M 182 39 C 182 35, 194 35, 194 39 C 192 38, 184 38, 182 39 Z" fill="#0F172A" />
-          <Path d="M 177 56 C 177 50, 199 50, 199 56 Z" fill="#FF6B00" />
+          <Path d="M 182 39 C 182 35, 194 35, 194 39 C 192 38, 184 38, 182 39 Z" fill="#051A24" />
+          <Path d="M 177 56 C 177 50, 199 50, 199 56 Z" fill="#0284C7" />
 
           {/* Input field 1: Form Field with Dots */}
           <Rect
@@ -95,16 +95,16 @@ export function SignupHeroIllustration({
             width="72"
             height="16"
             rx="5"
-            fill={isDark ? '#334155' : '#FFFFFF'}
-            stroke="#CBD5E1"
+            fill={isDark ? '#0E2A3A' : '#FFFFFF'}
+            stroke="#BAE6FD"
             strokeWidth="1"
           />
-          <Circle cx="162" cy="82" r="2" fill="#FFA366" />
-          <Circle cx="172" cy="82" r="2" fill="#FFA366" />
-          <Circle cx="182" cy="82" r="2" fill="#FFA366" />
-          <Circle cx="192" cy="82" r="2" fill="#FFA366" />
-          <Circle cx="202" cy="82" r="2" fill="#FFA366" />
-          <Circle cx="212" cy="82" r="2" fill="#FFA366" />
+          <Circle cx="162" cy="82" r="2" fill="#38BDF8" />
+          <Circle cx="172" cy="82" r="2" fill="#38BDF8" />
+          <Circle cx="182" cy="82" r="2" fill="#38BDF8" />
+          <Circle cx="192" cy="82" r="2" fill="#38BDF8" />
+          <Circle cx="202" cy="82" r="2" fill="#38BDF8" />
+          <Circle cx="212" cy="82" r="2" fill="#38BDF8" />
 
           {/* Input field 2: Form Field with Dots */}
           <Rect
@@ -113,16 +113,16 @@ export function SignupHeroIllustration({
             width="72"
             height="16"
             rx="5"
-            fill={isDark ? '#334155' : '#FFFFFF'}
-            stroke="#CBD5E1"
+            fill={isDark ? '#0E2A3A' : '#FFFFFF'}
+            stroke="#BAE6FD"
             strokeWidth="1"
           />
-          <Circle cx="162" cy="104" r="2" fill="#FFA366" />
-          <Circle cx="172" cy="104" r="2" fill="#FFA366" />
-          <Circle cx="182" cy="104" r="2" fill="#FFA366" />
-          <Circle cx="192" cy="104" r="2" fill="#FFA366" />
-          <Circle cx="202" cy="104" r="2" fill="#FFA366" />
-          <Circle cx="212" cy="104" r="2" fill="#FFA366" />
+          <Circle cx="162" cy="104" r="2" fill="#38BDF8" />
+          <Circle cx="172" cy="104" r="2" fill="#38BDF8" />
+          <Circle cx="182" cy="104" r="2" fill="#38BDF8" />
+          <Circle cx="192" cy="104" r="2" fill="#38BDF8" />
+          <Circle cx="202" cy="104" r="2" fill="#38BDF8" />
+          <Circle cx="212" cy="104" r="2" fill="#38BDF8" />
 
           {/* Mini "Sign Up" Button on card */}
           <Rect x="164" y="122" width="48" height="15" rx="4" fill="url(#signupAccentGrad)" />
@@ -145,25 +145,25 @@ export function SignupHeroIllustration({
           {/* Left Leg */}
           <Path
             d="M 76 130 C 76 142, 70 172, 68 180 C 72 182, 80 182, 84 180 C 86 172, 88 142, 88 130 Z"
-            fill="#334155"
+            fill="#083344"
           />
           {/* Right Leg */}
           <Path
             d="M 94 130 C 94 142, 98 172, 102 180 C 106 182, 114 182, 118 180 C 114 172, 106 142, 106 130 Z"
-            fill="#1E293B"
+            fill="#051A24"
           />
 
           {/* Left Shoe */}
           <Path
             d="M 64 180 C 60 184, 68 190, 84 186 C 84 182, 78 180, 64 180 Z"
-            fill="#FF6B00"
+            fill="#0284C7"
           />
           <Rect x="64" y="184" width="20" height="3" rx="1.5" fill="#FFFFFF" />
 
           {/* Right Shoe */}
           <Path
             d="M 102 180 C 100 182, 108 190, 124 186 C 124 182, 116 180, 102 180 Z"
-            fill="#FF6B00"
+            fill="#0284C7"
           />
           <Rect x="104" y="184" width="20" height="3" rx="1.5" fill="#FFFFFF" />
 
@@ -180,27 +180,27 @@ export function SignupHeroIllustration({
           {/* Hair */}
           <Path
             d="M 83 48 C 83 38, 107 38, 107 48 C 107 43, 87 40, 83 48 Z"
-            fill="#0F172A"
+            fill="#051A24"
           />
-          <Path d="M 83 48 C 81 54, 85 58, 85 58 C 85 52, 87 48, 83 48 Z" fill="#0F172A" />
+          <Path d="M 83 48 C 81 54, 85 58, 85 58 C 85 52, 87 48, 83 48 Z" fill="#051A24" />
 
           {/* Eyes & Smile */}
-          <Circle cx="98" cy="50" r="1.5" fill="#0F172A" />
-          <Path d="M 94 57 C 96 60, 100 60, 102 57" stroke="#0F172A" strokeWidth="1" fill="none" />
+          <Circle cx="98" cy="50" r="1.5" fill="#051A24" />
+          <Path d="M 94 57 C 96 60, 100 60, 102 57" stroke="#051A24" strokeWidth="1" fill="none" />
 
           {/* Left Arm holding Tablet */}
           <Path
             d="M 74 78 C 70 90, 82 108, 92 110 C 94 104, 88 88, 84 78 Z"
-            fill="#FF8533"
+            fill="#38BDF8"
           />
           {/* Tablet in hand */}
-          <Rect x="92" y="92" width="24" height="30" rx="3" fill="#FFFFFF" stroke="#FF6B00" strokeWidth="1.5" />
-          <Circle cx="104" cy="107" r="4" fill="#FF8533" />
+          <Rect x="92" y="92" width="24" height="30" rx="3" fill="#FFFFFF" stroke="#0284C7" strokeWidth="1.5" />
+          <Circle cx="104" cy="107" r="4" fill="#0284C7" />
 
           {/* Right Arm pointing up right */}
           <Path
             d="M 116 78 C 122 84, 128 72, 126 60 C 122 62, 120 70, 116 78 Z"
-            fill="#FF8533"
+            fill="#38BDF8"
           />
           {/* Hand pointing */}
           <Circle cx="126" cy="56" r="4" fill="#FCD34D" />

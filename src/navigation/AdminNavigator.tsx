@@ -26,7 +26,10 @@ function AdminNavigatorContent() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+    <Stack.Navigator
+      key={isAdminAuthenticated ? 'admin-dashboard-stack' : 'admin-pin-stack'}
+      screenOptions={{ headerShown: false, animation: 'fade' }}
+    >
       {isAdminAuthenticated ? (
         <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       ) : (

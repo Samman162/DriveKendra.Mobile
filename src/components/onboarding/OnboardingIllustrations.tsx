@@ -24,16 +24,16 @@ export function BookingIllustration({ size = 280 }: IllustrationProps) {
       <Svg width={size} height={size} viewBox="0 0 300 300">
         <Defs>
           <LinearGradient id="bgGrad1" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#FFF2E8" />
-            <Stop offset="100%" stopColor="#FFE0CC" />
+            <Stop offset="0%" stopColor="#F0F9FF" />
+            <Stop offset="100%" stopColor="#E0F2FE" />
           </LinearGradient>
           <LinearGradient id="phoneGrad" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0%" stopColor="#FF7A1A" />
-            <Stop offset="100%" stopColor="#EA580C" />
+            <Stop offset="0%" stopColor="#0284C7" />
+            <Stop offset="100%" stopColor="#083344" />
           </LinearGradient>
           <LinearGradient id="carGrad" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0%" stopColor="#FBBF24" />
-            <Stop offset="100%" stopColor="#F59E0B" />
+            <Stop offset="0%" stopColor="#38BDF8" />
+            <Stop offset="100%" stopColor="#0284C7" />
           </LinearGradient>
         </Defs>
 
@@ -43,7 +43,7 @@ export function BookingIllustration({ size = 280 }: IllustrationProps) {
         {/* City Skyline Silhouette */}
         <G opacity={0.65}>
           {/* Building Left */}
-          <Rect x="55" y="105" width="42" height="100" rx="4" fill="#FFC9A8" />
+          <Rect x="55" y="105" width="42" height="100" rx="4" fill="#BAE6FD" />
           <Rect x="63" y="118" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="73" y="118" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="83" y="118" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
@@ -55,7 +55,7 @@ export function BookingIllustration({ size = 280 }: IllustrationProps) {
           <Rect x="83" y="146" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
 
           {/* Building Center-Left (Tall) */}
-          <Rect x="105" y="75" width="46" height="130" rx="4" fill="#FFB990" />
+          <Rect x="105" y="75" width="46" height="130" rx="4" fill="#7DD3FC" />
           <Rect x="115" y="90" width="8" height="10" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="130" y="90" width="8" height="10" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="115" y="106" width="8" height="10" rx="1" fill="#FFFFFF" opacity={0.7} />
@@ -64,14 +64,14 @@ export function BookingIllustration({ size = 280 }: IllustrationProps) {
           <Rect x="130" y="122" width="8" height="10" rx="1" fill="#FFFFFF" opacity={0.7} />
 
           {/* Building Center-Right */}
-          <Rect x="156" y="98" width="40" height="110" rx="4" fill="#FFC9A8" />
+          <Rect x="156" y="98" width="40" height="110" rx="4" fill="#BAE6FD" />
           <Rect x="166" y="112" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="178" y="112" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="166" y="126" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="178" y="126" width="6" height="8" rx="1" fill="#FFFFFF" opacity={0.7} />
 
           {/* Building Right */}
-          <Rect x="200" y="80" width="48" height="125" rx="4" fill="#FFD1B5" />
+          <Rect x="200" y="80" width="48" height="125" rx="4" fill="#E0F2FE" />
           <Rect x="210" y="94" width="7" height="9" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="225" y="94" width="7" height="9" rx="1" fill="#FFFFFF" opacity={0.7} />
           <Rect x="210" y="110" width="7" height="9" rx="1" fill="#FFFFFF" opacity={0.7} />
@@ -89,12 +89,12 @@ export function BookingIllustration({ size = 280 }: IllustrationProps) {
         {/* Orange Curved Road Highway */}
         <Path
           d="M 32 178 C 80 162, 140 186, 268 180 C 275 180, 275 194, 268 194 C 140 200, 80 180, 32 194 Z"
-          fill="#FB923C"
+          fill="#0284C7"
           opacity={0.85}
         />
         <Path
           d="M 188 202 C 220 202, 252 202, 278 202"
-          stroke="#FB923C"
+          stroke="#0284C7"
           strokeWidth="6"
           strokeLinecap="round"
         />
@@ -149,7 +149,7 @@ export function BookingIllustration({ size = 280 }: IllustrationProps) {
             height="84"
             rx="8"
             fill="url(#phoneGrad)"
-            stroke="#EA580C"
+            stroke="#0284C7"
             strokeWidth="1.5"
           />
           {/* Phone Screen Speaker & Notch */}
@@ -160,7 +160,7 @@ export function BookingIllustration({ size = 280 }: IllustrationProps) {
           <Circle cx="122" cy="132" r="10" fill="#FFFFFF" />
           <Path
             d="M 116 134 C 116 132, 119 128, 122 128 C 125 128, 128 132, 128 134 L 128 136 L 116 136 Z"
-            fill="#EA580C"
+            fill="#0284C7"
           />
           <Circle cx="118.5" cy="135.5" r="1.2" fill="#FFFFFF" />
           <Circle cx="125.5" cy="135.5" r="1.2" fill="#FFFFFF" />
@@ -211,8 +211,8 @@ export function MountainTourIllustration({ size = 280 }: IllustrationProps) {
             <Stop offset="100%" stopColor="#64748B" />
           </LinearGradient>
           <LinearGradient id="suvGrad" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0%" stopColor="#FF7A1A" />
-            <Stop offset="100%" stopColor="#EA580C" />
+            <Stop offset="0%" stopColor="#38BDF8" />
+            <Stop offset="100%" stopColor="#0284C7" />
           </LinearGradient>
         </Defs>
 
@@ -238,7 +238,7 @@ export function MountainTourIllustration({ size = 280 }: IllustrationProps) {
         {/* Winding Mountain Highway */}
         <Path
           d="M 35 240 C 90 200, 140 250, 265 210"
-          stroke="#F97316"
+          stroke="#0284C7"
           strokeWidth="18"
           fill="none"
           strokeLinecap="round"
@@ -260,7 +260,7 @@ export function MountainTourIllustration({ size = 280 }: IllustrationProps) {
           />
           {/* Roof Rack & Expedition Bags */}
           <Rect x="22" y="8" width="38" height="4" rx="1" fill="#334155" />
-          <Rect x="25" y="4" width="14" height="5" rx="2" fill="#F59E0B" />
+          <Rect x="25" y="4" width="14" height="5" rx="2" fill="#0EA5E9" />
           <Rect x="42" y="3" width="15" height="6" rx="2" fill="#3B82F6" />
           {/* Windows */}
           <Path d="M 22 17 L 38 17 L 38 28 L 16 28 Z" fill="#BAE6FD" />
@@ -288,12 +288,12 @@ export function TariffVoucherIllustration({ size = 280 }: IllustrationProps) {
       <Svg width={size} height={size} viewBox="0 0 300 300">
         <Defs>
           <LinearGradient id="bgGrad3" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#FEF3C7" />
-            <Stop offset="100%" stopColor="#FDE68A" />
+            <Stop offset="0%" stopColor="#F0F9FF" />
+            <Stop offset="100%" stopColor="#BAE6FD" />
           </LinearGradient>
           <LinearGradient id="shieldGrad" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0%" stopColor="#FF7A1A" />
-            <Stop offset="100%" stopColor="#EA580C" />
+            <Stop offset="0%" stopColor="#38BDF8" />
+            <Stop offset="100%" stopColor="#0284C7" />
           </LinearGradient>
         </Defs>
 
@@ -301,12 +301,12 @@ export function TariffVoucherIllustration({ size = 280 }: IllustrationProps) {
         <Circle cx="150" cy="150" r="138" fill="url(#bgGrad3)" />
 
         {/* Ambient Decorative Rings */}
-        <Circle cx="150" cy="150" r="115" stroke="#F59E0B" strokeWidth="1.5" strokeDasharray="6,6" fill="none" opacity={0.4} />
+        <Circle cx="150" cy="150" r="115" stroke="#38BDF8" strokeWidth="1.5" strokeDasharray="6,6" fill="none" opacity={0.4} />
 
         {/* Digital Voucher Document */}
         <G transform="translate(68, 65)">
           {/* Paper Drop Shadow */}
-          <Rect x="8" y="8" width="150" height="175" rx="12" fill="#D97706" opacity={0.15} />
+          <Rect x="8" y="8" width="150" height="175" rx="12" fill="#0284C7" opacity={0.15} />
           {/* White Voucher Card */}
           <Rect x="0" y="0" width="150" height="175" rx="12" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="1.5" />
 
@@ -325,7 +325,7 @@ export function TariffVoucherIllustration({ size = 280 }: IllustrationProps) {
           <Rect x="24" y="96" width="45" height="5" rx="2" fill="#64748B" />
           <Rect x="88" y="96" width="36" height="5" rx="2" fill="#10B981" />
           <Rect x="24" y="108" width="55" height="5" rx="2" fill="#64748B" />
-          <Rect x="94" y="108" width="30" height="5" rx="2" fill="#F59E0B" />
+          <Rect x="94" y="108" width="30" height="5" rx="2" fill="#0EA5E9" />
 
           {/* QR Code Simulation */}
           <Rect x="16" y="134" width="30" height="30" rx="4" fill="#F1F5F9" />
@@ -340,7 +340,7 @@ export function TariffVoucherIllustration({ size = 280 }: IllustrationProps) {
 
         {/* Foreground Floating Trust Shield */}
         <G transform="translate(178, 140)">
-          <Circle cx="30" cy="30" r="34" fill="#FFFFFF" stroke="#FDE68A" strokeWidth="2" />
+          <Circle cx="30" cy="30" r="34" fill="#FFFFFF" stroke="#BAE6FD" strokeWidth="2" />
           <Path
             d="M 30 10 L 48 18 C 48 34, 38 48, 30 52 C 22 48, 12 34, 12 18 Z"
             fill="url(#shieldGrad)"
@@ -369,16 +369,16 @@ export function LogisticsIllustration({ size = 280 }: IllustrationProps) {
       <Svg width={size} height={size} viewBox="0 0 300 300">
         <Defs>
           <LinearGradient id="bgGrad4" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#FFF7ED" />
-            <Stop offset="100%" stopColor="#FED7AA" />
+            <Stop offset="0%" stopColor="#F0F9FF" />
+            <Stop offset="100%" stopColor="#E0F2FE" />
           </LinearGradient>
           <LinearGradient id="vanGrad" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0%" stopColor="#FF7A1A" />
-            <Stop offset="100%" stopColor="#EA580C" />
+            <Stop offset="0%" stopColor="#38BDF8" />
+            <Stop offset="100%" stopColor="#0284C7" />
           </LinearGradient>
           <LinearGradient id="boxGrad" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0%" stopColor="#F59E0B" />
-            <Stop offset="100%" stopColor="#D97706" />
+            <Stop offset="0%" stopColor="#0EA5E9" />
+            <Stop offset="100%" stopColor="#0284C7" />
           </LinearGradient>
         </Defs>
 
@@ -386,14 +386,14 @@ export function LogisticsIllustration({ size = 280 }: IllustrationProps) {
         <Circle cx="150" cy="150" r="138" fill="url(#bgGrad4)" />
 
         {/* Speed Wind Lines */}
-        <Path d="M 38 145 L 85 145" stroke="#FB923C" strokeWidth="4" strokeLinecap="round" opacity={0.6} />
-        <Path d="M 25 160 L 70 160" stroke="#FB923C" strokeWidth="4" strokeLinecap="round" opacity={0.6} />
-        <Path d="M 45 175 L 80 175" stroke="#FB923C" strokeWidth="4" strokeLinecap="round" opacity={0.6} />
+        <Path d="M 38 145 L 85 145" stroke="#38BDF8" strokeWidth="4" strokeLinecap="round" opacity={0.6} />
+        <Path d="M 25 160 L 70 160" stroke="#38BDF8" strokeWidth="4" strokeLinecap="round" opacity={0.6} />
+        <Path d="M 45 175 L 80 175" stroke="#38BDF8" strokeWidth="4" strokeLinecap="round" opacity={0.6} />
 
         {/* Highway Asphalt */}
         <Path
           d="M 30 220 C 100 210, 180 210, 270 220"
-          stroke="#F97316"
+          stroke="#0284C7"
           strokeWidth="16"
           fill="none"
           strokeLinecap="round"
@@ -411,7 +411,7 @@ export function LogisticsIllustration({ size = 280 }: IllustrationProps) {
           {/* Van Side Speed Decal */}
           <Path d="M 22 42 L 85 42 L 78 52 L 15 52 Z" fill="#FFFFFF" opacity={0.9} />
           {/* Drive Kendra 'TK' Emblem inside Decal */}
-          <Circle cx="35" cy="47" r="4" fill="#EA580C" />
+          <Circle cx="35" cy="47" r="4" fill="#0284C7" />
 
           {/* Heavy Duty Wheels */}
           <Circle cx="36" cy="76" r="14" fill="#0F172A" />
@@ -425,10 +425,10 @@ export function LogisticsIllustration({ size = 280 }: IllustrationProps) {
 
         {/* Floating Cargo Delivery Parcel Box */}
         <G transform="translate(200, 75)">
-          <Rect x="0" y="0" width="42" height="42" rx="6" fill="url(#boxGrad)" stroke="#B45309" strokeWidth="1" />
+          <Rect x="0" y="0" width="42" height="42" rx="6" fill="url(#boxGrad)" stroke="#0284C7" strokeWidth="1" />
           {/* Parcel Packing Tape */}
-          <Rect x="16" y="0" width="10" height="42" fill="#FEF3C7" opacity={0.8} />
-          <Rect x="0" y="16" width="42" height="10" fill="#FEF3C7" opacity={0.8} />
+          <Rect x="16" y="0" width="10" height="42" fill="#E0F2FE" opacity={0.8} />
+          <Rect x="0" y="16" width="42" height="10" fill="#E0F2FE" opacity={0.8} />
           {/* Delivery Label */}
           <Rect x="6" y="6" width="12" height="8" rx="1" fill="#FFFFFF" />
         </G>

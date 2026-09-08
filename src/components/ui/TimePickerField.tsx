@@ -88,7 +88,7 @@ export function TimePickerField({
                 <Sun size={12} color={isSelected ? colors.onAccent : colors.accent} />
               )}
               {item.period === 'afternoon' && (
-                <Sunset size={12} color={isSelected ? colors.onAccent : '#EA580C'} />
+                <Sunset size={12} color={isSelected ? colors.onAccent : colors.accent} />
               )}
               {item.period === 'evening' && (
                 <Moon size={12} color={isSelected ? colors.onAccent : '#8B5CF6'} />

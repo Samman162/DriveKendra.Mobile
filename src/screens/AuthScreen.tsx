@@ -386,7 +386,7 @@ export function AuthScreen({
                         setIdentifier(text);
                         if (errors.identifier) clearErrors();
                       }}
-                      placeholder="Enter phone number (e.g. +977 9851363783)"
+                      placeholder="Enter phone number"
                       placeholderTextColor={colors.subtle}
                       keyboardType="phone-pad"
                       autoCapitalize="none"
