@@ -56,12 +56,12 @@ export function ContactScreen() {
           }}
           style={({ pressed }) => [styles.channelCard, pressed && styles.pressed]}
         >
-          <View style={[styles.channelIconWrap, { backgroundColor: 'rgba(37, 211, 102, 0.15)' }]}>
-            <MessageCircle size={22} color="#25D366" />
+          <View style={[styles.channelIconWrap, { backgroundColor: colors.whatsappSoft }]}>
+            <MessageCircle size={22} color={colors.whatsapp} />
           </View>
           <Text style={styles.channelTitle}>WhatsApp 24/7</Text>
           <Text style={styles.channelValue}>{CONTACT_INFO.whatsappNumber}</Text>
-          <Text style={[styles.channelStatus, { color: '#25D366' }]}>Live Chat ➔</Text>
+          <Text style={[styles.channelStatus, { color: colors.whatsapp }]}>Live Chat ➔</Text>
         </Pressable>
       </View>
 

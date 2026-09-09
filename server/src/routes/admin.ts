@@ -54,7 +54,11 @@ const updateVehicleSchema = z.object({
 });
 
 const approveTripSchema = z.object({
-  vehicleId: z.coerce.number().int().positive('Valid vehicle ID is required.'),
+  vehicleId: z.coerce.number().int().positive().optional().nullable(),
+  driverId: z.coerce.number().int().positive().optional().nullable(),
+  driverName: z.string().trim().max(120).optional().nullable(),
+  driverPhone: z.string().trim().max(30).optional().nullable(),
+  finalPrice: z.string().trim().min(1).max(50).optional().nullable(),
 });
 
 const rejectTripSchema = z.object({
@@ -68,11 +72,82 @@ const createRoadAdvisorySchema = z.object({
   severity: z.enum(['info', 'moderate', 'severe']).default('moderate'),
 });
 
+const createDriverSchema = z.object({
+  fullName: z.string().trim().min(2, 'Full name is required.').max(120),
+  phoneNumber: z.string().trim().min(7, 'Valid phone number is required.').max(30),
+  whatsappNumber: z.string().trim().max(30).optional().nullable(),
+  email: z.string().trim().email('Invalid email address.').optional().nullable().or(z.literal('')),
+  citizenshipOrIdNo: z.string().trim().min(3, 'Citizenship/ID number is required.').max(50),
+  status: z.enum(['active', 'inactive', 'pending']).default('active'),
+  citizenshipDocId: z.string().trim().max(100).optional().nullable().or(z.literal('')),
+  licenseDocId: z.string().trim().min(3, 'License document ID is required.').max(100),
+  // Optional vehicle registration fields
+  makeModel: z.string().trim().min(2).max(120).optional().nullable(),
+  licensePlate: z.string().trim().min(2).max(50).optional().nullable(),
+  vehicleTypeId: z.number().int().positive().optional().nullable(),
+  category: z.enum(['SUV', 'Sedan', 'HiAce', 'Bus']).optional().nullable(),
+  seatingCapacity: z.number().int().positive().optional().nullable(),
+  manufactureYear: z.number().int().optional().nullable(),
+  color: z.string().trim().max(50).optional().nullable(),
+  bluebookDocId: z.string().trim().max(100).optional().nullable(),
+  vehicle: z.object({
+    makeModel: z.string().trim().min(2).max(120),
+    licensePlate: z.string().trim().min(2).max(50),
+    vehicleTypeId: z.number().int().positive().optional().nullable(),
+    category: z.enum(['SUV', 'Sedan', 'HiAce', 'Bus']).optional().nullable(),
+    seatingCapacity: z.number().int().positive().optional().nullable(),
+    manufactureYear: z.number().int().optional().nullable(),
+    color: z.string().trim().max(50).optional().nullable(),
+    bluebookDocId: z.string().trim().max(100).optional().nullable(),
+  }).optional().nullable(),
+});
+
+const updateDriverSchema = z.object({
+  fullName: z.string().trim().min(2).max(120).optional(),
+  phoneNumber: z.string().trim().min(7).max(30).optional(),
+  whatsappNumber: z.string().trim().max(30).optional().nullable(),
+  email: z.string().trim().email().optional().nullable().or(z.literal('')),
+  citizenshipOrIdNo: z.string().trim().max(50).optional(),
+  status: z.enum(['active', 'inactive', 'pending']).optional(),
+  citizenshipDocId: z.string().trim().max(100).optional().nullable(),
+  licenseDocId: z.string().trim().max(100).optional().nullable(),
+});
+
 // =============================================================================
 // IN-MEMORY RESILIENCE STORE (Fallback for offline & unit tests)
 // =============================================================================
+export interface DriverRecord {
+  id: number;
+  ownerId: number;
+  fullName: string;
+  phoneNumber: string;
+  whatsappNumber?: string | null;
+  email?: string | null;
+  citizenshipOrIdNo?: string | null;
+  status: 'active' | 'inactive' | 'pending';
+  citizenshipDocId?: string | null;
+  licenseDocId?: string | null;
+  vehicle?: {
+    id: number;
+    vehicleId: number;
+    ownerId?: number;
+    makeModel: string;
+    licensePlate: string;
+    vehicleTypeId?: number;
+    category?: 'SUV' | 'Sedan' | 'HiAce' | 'Bus';
+    seatingCapacity: number;
+    manufactureYear?: number;
+    color?: string;
+    isActive?: boolean;
+    bluebookDocId?: string;
+  } | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface VehicleRecord {
   id: number;
+  ownerId?: number;
   vehicleTypeId: number;
   model: string;
   registrationPlate: string;
@@ -101,10 +176,15 @@ export interface AdminBookingRecord {
   tripType: string;
   vehicleCategory: string;
   estimatedFare: string;
+  finalFare?: string | null;
   status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
   assignedVehicleId: number | null;
   assignedVehiclePlate: string | null;
   assignedVehicleModel: string | null;
+  assignedDriverId?: number | null;
+  assignedDriverName?: string | null;
+  assignedDriverPhone?: string | null;
+  additionalDetails?: string | null;
   rejectionReason: string | null;
   createdAt: string;
 }
@@ -133,147 +213,11 @@ export interface RoadAdvisoryRecord {
 // FALLBACK DATA FACTORIES (for test reset & offline resilience)
 // =============================================================================
 function createFallbackVehicles(): VehicleRecord[] {
-  return [
-    {
-      id: 1,
-      vehicleTypeId: 2,
-      model: 'Mahindra Scorpio S11 4x4',
-      registrationPlate: 'BA 2 PA 4521',
-      category: 'SUV',
-      seats: 7,
-      fuelType: 'Diesel',
-      imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
-      status: 'available',
-      createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 2,
-      vehicleTypeId: 3,
-      model: 'Toyota HiAce Super GL Luxury',
-      registrationPlate: 'BA 3 PA 8820',
-      category: 'HiAce',
-      seats: 14,
-      fuelType: 'Diesel',
-      imageUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80',
-      status: 'available',
-      createdAt: new Date(Date.now() - 25 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 3,
-      vehicleTypeId: 2,
-      model: 'Hyundai Creta Adventure Edition',
-      registrationPlate: 'BAGMATI-02-029 PA 1190',
-      category: 'SUV',
-      seats: 5,
-      fuelType: 'Petrol',
-      imageUrl: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80',
-      status: 'available',
-      createdAt: new Date(Date.now() - 20 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 4,
-      vehicleTypeId: 4,
-      model: 'Toyota Coaster Tourist Coach',
-      registrationPlate: 'BA 1 KHA 9022',
-      category: 'Bus',
-      seats: 28,
-      fuelType: 'Diesel',
-      imageUrl: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=600&q=80',
-      status: 'available',
-      createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 5,
-      vehicleTypeId: 1,
-      model: 'Suzuki Dzire VXi',
-      registrationPlate: 'BA 4 PA 3340',
-      category: 'Sedan',
-      seats: 4,
-      fuelType: 'Petrol',
-      imageUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80',
-      status: 'maintenance',
-      createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
+  return [];
 }
 
 function createFallbackBookings(): AdminBookingRecord[] {
-  return [
-    {
-      id: 101,
-      bookingRef: 'DK-2026-0101',
-      userId: 1,
-      customerName: 'Samman Chhetri',
-      customerPhone: '+977 9851363783',
-      customerEmail: 'samman@drivekendra.com',
-      pickupLocation: 'Tribhuvan International Airport, Kathmandu',
-      dropoffLocation: 'Lakeside, Pokhara',
-      pickupDate: new Date(Date.now() + 86400000).toISOString(),
-      pickupTime: '08:00 AM',
-      returnDate: new Date(Date.now() + 4 * 86400000).toISOString(),
-      passengerCount: 4,
-      tripType: 'Round Trip',
-      vehicleCategory: 'SUV / Scorpio 4x4',
-      estimatedFare: 'NPR 34,500',
-      status: 'Pending',
-      assignedVehicleId: null,
-      assignedVehiclePlate: null,
-      assignedVehicleModel: null,
-      rejectionReason: null,
-      createdAt: new Date(Date.now() - 3600000).toISOString(),
-    },
-    {
-      id: 102,
-      bookingRef: 'DK-2026-0102',
-      userId: 2,
-      customerName: 'Maya Sherpa',
-      customerPhone: '+977 9841223344',
-      customerEmail: 'maya.sherpa@gmail.com',
-      pickupLocation: 'Thamel, Kathmandu',
-      dropoffLocation: 'Syabrubesi (Langtang Trek)',
-      pickupDate: new Date(Date.now() + 2 * 86400000).toISOString(),
-      pickupTime: '06:30 AM',
-      returnDate: null,
-      passengerCount: 6,
-      tripType: 'One Way',
-      vehicleCategory: 'HiAce / Van',
-      estimatedFare: 'NPR 22,000',
-      status: 'Pending',
-      assignedVehicleId: null,
-      assignedVehiclePlate: null,
-      assignedVehicleModel: null,
-      rejectionReason: null,
-      createdAt: new Date(Date.now() - 7200000).toISOString(),
-    },
-    {
-      id: 103,
-      bookingRef: 'DK-2026-0103',
-      userId: 3,
-      customerName: 'Rajesh Gurung',
-      customerPhone: '+977 9811556677',
-      customerEmail: 'rajesh.gurung@outlook.com',
-      pickupLocation: 'Pokhara Domestic Airport',
-      dropoffLocation: 'Muktinath Temple, Mustang',
-      pickupDate: new Date(Date.now() - 86400000).toISOString(),
-      pickupTime: '07:00 AM',
-      returnDate: new Date().toISOString(),
-      passengerCount: 4,
-      tripType: 'Round Trip',
-      vehicleCategory: 'SUV / Scorpio 4x4',
-      estimatedFare: 'NPR 48,000',
-      status: 'Confirmed',
-      assignedVehicleId: 1,
-      assignedVehiclePlate: 'BA 2 PA 4521',
-      assignedVehicleModel: 'Mahindra Scorpio S11 4x4',
-      rejectionReason: null,
-      createdAt: new Date(Date.now() - 172800000).toISOString(),
-    },
-  ];
+  return [];
 }
 
 function createFallbackUsers(): AdminUserRecord[] {
@@ -284,37 +228,7 @@ function createFallbackUsers(): AdminUserRecord[] {
       phone: '+977 9851363783',
       email: 'samman@drivekendra.com',
       role: 'customer',
-      createdAt: new Date(Date.now() - 60 * 86400000).toISOString(),
-      totalBookings: 3,
-      lifetimeSpend: 'NPR 82,500',
-    },
-    {
-      id: 2,
-      fullName: 'Maya Sherpa',
-      phone: '+977 9841223344',
-      email: 'maya.sherpa@gmail.com',
-      role: 'customer',
-      createdAt: new Date(Date.now() - 45 * 86400000).toISOString(),
-      totalBookings: 2,
-      lifetimeSpend: 'NPR 44,000',
-    },
-    {
-      id: 3,
-      fullName: 'Rajesh Gurung',
-      phone: '+977 9811556677',
-      email: 'rajesh.gurung@outlook.com',
-      role: 'customer',
-      createdAt: new Date(Date.now() - 30 * 86400000).toISOString(),
-      totalBookings: 1,
-      lifetimeSpend: 'NPR 48,000',
-    },
-    {
-      id: 4,
-      fullName: 'Sita KC',
-      phone: '+977 9860112233',
-      email: 'sita.kc@nepalnet.np',
-      role: 'customer',
-      createdAt: new Date(Date.now() - 15 * 86400000).toISOString(),
+      createdAt: '2026-01-01T00:00:00.000Z',
       totalBookings: 0,
       lifetimeSpend: 'NPR 0',
     },
@@ -350,13 +264,18 @@ function createFallbackAdvisories(): RoadAdvisoryRecord[] {
   ];
 }
 
+function createFallbackDrivers(): DriverRecord[] {
+  return [];
+}
+
 // =============================================================================
 // MUTABLE FALLBACK STATE (used at runtime; resettable for tests)
 // =============================================================================
-let fallbackVehicles: VehicleRecord[] = createFallbackVehicles();
-let fallbackBookings: AdminBookingRecord[] = createFallbackBookings();
-let fallbackUsers: AdminUserRecord[] = createFallbackUsers();
+export let fallbackVehicles: VehicleRecord[] = createFallbackVehicles();
+export let fallbackBookings: AdminBookingRecord[] = createFallbackBookings();
+export let fallbackUsers: AdminUserRecord[] = createFallbackUsers();
 export let fallbackAdvisories: RoadAdvisoryRecord[] = createFallbackAdvisories();
+export let fallbackDrivers: DriverRecord[] = createFallbackDrivers();
 
 /**
  * Reset all in-memory fallback data to initial state.
@@ -367,6 +286,7 @@ export function resetFallbackData(): void {
   fallbackBookings = createFallbackBookings();
   fallbackUsers = createFallbackUsers();
   fallbackAdvisories = createFallbackAdvisories();
+  fallbackDrivers = createFallbackDrivers();
   challengeStore.clear();
 }
 
@@ -521,19 +441,25 @@ adminRoute.get('/stats', requireAdminAuth, async (c) => {
   try {
     const stats = await withPublicClient(async (client) => {
       await client.query("SET LOCAL app.is_admin = 'true'");
-      const [pendingRes, fleetRes, usersRes, tripsRes] = await Promise.all([
+      const [pendingRes, fleetRes, usersRes, tripsRes, driversRes, revenueRes] = await Promise.all([
         client.query<{ count: string }>(`SELECT COUNT(*) FROM dka_bookings WHERE booking_status = 'Pending'`),
-        client.query<{ count: string }>(`SELECT COUNT(*) FROM dka_vehicles WHERE status = 'available'`),
+        client.query<{ count: string }>(`SELECT COUNT(*) FROM dka_vehicles WHERE is_active = TRUE`),
         client.query<{ count: string }>(`SELECT COUNT(*) FROM dka_users WHERE role = 'customer'`),
         client.query<{ count: string }>(`SELECT COUNT(*) FROM dka_bookings`),
+        client.query<{ count: string }>(`SELECT COUNT(*) FROM dka_owners`),
+        client.query<{ total: string }>(
+          `SELECT COALESCE(SUM(CAST(REGEXP_REPLACE(COALESCE(final_fare, estimated_fare, '0'), '[^0-9]', '', 'g') AS BIGINT)), 0) AS total FROM dka_bookings WHERE booking_status IN ('Confirmed', 'Completed')`,
+        ),
       ]);
 
+      const revNum = Number(revenueRes.rows[0]?.total || 0);
       return {
         pendingRequests: Number(pendingRes.rows[0]?.count || 0),
         activeFleet: Number(fleetRes.rows[0]?.count || 0),
         totalUsers: Number(usersRes.rows[0]?.count || 0),
         totalTrips: Number(tripsRes.rows[0]?.count || 0),
-        totalRevenue: 'NPR 148,500',
+        totalDrivers: Number(driversRes.rows[0]?.count || 0),
+        totalRevenue: `NPR ${revNum.toLocaleString()}`,
       };
     });
 
@@ -542,12 +468,16 @@ adminRoute.get('/stats', requireAdminAuth, async (c) => {
     // In-memory fallback
     const pendingCount = fallbackBookings.filter((b) => b.status === 'Pending').length;
     const availableFleet = fallbackVehicles.filter((v) => v.status === 'available').length;
+    const totalRev = fallbackBookings
+      .filter((b) => b.status === 'Confirmed' || b.status === 'Completed')
+      .reduce((acc, b) => acc + (parseInt((b.finalFare || b.estimatedFare || '0').replace(/\D/g, ''), 10) || 0), 0);
     return c.json({
       pendingRequests: pendingCount,
       activeFleet: availableFleet,
       totalUsers: fallbackUsers.length,
       totalTrips: fallbackBookings.length,
-      totalRevenue: 'NPR 148,500',
+      totalDrivers: fallbackDrivers.length,
+      totalRevenue: `NPR ${totalRev.toLocaleString()}`,
     });
   }
 });
@@ -636,14 +566,19 @@ adminRoute.get('/users/:id/trips', requireAdminAuth, async (c) => {
         passenger_count: number;
         trip_type: string;
         estimated_fare: string | null;
+        final_fare: string | null;
         booking_status: string;
         assigned_vehicle_plate: string | null;
         assigned_vehicle_model: string | null;
+        assigned_driver_name: string | null;
+        assigned_driver_phone: string | null;
+        additional_details: string | null;
         created_at: Date;
       }>(
         `SELECT b.booking_id, b.pickup_location, b.dropoff_location, b.pickup_date, b.pickup_time,
-                b.return_date, b.passenger_count, b.trip_type, b.estimated_fare, b.booking_status,
-                b.assigned_vehicle_plate, b.assigned_vehicle_model, b.created_at
+                b.return_date, b.passenger_count, b.trip_type, b.estimated_fare, b.final_fare, b.booking_status,
+                b.assigned_vehicle_plate, b.assigned_vehicle_model,
+                b.assigned_driver_name, b.assigned_driver_phone, b.additional_details, b.created_at
          FROM dka_bookings b
          WHERE b.user_id = $1
          ORDER BY b.created_at DESC`,
@@ -660,10 +595,14 @@ adminRoute.get('/users/:id/trips', requireAdminAuth, async (c) => {
         returnDate: r.return_date ? r.return_date.toISOString() : null,
         passengerCount: r.passenger_count,
         tripType: r.trip_type,
-        estimatedFare: r.estimated_fare || 'NPR 25,000',
+        estimatedFare: r.final_fare || r.estimated_fare || 'NPR 25,000',
+        finalFare: r.final_fare,
         status: r.booking_status,
         assignedVehiclePlate: r.assigned_vehicle_plate,
         assignedVehicleModel: r.assigned_vehicle_model,
+        assignedDriverName: r.assigned_driver_name,
+        assignedDriverPhone: r.assigned_driver_phone,
+        additionalDetails: r.additional_details,
         createdAt: r.created_at.toISOString(),
       }));
     });
@@ -682,10 +621,14 @@ adminRoute.get('/users/:id/trips', requireAdminAuth, async (c) => {
         returnDate: b.returnDate,
         passengerCount: b.passengerCount,
         tripType: b.tripType,
-        estimatedFare: b.estimatedFare,
+        estimatedFare: b.finalFare || b.estimatedFare,
+        finalFare: b.finalFare,
         status: b.status,
         assignedVehiclePlate: b.assignedVehiclePlate,
         assignedVehicleModel: b.assignedVehicleModel,
+        assignedDriverName: b.assignedDriverName,
+        assignedDriverPhone: b.assignedDriverPhone,
+        additionalDetails: b.additionalDetails,
         createdAt: b.createdAt,
       }));
     return c.json({ trips });
@@ -704,11 +647,13 @@ adminRoute.get('/trips', requireAdminAuth, async (c) => {
       await client.query("SET LOCAL app.is_admin = 'true'");
       let sql = `
         SELECT b.booking_id, b.user_id, u.full_name, u.phone_number, u.email,
-               b.pickup_location, b.dropoff_location, b.pickup_date, b.pickup_time,
-               b.return_date, b.passenger_count, b.trip_type, vt.type_name,
-               b.estimated_fare, b.booking_status, b.assigned_vehicle_plate,
-               b.assigned_vehicle_model, b.assigned_vehicle_id, b.rejection_reason,
-               b.created_at
+                b.pickup_location, b.dropoff_location, b.pickup_date, b.pickup_time,
+                b.return_date, b.passenger_count, b.trip_type, vt.type_name,
+                b.estimated_fare, b.final_fare, b.booking_status,
+                b.assigned_vehicle_plate, b.assigned_vehicle_model, b.assigned_vehicle_id,
+                b.assigned_driver_id, b.assigned_driver_name, b.assigned_driver_phone,
+                b.additional_details, b.rejection_reason,
+                b.created_at
         FROM dka_bookings b
         JOIN dka_users u ON b.user_id = u.user_id
         LEFT JOIN dka_vehicle_types vt ON b.vehicle_type_id = vt.vehicle_type_id
@@ -735,10 +680,15 @@ adminRoute.get('/trips', requireAdminAuth, async (c) => {
         trip_type: string;
         type_name: string | null;
         estimated_fare: string | null;
+        final_fare: string | null;
         booking_status: string;
         assigned_vehicle_plate: string | null;
         assigned_vehicle_model: string | null;
         assigned_vehicle_id: number | null;
+        assigned_driver_id: number | null;
+        assigned_driver_name: string | null;
+        assigned_driver_phone: string | null;
+        additional_details: string | null;
         rejection_reason: string | null;
         created_at: Date;
       }>(sql, params);
@@ -759,10 +709,15 @@ adminRoute.get('/trips', requireAdminAuth, async (c) => {
         tripType: r.trip_type,
         vehicleCategory: r.type_name || 'SUV / 4x4',
         estimatedFare: r.estimated_fare || 'NPR 25,000',
+        finalFare: r.final_fare,
         status: r.booking_status,
         assignedVehicleId: r.assigned_vehicle_id,
         assignedVehiclePlate: r.assigned_vehicle_plate,
         assignedVehicleModel: r.assigned_vehicle_model,
+        assignedDriverId: r.assigned_driver_id,
+        assignedDriverName: r.assigned_driver_name,
+        assignedDriverPhone: r.assigned_driver_phone,
+        additionalDetails: r.additional_details,
         rejectionReason: r.rejection_reason,
         createdAt: r.created_at.toISOString(),
       }));
@@ -791,10 +746,10 @@ adminRoute.patch('/trips/:id/approve', requireAdminAuth, async (c) => {
   const body = await c.req.json().catch(() => null);
   const parsed = approveTripSchema.safeParse(body);
   if (!parsed.success) {
-    throw new HttpError(400, parsed.error.issues[0]?.message || 'Valid vehicle ID required.');
+    throw new HttpError(400, parsed.error.issues[0]?.message || 'Invalid trip approval parameters.');
   }
 
-  const { vehicleId } = parsed.data;
+  const { vehicleId, driverId, driverName, driverPhone, finalPrice } = parsed.data;
 
   try {
     const updatedBooking = await withPublicClient(async (client) => {
@@ -802,48 +757,97 @@ adminRoute.patch('/trips/:id/approve', requireAdminAuth, async (c) => {
       await client.query('BEGIN');
 
       try {
-        // 1. Verify vehicle exists and is available
-        const vehicleRes = await client.query<{
-          vehicle_id: number;
-          model: string;
-          registration_plate: string;
-          status: string;
-        }>(
-          `SELECT vehicle_id, model, registration_plate, status
-           FROM dka_vehicles
-           WHERE vehicle_id = $1
-           FOR UPDATE`,
-          [vehicleId],
-        );
-
-        if (vehicleRes.rows.length === 0) {
-          throw new HttpError(404, 'Vehicle not found in fleet inventory.');
-        }
-
-        const vehicle = vehicleRes.rows[0];
-        if (vehicle.status !== 'available') {
-          throw new HttpError(
-            409,
-            `Vehicle ${vehicle.model} (${vehicle.registration_plate}) is currently ${vehicle.status} and cannot be assigned.`,
+        // 1. Resolve Driver details if driverId provided
+        let resolvedDriverName = driverName || null;
+        let resolvedDriverPhone = driverPhone || null;
+        if (driverId && (!resolvedDriverName || !resolvedDriverPhone)) {
+          const driverRes = await client.query<{ full_name: string; phone_number: string }>(
+            `SELECT full_name, phone_number FROM dka_owners WHERE owner_id = $1`,
+            [driverId],
           );
+          if (driverRes.rows.length > 0) {
+            resolvedDriverName = driverRes.rows[0].full_name;
+            resolvedDriverPhone = driverRes.rows[0].phone_number;
+          }
         }
 
-        // 2. Update booking status to Confirmed & assign vehicle
+        // 2. Resolve Vehicle details
+        let resolvedVehicleId: number | null = vehicleId || null;
+        let resolvedVehiclePlate: string | null = null;
+        let resolvedVehicleModel: string | null = null;
+
+        if (resolvedVehicleId) {
+          const vehicleRes = await client.query<{
+            vehicle_id: number;
+            make_model: string;
+            license_plate: string;
+            is_active: boolean;
+          }>(
+            `SELECT vehicle_id, make_model, license_plate, is_active
+             FROM dka_vehicles
+             WHERE vehicle_id = $1
+             FOR UPDATE`,
+            [resolvedVehicleId],
+          );
+
+          if (vehicleRes.rows.length === 0) {
+            throw new HttpError(404, 'Vehicle not found in fleet inventory.');
+          }
+
+          const vehicle = vehicleRes.rows[0];
+          resolvedVehiclePlate = vehicle.license_plate;
+          resolvedVehicleModel = vehicle.make_model;
+        } else if (driverId) {
+          // If no explicit vehicleId passed, check if driver has an attached vehicle in dka_vehicles
+          const driverVehicleRes = await client.query<{
+            vehicle_id: number;
+            make_model: string;
+            license_plate: string;
+          }>(
+            `SELECT vehicle_id, make_model, license_plate
+             FROM dka_vehicles
+             WHERE owner_id = $1 AND is_active = TRUE
+             LIMIT 1`,
+            [driverId],
+          );
+          if (driverVehicleRes.rows.length > 0) {
+            resolvedVehicleId = driverVehicleRes.rows[0].vehicle_id;
+            resolvedVehiclePlate = driverVehicleRes.rows[0].license_plate;
+            resolvedVehicleModel = driverVehicleRes.rows[0].make_model;
+          }
+        }
+
+        // 3. Update booking status to Confirmed & assign driver, vehicle, and final fare
         const bookingRes = await client.query<{
           booking_id: number;
           user_id: number;
           pickup_location: string;
           dropoff_location: string;
+          estimated_fare: string | null;
+          final_fare: string | null;
         }>(
           `UPDATE dka_bookings
            SET booking_status = 'Confirmed',
                assigned_vehicle_id = $1,
                assigned_vehicle_plate = $2,
                assigned_vehicle_model = $3,
+               assigned_driver_id = $4,
+               assigned_driver_name = $5,
+               assigned_driver_phone = $6,
+               final_fare = COALESCE($7, estimated_fare),
                updated_at = NOW()
-           WHERE booking_id = $4
-           RETURNING booking_id, user_id, pickup_location, dropoff_location`,
-          [vehicle.vehicle_id, vehicle.registration_plate, vehicle.model, bookingId],
+           WHERE booking_id = $8
+           RETURNING booking_id, user_id, pickup_location, dropoff_location, estimated_fare, final_fare`,
+          [
+            resolvedVehicleId,
+            resolvedVehiclePlate,
+            resolvedVehicleModel,
+            driverId || null,
+            resolvedDriverName,
+            resolvedDriverPhone,
+            finalPrice || null,
+            bookingId,
+          ],
         );
 
         if (bookingRes.rows.length === 0) {
@@ -852,20 +856,17 @@ adminRoute.patch('/trips/:id/approve', requireAdminAuth, async (c) => {
 
         const booking = bookingRes.rows[0];
 
-        // 3. Update vehicle status to assigned
-        await client.query(
-          `UPDATE dka_vehicles SET status = 'assigned', updated_at = NOW() WHERE vehicle_id = $1`,
-          [vehicle.vehicle_id],
-        );
-
         // 4. Create customer notification
+        const driverDetailsMsg = resolvedDriverName ? `, Driver: ${resolvedDriverName} (${resolvedDriverPhone})` : '';
+        const vehicleDetailsMsg = resolvedVehicleModel ? `, Vehicle: ${resolvedVehicleModel} (${resolvedVehiclePlate || 'Assigned'})` : '';
+        const fareMsg = booking.final_fare ? `, Agreed Fare: ${booking.final_fare}` : '';
         await client.query(
           `INSERT INTO dka_notifications (user_id, booking_id, title, message, type)
            VALUES ($1, $2, 'Reservation Confirmed & Dispatched', $3, 'booking_confirmed')`,
           [
             booking.user_id,
             booking.booking_id,
-            `Your trip from ${booking.pickup_location} to ${booking.dropoff_location} is confirmed! Assigned vehicle: ${vehicle.model} (${vehicle.registration_plate}).`,
+            `Your trip from ${booking.pickup_location} to ${booking.dropoff_location} is confirmed!${vehicleDetailsMsg}${driverDetailsMsg}${fareMsg}.`,
           ],
         );
 
@@ -874,9 +875,13 @@ adminRoute.patch('/trips/:id/approve', requireAdminAuth, async (c) => {
         return {
           id: booking.booking_id,
           status: 'Confirmed',
-          assignedVehicleId: vehicle.vehicle_id,
-          assignedVehiclePlate: vehicle.registration_plate,
-          assignedVehicleModel: vehicle.model,
+          assignedVehicleId: resolvedVehicleId,
+          assignedVehiclePlate: resolvedVehiclePlate,
+          assignedVehicleModel: resolvedVehicleModel,
+          assignedDriverId: driverId || null,
+          assignedDriverName: resolvedDriverName,
+          assignedDriverPhone: resolvedDriverPhone,
+          finalFare: booking.final_fare || booking.estimated_fare,
         };
       } catch (err) {
         await client.query('ROLLBACK');
@@ -886,7 +891,7 @@ adminRoute.patch('/trips/:id/approve', requireAdminAuth, async (c) => {
 
     return c.json({
       success: true,
-      message: 'Trip approved and vehicle assigned successfully.',
+      message: 'Trip approved and confirmed successfully.',
       booking: updatedBooking,
     });
   } catch (error: any) {
@@ -898,27 +903,27 @@ adminRoute.patch('/trips/:id/approve', requireAdminAuth, async (c) => {
       throw new HttpError(404, 'Booking reservation not found.');
     }
 
-    const targetVehicle = fallbackVehicles.find((v) => v.id === vehicleId);
-    if (!targetVehicle) {
-      throw new HttpError(404, 'Vehicle not found in fleet inventory.');
-    }
-
-    if (targetVehicle.status !== 'available') {
-      throw new HttpError(
-        409,
-        `Vehicle ${targetVehicle.model} is currently marked ${targetVehicle.status}.`,
-      );
+    let targetVehicle = vehicleId ? fallbackVehicles.find((v) => v.id === vehicleId) : null;
+    const matchedDriver = driverId ? fallbackDrivers.find((d) => d.id === driverId || d.ownerId === driverId) : null;
+    if (!targetVehicle && matchedDriver?.vehicle?.id) {
+      targetVehicle = fallbackVehicles.find((v) => v.id === matchedDriver.vehicle!.id) || null;
     }
 
     targetBooking.status = 'Confirmed';
-    targetBooking.assignedVehicleId = targetVehicle.id;
-    targetBooking.assignedVehiclePlate = targetVehicle.registrationPlate;
-    targetBooking.assignedVehicleModel = targetVehicle.model;
-    targetVehicle.status = 'assigned';
+    targetBooking.assignedVehicleId = targetVehicle?.id || null;
+    targetBooking.assignedVehiclePlate = targetVehicle?.registrationPlate || null;
+    targetBooking.assignedVehicleModel = targetVehicle?.model || null;
+    targetBooking.assignedDriverId = driverId || null;
+    targetBooking.assignedDriverName = driverName || matchedDriver?.fullName || null;
+    targetBooking.assignedDriverPhone = driverPhone || matchedDriver?.phoneNumber || null;
+    targetBooking.finalFare = finalPrice || targetBooking.estimatedFare;
+    if (targetVehicle) {
+      targetVehicle.status = 'assigned';
+    }
 
     return c.json({
       success: true,
-      message: 'Trip approved and vehicle assigned successfully (fallback).',
+      message: 'Trip approved and confirmed successfully (fallback).',
       booking: targetBooking,
     });
   }
@@ -1239,53 +1244,62 @@ adminRoute.get('/vehicles', requireAdminAuth, async (c) => {
     const vehicles = await withPublicClient(async (client) => {
       await client.query("SET LOCAL app.is_admin = 'true'");
       let sql = `
-        SELECT vehicle_id, vehicle_type_id, model, registration_plate, category,
-               seats, fuel_type, image_url, status, created_at, updated_at
-        FROM dka_vehicles
+        SELECT 
+          v.vehicle_id,
+          v.owner_id,
+          v.vehicle_type_id,
+          v.make_model,
+          v.license_plate,
+          v.manufacture_year,
+          v.seating_capacity,
+          v.color,
+          v.is_active,
+          v.created_at,
+          v.bluebook_doc_id,
+          o.full_name AS owner_name,
+          o.phone_number AS owner_phone
+        FROM dka_vehicles v
+        LEFT JOIN dka_owners o ON o.owner_id = v.owner_id
       `;
       const clauses: string[] = [];
       const params: any[] = [];
 
-      if (status) {
-        params.push(status);
-        clauses.push(`status = $${params.length}`);
+      if (status === 'available') {
+        clauses.push(`v.is_active = TRUE`);
+      } else if (status === 'maintenance') {
+        clauses.push(`v.is_active = FALSE`);
       }
+
       if (category) {
         params.push(category);
-        clauses.push(`category = $${params.length}`);
+        const typeId = category === 'Sedan' ? 1 : category === 'HiAce' ? 3 : category === 'Bus' ? 4 : 2;
+        clauses.push(`v.vehicle_type_id = ${typeId}`);
       }
 
       if (clauses.length > 0) {
         sql += ` WHERE ${clauses.join(' AND ')}`;
       }
-      sql += ` ORDER BY created_at DESC`;
+      sql += ` ORDER BY v.vehicle_id DESC`;
 
-      const res = await client.query<{
-        vehicle_id: number;
-        vehicle_type_id: number;
-        model: string;
-        registration_plate: string;
-        category: 'SUV' | 'Sedan' | 'HiAce' | 'Bus';
-        seats: number;
-        fuel_type: string;
-        image_url: string | null;
-        status: 'available' | 'assigned' | 'in_transit' | 'maintenance';
-        created_at: Date;
-        updated_at: Date;
-      }>(sql, params);
+      const res = await client.query<any>(sql, params);
 
-      return res.rows.map((r) => ({
+      return res.rows.map((r: any) => ({
         id: r.vehicle_id,
-        vehicleTypeId: r.vehicle_type_id,
-        model: r.model,
-        registrationPlate: r.registration_plate,
-        category: r.category,
-        seats: r.seats,
-        fuelType: r.fuel_type,
-        imageUrl: r.image_url || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf',
-        status: r.status,
-        createdAt: r.created_at.toISOString(),
-        updatedAt: r.updated_at.toISOString(),
+        vehicleTypeId: r.vehicle_type_id || 2,
+        model: r.make_model,
+        registrationPlate: r.license_plate,
+        category: r.vehicle_type_id === 1 ? 'Sedan' : r.vehicle_type_id === 3 ? 'HiAce' : r.vehicle_type_id === 4 ? 'Bus' : 'SUV',
+        seats: r.seating_capacity,
+        fuelType: 'Diesel',
+        imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf',
+        status: r.is_active ? 'available' : 'maintenance',
+        ownerId: r.owner_id,
+        ownerName: r.owner_name,
+        color: r.color,
+        manufactureYear: r.manufacture_year,
+        bluebookDocId: r.bluebook_doc_id,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        updatedAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
       }));
     });
 
@@ -1314,41 +1328,41 @@ adminRoute.post('/vehicles', requireAdminAuth, async (c) => {
   }
 
   const { model, registrationPlate, category, seats, fuelType, imageUrl, status } = parsed.data;
+  const vehicleTypeId = category === 'Sedan' ? 1 : category === 'HiAce' ? 3 : category === 'Bus' ? 4 : 2;
 
   try {
     const newVehicle = await withPublicClient(async (client) => {
       await client.query("SET LOCAL app.is_admin = 'true'");
       const res = await client.query<{
         vehicle_id: number;
-        model: string;
-        registration_plate: string;
-        category: 'SUV' | 'Sedan' | 'HiAce' | 'Bus';
-        seats: number;
-        fuel_type: string;
-        image_url: string | null;
-        status: 'available' | 'assigned' | 'in_transit' | 'maintenance';
+        owner_id: number | null;
+        vehicle_type_id: number;
+        make_model: string;
+        license_plate: string;
+        seating_capacity: number;
+        color: string | null;
+        is_active: boolean;
         created_at: Date;
-        updated_at: Date;
       }>(
-        `INSERT INTO dka_vehicles (model, registration_plate, category, seats, fuel_type, image_url, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING vehicle_id, model, registration_plate, category, seats, fuel_type, image_url, status, created_at, updated_at`,
-        [model, registrationPlate, category, seats, fuelType, imageUrl || null, status],
+        `INSERT INTO dka_vehicles (vehicle_type_id, make_model, license_plate, seating_capacity, color, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING vehicle_id, owner_id, vehicle_type_id, make_model, license_plate, seating_capacity, color, is_active, created_at`,
+        [vehicleTypeId, model, registrationPlate, seats, 'White', status !== 'maintenance'],
       );
 
       const r = res.rows[0];
       return {
         id: r.vehicle_id,
-        vehicleTypeId: 1,
-        model: r.model,
-        registrationPlate: r.registration_plate,
-        category: r.category,
-        seats: r.seats,
-        fuelType: r.fuel_type,
-        imageUrl: r.image_url || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf',
-        status: r.status,
+        vehicleTypeId: r.vehicle_type_id,
+        model: r.make_model,
+        registrationPlate: r.license_plate,
+        category,
+        seats: r.seating_capacity,
+        fuelType: fuelType || 'Diesel',
+        imageUrl: imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf',
+        status: r.is_active ? 'available' : 'maintenance',
         createdAt: r.created_at.toISOString(),
-        updatedAt: r.updated_at.toISOString(),
+        updatedAt: r.created_at.toISOString(),
       };
     });
 
@@ -1367,7 +1381,7 @@ adminRoute.post('/vehicles', requireAdminAuth, async (c) => {
     const newId = fallbackVehicles.length > 0 ? Math.max(...fallbackVehicles.map((v) => v.id)) + 1 : 1;
     const item: VehicleRecord = {
       id: newId,
-      vehicleTypeId: 1,
+      vehicleTypeId,
       model,
       registrationPlate,
       category,
@@ -1409,58 +1423,50 @@ adminRoute.patch('/vehicles/:id', requireAdminAuth, async (c) => {
   try {
     const updated = await withPublicClient(async (client) => {
       await client.query("SET LOCAL app.is_admin = 'true'");
+      const isActiveParam = updates.status !== undefined ? updates.status !== 'maintenance' : null;
       const res = await client.query<{
         vehicle_id: number;
-        model: string;
-        registration_plate: string;
-        category: 'SUV' | 'Sedan' | 'HiAce' | 'Bus';
-        seats: number;
-        fuel_type: string;
-        image_url: string | null;
-        status: 'available' | 'assigned' | 'in_transit' | 'maintenance';
+        owner_id: number | null;
+        vehicle_type_id: number;
+        make_model: string;
+        license_plate: string;
+        seating_capacity: number;
+        is_active: boolean;
         created_at: Date;
-        updated_at: Date;
       }>(
         `UPDATE dka_vehicles
-         SET model = COALESCE($1, model),
-             registration_plate = COALESCE($2, registration_plate),
-             category = COALESCE($3, category),
-             seats = COALESCE($4, seats),
-             fuel_type = COALESCE($5, fuel_type),
-             image_url = COALESCE($6, image_url),
-             status = COALESCE($7, status),
-             updated_at = NOW()
-         WHERE vehicle_id = $8
-         RETURNING vehicle_id, model, registration_plate, category, seats, fuel_type, image_url, status, created_at, updated_at`,
+         SET make_model = COALESCE($1, make_model),
+             license_plate = COALESCE($2, license_plate),
+             seating_capacity = COALESCE($3, seating_capacity),
+             is_active = COALESCE($4, is_active)
+         WHERE vehicle_id = $5
+         RETURNING vehicle_id, owner_id, vehicle_type_id, make_model, license_plate, seating_capacity, is_active, created_at`,
         [
           updates.model || null,
           updates.registrationPlate || null,
-          updates.category || null,
           updates.seats || null,
-          updates.fuelType || null,
-          updates.imageUrl || null,
-          updates.status || null,
+          isActiveParam,
           vehicleId,
         ],
       );
 
       if (res.rows.length === 0) {
-        throw new HttpError(404, 'Vehicle not found.');
+        throw new HttpError(404, 'Vehicle not found in inventory.');
       }
 
       const r = res.rows[0];
       return {
         id: r.vehicle_id,
-        vehicleTypeId: 1,
-        model: r.model,
-        registrationPlate: r.registration_plate,
-        category: r.category,
-        seats: r.seats,
-        fuelType: r.fuel_type,
-        imageUrl: r.image_url || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf',
-        status: r.status,
+        vehicleTypeId: r.vehicle_type_id,
+        model: r.make_model,
+        registrationPlate: r.license_plate,
+        category: updates.category || (r.vehicle_type_id === 1 ? 'Sedan' : r.vehicle_type_id === 3 ? 'HiAce' : r.vehicle_type_id === 4 ? 'Bus' : 'SUV'),
+        seats: r.seating_capacity,
+        fuelType: updates.fuelType || 'Diesel',
+        imageUrl: updates.imageUrl || 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf',
+        status: r.is_active ? 'available' : 'maintenance',
         createdAt: r.created_at.toISOString(),
-        updatedAt: r.updated_at.toISOString(),
+        updatedAt: r.created_at.toISOString(),
       };
     });
 
@@ -1472,24 +1478,433 @@ adminRoute.patch('/vehicles/:id', requireAdminAuth, async (c) => {
   } catch (error: any) {
     if (error instanceof HttpError) throw error;
 
-    const target = fallbackVehicles.find((v) => v.id === vehicleId);
-    if (!target) {
-      throw new HttpError(404, 'Vehicle not found.');
+    const idx = fallbackVehicles.findIndex((v) => v.id === vehicleId);
+    if (idx === -1) {
+      throw new HttpError(404, 'Vehicle not found in inventory.');
     }
 
-    if (updates.status) target.status = updates.status;
-    if (updates.model) target.model = updates.model;
-    if (updates.registrationPlate) target.registrationPlate = updates.registrationPlate;
-    if (updates.category) target.category = updates.category;
-    if (updates.seats) target.seats = updates.seats;
-    if (updates.fuelType) target.fuelType = updates.fuelType;
-    if (updates.imageUrl) target.imageUrl = updates.imageUrl;
-    target.updatedAt = new Date().toISOString();
+    const current = fallbackVehicles[idx];
+    const merged: VehicleRecord = {
+      ...current,
+      model: updates.model !== undefined ? updates.model : current.model,
+      registrationPlate: updates.registrationPlate !== undefined ? updates.registrationPlate : current.registrationPlate,
+      category: updates.category !== undefined ? updates.category : current.category,
+      seats: updates.seats !== undefined ? updates.seats : current.seats,
+      fuelType: updates.fuelType !== undefined ? updates.fuelType : current.fuelType,
+      imageUrl: updates.imageUrl || current.imageUrl,
+      status: updates.status !== undefined ? updates.status : current.status,
+      updatedAt: new Date().toISOString(),
+    };
+    fallbackVehicles[idx] = merged;
 
     return c.json({
       success: true,
       message: 'Vehicle updated successfully (fallback).',
-      vehicle: target,
+      vehicle: merged,
+    });
+  }
+});
+
+// =============================================================================
+// DRIVERS & FLEET OWNERS DIRECTORY (dka_owners <-> cr_owners)
+// =============================================================================
+
+/**
+ * GET /admin/drivers: List all drivers from dka_owners (or cr_owners) with attached vehicle
+ */
+adminRoute.get('/drivers', requireAdminAuth, async (c) => {
+  const statusParam = c.req.query('status');
+  const searchParam = c.req.query('q');
+
+  try {
+    const drivers = await withPublicClient(async (client) => {
+      let query = `
+        SELECT 
+          o.owner_id AS id,
+          o.owner_id,
+          o.full_name,
+          o.phone_number,
+          o.whatsapp_number,
+          o.email,
+          o.citizenship_or_id_no,
+          o.status,
+          o.citizenship_doc_id,
+          o.license_doc_id,
+          o.created_at,
+          v.vehicle_id,
+          v.make_model,
+          v.license_plate,
+          v.vehicle_type_id,
+          v.seating_capacity,
+          v.color,
+          v.manufacture_year,
+          v.is_active AS vehicle_is_active,
+          v.bluebook_doc_id
+        FROM dka_owners o
+        LEFT JOIN dka_vehicles v ON v.owner_id = o.owner_id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+      let paramIdx = 1;
+
+      if (statusParam && statusParam.toLowerCase() !== 'all') {
+        query += ` AND LOWER(o.status) = LOWER($${paramIdx++})`;
+        params.push(statusParam);
+      }
+
+      if (searchParam && searchParam.trim()) {
+        const q = `%${searchParam.trim().toLowerCase()}%`;
+        query += ` AND (LOWER(o.full_name) LIKE $${paramIdx} OR o.phone_number LIKE $${paramIdx} OR LOWER(COALESCE(o.email, '')) LIKE $${paramIdx} OR LOWER(COALESCE(o.citizenship_or_id_no, '')) LIKE $${paramIdx} OR LOWER(COALESCE(o.license_doc_id, '')) LIKE $${paramIdx} OR LOWER(COALESCE(v.make_model, '')) LIKE $${paramIdx} OR LOWER(COALESCE(v.license_plate, '')) LIKE $${paramIdx})`;
+        params.push(q);
+        paramIdx++;
+      }
+
+      query += ` ORDER BY o.owner_id ASC`;
+      const res = await client.query(query, params);
+      return res.rows.map((r: any) => ({
+        id: r.id,
+        ownerId: r.owner_id,
+        fullName: r.full_name,
+        phoneNumber: r.phone_number,
+        whatsappNumber: r.whatsapp_number,
+        email: r.email,
+        citizenshipOrIdNo: r.citizenship_or_id_no,
+        status: r.status,
+        citizenshipDocId: r.citizenship_doc_id,
+        licenseDocId: r.license_doc_id,
+        vehicle: r.vehicle_id ? {
+          id: r.vehicle_id,
+          vehicleId: r.vehicle_id,
+          ownerId: r.owner_id,
+          makeModel: r.make_model,
+          licensePlate: r.license_plate,
+          vehicleTypeId: r.vehicle_type_id,
+          category: r.vehicle_type_id === 1 ? 'Sedan' : r.vehicle_type_id === 3 ? 'HiAce' : r.vehicle_type_id === 4 ? 'Bus' : 'SUV',
+          seatingCapacity: r.seating_capacity,
+          manufactureYear: r.manufacture_year,
+          color: r.color,
+          isActive: r.vehicle_is_active,
+          bluebookDocId: r.bluebook_doc_id,
+        } : null,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        updatedAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      }));
+    });
+
+    return c.json({ drivers });
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error;
+    let filtered = fallbackDrivers.map((d) => {
+      const v = fallbackVehicles.find((fv) => fv.ownerId === d.id || fv.ownerId === d.ownerId);
+      return {
+        ...d,
+        vehicle: d.vehicle || (v ? {
+          id: v.id,
+          vehicleId: v.id,
+          ownerId: d.id,
+          makeModel: v.model,
+          licensePlate: v.registrationPlate,
+          vehicleTypeId: v.vehicleTypeId,
+          category: v.category,
+          seatingCapacity: v.seats,
+          manufactureYear: 2022,
+          color: 'White',
+          isActive: v.status === 'available',
+        } : null),
+      };
+    });
+    if (statusParam && statusParam.toLowerCase() !== 'all') {
+      filtered = filtered.filter((d) => d.status.toLowerCase() === statusParam.toLowerCase());
+    }
+    if (searchParam && searchParam.trim()) {
+      const q = searchParam.trim().toLowerCase();
+      filtered = filtered.filter(
+        (d) =>
+          d.fullName.toLowerCase().includes(q) ||
+          d.phoneNumber.includes(q) ||
+          (d.email && d.email.toLowerCase().includes(q)) ||
+          (d.citizenshipOrIdNo && d.citizenshipOrIdNo.toLowerCase().includes(q)) ||
+          (d.licenseDocId && d.licenseDocId.toLowerCase().includes(q)) ||
+          (d.vehicle && (d.vehicle.makeModel.toLowerCase().includes(q) || d.vehicle.licensePlate.toLowerCase().includes(q))),
+      );
+    }
+    return c.json({ drivers: filtered });
+  }
+});
+
+/**
+ * POST /admin/drivers: Register new driver and vehicle in dka_owners & dka_vehicles (syncs to cr_owners & cr_vehicles)
+ */
+adminRoute.post('/drivers', requireAdminAuth, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = createDriverSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, parsed.error.issues[0]?.message || 'Invalid driver registration payload.');
+  }
+
+  const dto = parsed.data;
+  const normalizedPhone = normalizePhone(dto.phoneNumber);
+
+  const vehicleData = dto.vehicle || (dto.makeModel && dto.licensePlate ? {
+    makeModel: dto.makeModel,
+    licensePlate: dto.licensePlate,
+    vehicleTypeId: dto.vehicleTypeId,
+    category: dto.category,
+    seatingCapacity: dto.seatingCapacity,
+    manufactureYear: dto.manufactureYear,
+    color: dto.color,
+    bluebookDocId: dto.bluebookDocId,
+  } : null);
+
+  try {
+    const driver = await withPublicClient(async (client) => {
+      const checkPhone = await client.query('SELECT owner_id FROM dka_owners WHERE phone_number = $1', [normalizedPhone]);
+      if (checkPhone.rows.length > 0) {
+        throw new HttpError(409, 'A driver with this phone number already exists.');
+      }
+
+      const res = await client.query(
+        `INSERT INTO dka_owners (
+          full_name, phone_number, whatsapp_number, email, citizenship_or_id_no,
+          status, citizenship_doc_id, license_doc_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING owner_id, full_name, phone_number, whatsapp_number, email, citizenship_or_id_no, status, citizenship_doc_id, license_doc_id, created_at`,
+        [
+          dto.fullName,
+          normalizedPhone,
+          dto.whatsappNumber ? normalizePhone(dto.whatsappNumber) : normalizedPhone,
+          dto.email || null,
+          dto.citizenshipOrIdNo,
+          dto.status || 'active',
+          dto.citizenshipDocId || null,
+          dto.licenseDocId || null,
+        ],
+      );
+
+      const r = res.rows[0];
+      let attachedVehicle: any = null;
+
+      if (vehicleData) {
+        const typeId = vehicleData.vehicleTypeId || (vehicleData.category === 'Sedan' ? 1 : vehicleData.category === 'HiAce' ? 3 : vehicleData.category === 'Bus' ? 4 : 2);
+        const seats = vehicleData.seatingCapacity || (typeId === 1 ? 4 : typeId === 3 ? 14 : typeId === 4 ? 28 : 7);
+        const vRes = await client.query(
+          `INSERT INTO dka_vehicles (
+            owner_id, vehicle_type_id, make_model, license_plate,
+            manufacture_year, seating_capacity, color, is_active, bluebook_doc_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, $8)
+          RETURNING vehicle_id, owner_id, vehicle_type_id, make_model, license_plate, manufacture_year, seating_capacity, color, is_active, bluebook_doc_id`,
+          [
+            r.owner_id,
+            typeId,
+            vehicleData.makeModel,
+            vehicleData.licensePlate,
+            vehicleData.manufactureYear || 2022,
+            seats,
+            vehicleData.color || 'White',
+            vehicleData.bluebookDocId || null,
+          ],
+        );
+        if (vRes.rows.length > 0) {
+          const vr = vRes.rows[0];
+          attachedVehicle = {
+            id: vr.vehicle_id,
+            vehicleId: vr.vehicle_id,
+            ownerId: vr.owner_id,
+            makeModel: vr.make_model,
+            licensePlate: vr.license_plate,
+            vehicleTypeId: vr.vehicle_type_id,
+            category: vr.vehicle_type_id === 1 ? 'Sedan' : vr.vehicle_type_id === 3 ? 'HiAce' : vr.vehicle_type_id === 4 ? 'Bus' : 'SUV',
+            seatingCapacity: vr.seating_capacity,
+            manufactureYear: vr.manufacture_year,
+            color: vr.color,
+            isActive: vr.is_active,
+            bluebookDocId: vr.bluebook_doc_id,
+          };
+        }
+      }
+
+      return {
+        id: r.owner_id,
+        ownerId: r.owner_id,
+        fullName: r.full_name,
+        phoneNumber: r.phone_number,
+        whatsappNumber: r.whatsapp_number,
+        email: r.email,
+        citizenshipOrIdNo: r.citizenship_or_id_no,
+        status: r.status,
+        citizenshipDocId: r.citizenship_doc_id,
+        licenseDocId: r.license_doc_id,
+        vehicle: attachedVehicle,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        updatedAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      };
+    });
+
+    return c.json({
+      success: true,
+      message: 'Driver and vehicle registered successfully and synchronized.',
+      driver,
+    }, 201);
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error;
+
+    const existing = fallbackDrivers.find((d) => d.phoneNumber === normalizedPhone);
+    if (existing) {
+      throw new HttpError(409, 'A driver with this phone number already exists.');
+    }
+
+    const nextId = fallbackDrivers.length > 0 ? Math.max(...fallbackDrivers.map((d) => d.id)) + 1 : 1;
+    let attachedVehicle: any = null;
+
+    if (vehicleData) {
+      const nextVId = fallbackVehicles.length > 0 ? Math.max(...fallbackVehicles.map((v) => v.id)) + 1 : 1;
+      const cat = vehicleData.category || (vehicleData.vehicleTypeId === 1 ? 'Sedan' : vehicleData.vehicleTypeId === 3 ? 'HiAce' : vehicleData.vehicleTypeId === 4 ? 'Bus' : 'SUV');
+      const vRec: VehicleRecord = {
+        id: nextVId,
+        ownerId: nextId,
+        vehicleTypeId: vehicleData.vehicleTypeId || 2,
+        model: vehicleData.makeModel,
+        registrationPlate: vehicleData.licensePlate,
+        category: cat,
+        seats: vehicleData.seatingCapacity || 7,
+        fuelType: 'Diesel',
+        imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80',
+        status: 'available',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      fallbackVehicles.unshift(vRec);
+      attachedVehicle = {
+        id: nextVId,
+        vehicleId: nextVId,
+        ownerId: nextId,
+        makeModel: vehicleData.makeModel,
+        licensePlate: vehicleData.licensePlate,
+        vehicleTypeId: vRec.vehicleTypeId,
+        category: cat,
+        seatingCapacity: vRec.seats,
+        manufactureYear: vehicleData.manufactureYear || 2022,
+        color: vehicleData.color || 'White',
+        isActive: true,
+        bluebookDocId: vehicleData.bluebookDocId || null,
+      };
+    }
+
+    const newRecord: DriverRecord = {
+      id: nextId,
+      ownerId: nextId,
+      fullName: dto.fullName,
+      phoneNumber: normalizedPhone,
+      whatsappNumber: dto.whatsappNumber ? normalizePhone(dto.whatsappNumber) : normalizedPhone,
+      email: dto.email || null,
+      citizenshipOrIdNo: dto.citizenshipOrIdNo,
+      status: dto.status || 'active',
+      citizenshipDocId: dto.citizenshipDocId || null,
+      licenseDocId: dto.licenseDocId || null,
+      vehicle: attachedVehicle,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    fallbackDrivers.unshift(newRecord);
+
+    return c.json({
+      success: true,
+      message: 'Driver and vehicle registered successfully (fallback).',
+      driver: newRecord,
+    }, 201);
+  }
+});
+
+/**
+ * PATCH /admin/drivers/:id: Update driver profile or toggle status
+ */
+adminRoute.patch('/drivers/:id', requireAdminAuth, async (c) => {
+  const driverId = Number(c.req.param('id'));
+  if (!driverId || Number.isNaN(driverId)) {
+    throw new HttpError(400, 'Invalid driver ID parameter.');
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = updateDriverSchema.safeParse(body);
+  if (!parsed.success) {
+    throw new HttpError(400, parsed.error.issues[0]?.message || 'Invalid update payload.');
+  }
+  const updates = parsed.data;
+
+  try {
+    const updated = await withPublicClient(async (client) => {
+      const res = await client.query(
+        `UPDATE dka_owners
+         SET full_name = COALESCE($1, full_name),
+             phone_number = COALESCE($2, phone_number),
+             whatsapp_number = COALESCE($3, whatsapp_number),
+             email = COALESCE($4, email),
+             citizenship_or_id_no = COALESCE($5, citizenship_or_id_no),
+             status = COALESCE($6, status),
+             citizenship_doc_id = COALESCE($7, citizenship_doc_id),
+             license_doc_id = COALESCE($8, license_doc_id)
+         WHERE owner_id = $9
+         RETURNING owner_id, full_name, phone_number, whatsapp_number, email, citizenship_or_id_no, status, citizenship_doc_id, license_doc_id, created_at`,
+        [
+          updates.fullName || null,
+          updates.phoneNumber ? normalizePhone(updates.phoneNumber) : null,
+          updates.whatsappNumber ? normalizePhone(updates.whatsappNumber) : null,
+          updates.email || null,
+          updates.citizenshipOrIdNo || null,
+          updates.status || null,
+          updates.citizenshipDocId || null,
+          updates.licenseDocId || null,
+          driverId,
+        ],
+      );
+
+      if (res.rows.length === 0) {
+        throw new HttpError(404, 'Driver not found.');
+      }
+      const r = res.rows[0];
+      return {
+        id: r.owner_id,
+        ownerId: r.owner_id,
+        fullName: r.full_name,
+        phoneNumber: r.phone_number,
+        whatsappNumber: r.whatsapp_number,
+        email: r.email,
+        citizenshipOrIdNo: r.citizenship_or_id_no,
+        status: r.status,
+        citizenshipDocId: r.citizenship_doc_id,
+        licenseDocId: r.license_doc_id,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    });
+
+    return c.json({
+      success: true,
+      message: 'Driver updated successfully.',
+      driver: updated,
+    });
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error;
+
+    const target = fallbackDrivers.find((d) => d.id === driverId);
+    if (!target) {
+      throw new HttpError(404, 'Driver not found.');
+    }
+
+    if (updates.status) target.status = updates.status;
+    if (updates.fullName) target.fullName = updates.fullName;
+    if (updates.phoneNumber) target.phoneNumber = normalizePhone(updates.phoneNumber);
+    if (updates.whatsappNumber) target.whatsappNumber = normalizePhone(updates.whatsappNumber);
+    if (updates.email) target.email = updates.email;
+    if (updates.citizenshipOrIdNo) target.citizenshipOrIdNo = updates.citizenshipOrIdNo;
+    if (updates.citizenshipDocId) target.citizenshipDocId = updates.citizenshipDocId;
+    if (updates.licenseDocId) target.licenseDocId = updates.licenseDocId;
+    target.updatedAt = new Date().toISOString();
+
+    return c.json({
+      success: true,
+      message: 'Driver updated successfully (fallback).',
+      driver: target,
     });
   }
 });

@@ -721,7 +721,7 @@ function createStyles(colors: ThemeColors) {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: '#E2E8F0',
+      backgroundColor: colors.elevated,
       alignItems: 'center',
       justifyContent: 'center',
       marginTop: spacing.xs,

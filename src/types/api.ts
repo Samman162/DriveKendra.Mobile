@@ -35,6 +35,10 @@ export interface BookingRecordDto {
   status: 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled';
   assignedVehiclePlate: string | null;
   assignedVehicleModel?: string | null;
+  assignedDriverName?: string | null;
+  assignedDriverPhone?: string | null;
+  finalFare?: string | null;
+  additionalDetails?: string | null;
   createdAt: string;
 }
 

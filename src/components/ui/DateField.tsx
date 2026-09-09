@@ -395,7 +395,7 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
     },
     presetChipTextActive: {
-      color: '#FFFFFF',
+      color: colors.onAccent,
       fontWeight: '700',
     },
     errorText: {
@@ -417,7 +417,7 @@ const createStyles = (colors: ThemeColors) =>
       backgroundColor: colors.surface,
       borderRadius: radius.lg,
       padding: spacing.lg,
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.25,
       shadowRadius: 20,
@@ -511,7 +511,7 @@ const createStyles = (colors: ThemeColors) =>
       color: colors.text,
     },
     dayNumberTextSelected: {
-      color: '#FFFFFF',
+      color: colors.onAccent,
       fontWeight: '800',
     },
     dayNumberTextToday: {
@@ -547,6 +547,6 @@ const createStyles = (colors: ThemeColors) =>
     footerActionTextPrimary: {
       fontSize: 13,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
   });

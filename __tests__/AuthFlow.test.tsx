@@ -95,8 +95,8 @@ describe('State, Security & Storage Test Suite', () => {
     });
   });
 
-  describe('Resilient Demo Login Fallback', () => {
-    it('gracefully logs in demo user Samman Chhetri when backend database fails with 500/503', async () => {
+  describe('Strict Authentication Error Handling', () => {
+    it('rejects with server message when backend service fails with 500/503', async () => {
       const postSpy = jest.spyOn(apiClient, 'post').mockRejectedValueOnce({
         response: {
           status: 503,
@@ -104,14 +104,13 @@ describe('State, Security & Storage Test Suite', () => {
         },
       });
 
-      const res = await loginUser({
-        identifier: '+977 9851363783',
-        password: 'password123',
-      });
+      await expect(
+        loginUser({
+          identifier: '+977 9851363783',
+          password: 'password123',
+        }),
+      ).rejects.toThrow('Database connection unavailable');
 
-      expect(res.user.name).toBe('Samman Chhetri');
-      expect(res.user.phone).toBe('+977 9851363783');
-      expect(res.token).toContain('jwt_acc_');
       postSpy.mockRestore();
     });
 

@@ -67,15 +67,20 @@ bookingsRoute.get('/', async (c) => {
         passenger_count: number;
         trip_type: string;
         estimated_fare: string | null;
+        final_fare: string | null;
         booking_status: string;
         assigned_vehicle_plate: string | null;
         assigned_vehicle_model: string | null;
+        assigned_driver_name: string | null;
+        assigned_driver_phone: string | null;
+        additional_details: string | null;
         created_at: Date;
       }>(
         `SELECT b.booking_id, b.user_id, b.vehicle_type_id, vt.type_name,
                 b.pickup_location, b.dropoff_location, b.pickup_date, b.pickup_time, b.return_date,
-                b.passenger_count, b.trip_type, b.estimated_fare, b.booking_status,
+                b.passenger_count, b.trip_type, b.estimated_fare, b.final_fare, b.booking_status,
                 b.assigned_vehicle_plate, b.assigned_vehicle_model,
+                b.assigned_driver_name, b.assigned_driver_phone, b.additional_details,
                 b.created_at
          FROM dka_bookings b
          JOIN dka_users u ON b.user_id = u.user_id
@@ -100,10 +105,14 @@ bookingsRoute.get('/', async (c) => {
         returnDate: row.return_date,
         passengerCount: row.passenger_count,
         tripType: row.trip_type,
-        estimatedFare: row.estimated_fare,
+        estimatedFare: row.final_fare || row.estimated_fare,
+        finalFare: row.final_fare,
         status: row.booking_status,
         assignedVehiclePlate: row.assigned_vehicle_plate,
         assignedVehicleModel: row.assigned_vehicle_model,
+        assignedDriverName: row.assigned_driver_name,
+        assignedDriverPhone: row.assigned_driver_phone,
+        additionalDetails: row.additional_details,
         createdAt: row.created_at,
       })),
     });

@@ -26,7 +26,7 @@ This document details the high-level system design, data flows, security boundar
   - [Database Abstraction & Security Wrapper](#database-abstraction--security-wrapper)
 - [Offline-First & Himalayan Resilience Strategy](#-offline-first--himalayan-resilience-strategy)
 - [Security & Authentication Model](#-security--authentication-model)
-- [Testing & Quality Verification (90 Tests)](#-testing--quality-verification-90-tests)
+- [Testing & Quality Verification (126 Tests)](#-testing--quality-verification-126-tests)
 
 ---
 
@@ -35,11 +35,11 @@ This document details the high-level system design, data flows, security boundar
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        Drive Kendra Mobile Client                       │
-│       (Expo SDK 57 • React Native 0.86.2 • TypeScript Strict Mode)      │
+│       (Expo SDK 57 • React Native 0.86.3 • TypeScript Strict Mode)      │
 │                                                                         │
 │  ┌───────────────────────┐ ┌──────────────────────┐ ┌────────────────┐ │
 │  │ React Navigation v7   │ │ Theme & UI System    │ │ Auth & Bio SDK │ │
-│  │ (4-Tabs, Stacks, Mod) │ │ (useThemedStyles)    │ │ (SecureStore)  │ │
+│  │ (4-Tabs, Modals, Adm) │ │ (useThemedStyles)    │ │ (SecureStore)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐ ┌──────────────────────┐ ┌────────────────┐ │
@@ -55,7 +55,7 @@ This document details the high-level system design, data flows, security boundar
 │                                                                         │
 │  ┌───────────────────────┐ ┌──────────────────────┐ ┌────────────────┐ │
 │  │ Routing & Middleware  │ │ Zod Validation & HP  │ │ Idempotency    │ │
-│  │ (CORS, Error Handler) │ │ (Nepal Phone Regex)  │ │ Manager (SHA)  │ │
+│  │ (CORS, Error, Admin)  │ │ (Nepal Phone Regex)  │ │ Manager (SHA)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐                                              │
@@ -65,20 +65,20 @@ This document details the high-level system design, data flows, security boundar
 └──────────────┼──────────────────────────────────────────────────────────┘
                │ PostgreSQL Connection Pool (pg)
                ▼
-┌───────────────────────────────────────────────┐
-│          PostgreSQL Database Server           │
-│   (dka_bookings • dka_users • dka_idemp etc)  │
-└───────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       PostgreSQL Database Server                        │
+│   (dka_bookings • dka_users • dka_owners ◄► cr_owners • cr_drivers view) │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 📱 Client Architecture (React Native / Expo)
 
-The client is built using **Expo SDK 57** (React Native 0.86.2, React 19.2.3) with strict TypeScript compliance.
+The client is built using **Expo SDK 57** (React Native 0.86.3, React 19.2.3) with strict TypeScript compliance.
 
 ### Navigation Architecture
-Drive Kendra uses `@react-navigation/native` v7 structured with a nested tab and modal stack pattern:
+Drive Kendra uses `@react-navigation/native` v7 structured with a nested tab and modal stack pattern, supplemented by a strictly isolated administrative stack:
 
 ```
 RootStackNavigator
@@ -92,7 +92,11 @@ RootStackNavigator
 ├── Auth (AuthScreen - SignIn / SignUp / OTP Modal)
 ├── Contact (ContactScreen - 24/7 Help Desk & Hotline)
 ├── MyTrips (MyTripsScreen - Fullscreen Trips & Vouchers)
-└── Profile (ProfileScreen - User Profile & Settings)
+├── Profile (ProfileScreen - User Profile & Settings)
+└── AdminPinGate (AdminNavigator - Isolated Admin Stack)
+    ├── AdminLogin (AdminLoginScreen - Step-1 Operator Credentials)
+    ├── AdminPin (AdminPinScreen - Step-2 4-Digit Security PIN Gate)
+    └── AdminDashboard (AdminDashboardScreen - Dispatch Desk, Drivers Directory, Users Directory, Profile)
 ```
 
 ### Interactive Mapping & Geocoding Subsystem
@@ -142,6 +146,7 @@ The server entry point (`server/src/index.ts`) mounts distinct feature routes on
 - `/api/auth` ➔ Authentication and OTP recovery flow (`login`, `register`, `forgot-password`, `reset-password`)
 - `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params; returns `{ bookings: [...] }`) and POST idempotent booking transactions (with `X-Idempotency-Key`)
 - `/api/users` ➔ User profile updates (`PUT /profile`) and push token registration (`POST /push-token`)
+- `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & vehicle assignment (`GET /trips`, `PATCH /trips/:id/approve`, `PATCH /trips/:id/reject`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `PATCH /vehicles/:id`), and customer directory (`GET /users`)
 
 ### Idempotency & Concurrency Handling
 When the mobile client submits a booking, it generates a unique `X-Idempotency-Key` header. The server verifies this key against the `dka_idempotency_keys` table:
@@ -157,10 +162,12 @@ Every incoming payload passes through Zod v4 schemas in `server/src/validation.t
 - **Date Validation**: Ensures pickup dates are in the future and return dates follow pickup dates.
 
 ### Database Abstraction & Security Wrapper
-All queries run inside `withPublicClient` in `server/src/db.ts`:
-- Automatically sets `SET LOCAL app.is_admin = 'false'`.
-- Uses node-postgres connection pooling with configurable pool sizes.
-- Ensures all transactions cleanly `ROLLBACK` on unhandled errors.
+All queries run inside scoped client helpers in `server/src/db.ts`:
+- **Public Client (`withPublicClient`)**: Automatically sets `SET LOCAL app.is_admin = 'false'`, isolating public endpoints from administrative privileges.
+- **Admin Client & Middleware (`requireAdminAuth`)**: Verifies the signed admin JWT (`role: 'admin'`) and sets `SET LOCAL app.is_admin = 'true'`, enforcing Row-Level Security (RLS) safety.
+- **Connection Pooling**: Built on node-postgres pool with configurable limits.
+- **Atomic Transactions**: Multi-table operations wrap in `BEGIN` ... `COMMIT` and guarantee a clean `ROLLBACK` on unhandled errors.
+- **Bidirectional Partner & Vehicle Synchronization**: PostgreSQL triggers `sync_cr_to_dka_owners()` / `sync_dka_to_cr_owners()` synchronize driver records between `cr_owners` and `dka_owners`, exposing the unified `cr_drivers` view. Similarly, `sync_cr_vehicles_to_dka_vehicles()` and `sync_dka_vehicles_to_cr_vehicles()` synchronize vehicle records between `cr_vehicles` and `dka_vehicles` with `pg_trigger_depth() > 1` recursion protection.
 
 ---
 
@@ -186,11 +193,12 @@ Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) fre
 
 ---
 
-## 🧪 Testing & Quality Verification (90 Tests)
+## 🧪 Testing & Quality Verification (128 Tests)
 
-The system maintains **100% automated test pass rate** across **11 test suites and 90 total tests**:
+The system maintains **100% automated test pass rate** across **13 test suites and 128 total tests**:
 
-### 1. Mobile Client Test Suites (9 Suites / 54 Tests)
+### 1. Mobile Client Test Suites (10 Suites / 65 Tests)
+- `__tests__/AdminFlow.test.tsx` ➔ Admin 2FA login, PIN verification gate, and dashboard operations (including Drivers Directory)
 - `__tests__/HomeScreen.test.tsx` ➔ Hero header, theme toggle, service navigation, and greeting
 - `__tests__/BookingScreen.test.tsx` ➔ Booking submission, honeypot traps, vehicle selection
 - `__tests__/AuthFlow.test.tsx` ➔ Login, registration, 6-digit OTP verification flow
@@ -201,6 +209,7 @@ The system maintains **100% automated test pass rate** across **11 test suites a
 - `__tests__/RecentSearches.test.tsx` ➔ LRU search history caching and eviction
 - `__tests__/BrandLogoAndSplash.test.tsx` ➔ Brand typography, SVG logo, and custom splash loader
 
-### 2. Backend Server Test Suites (2 Suites / 36 Tests)
+### 2. Backend Server Test Suites (3 Suites / 63 Tests)
 - `server/__tests__/validation.test.ts` (11 tests) ➔ Zod schemas, honeypot bot trap filtering, and Nepal phone regex
 - `server/__tests__/apiEndpoints.test.ts` (25 tests) ➔ Health ping, auth flows, bookings with idempotency caching, and profile management
+- `server/__tests__/adminEndpoints.test.ts` (27 tests) ➔ 2FA admin authentication, control room stats with driver metrics, trip dispatch approval/rejection with vehicle assignment, and drivers directory CRUD endpoints

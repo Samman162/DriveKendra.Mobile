@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -27,6 +28,7 @@ import {
   Phone,
   RotateCcw,
   Star,
+  User,
   WifiOff,
 } from 'lucide-react-native';
 
@@ -63,10 +65,15 @@ export interface TripRecord {
   date: string;
   time: string;
   tripType: 'One Way' | 'Return' | 'Round Trip';
+  passengerCount?: number;
   vehicleName: string;
   vehiclePlate: string;
+  driverName?: string;
+  driverPhone?: string;
   fare: string;
-  status: 'confirmed' | 'completed' | 'cancelled';
+  finalFare?: string;
+  additionalDetails?: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
 }
 
 type Nav = CompositeNavigationProp<
@@ -83,6 +90,7 @@ export function MyTripsScreen() {
 
   const [trips, setTrips] = useState<TripRecord[]>([]);
   const [isLoadingTrips, setIsLoadingTrips] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming');
   const [mountainModeManual, setMountainModeManual] = useState<boolean>(false);
   const [cachedVoucher, setCachedVoucher] = useState<OfflineVoucher | null>(null);
@@ -90,24 +98,66 @@ export function MyTripsScreen() {
   const [sosModalVisible, setSosModalVisible] = useState<boolean>(false);
   const [sosTrip, setSosTrip] = useState<TripRecord | null>(null);
 
-  // Fetch live bookings from PostgreSQL backend when user is authenticated
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchLiveBookings() {
-      if (!user?.id && !user?.phone) {
-        if (isMounted) {
-          setTrips([]);
-          setIsLoadingTrips(false);
-        }
-        return;
-      }
-      if (isMounted) setIsLoadingTrips(true);
-      try {
-        const live = await getUserBookings({ userId: user?.id, phoneNumber: user?.phone });
-        if (!isMounted) return;
+  // Helper to map offline vouchers to TripRecord
+  const mapOfflineVouchersToTrips = (cached: OfflineVoucher[]): TripRecord[] => {
+    return cached.map((cv) => {
+      const isConfirmed = cv.status === 'confirmed' || cv.status === 'completed';
+      return {
+        id: cv.id,
+        bookingRef: cv.bookingRef,
+        pickup: cv.pickup,
+        dropoff: cv.dropoff,
+        date: cv.date,
+        time: cv.time,
+        tripType: (cv.tripType === 'Return' || cv.tripType === 'Round Trip' ? cv.tripType : 'One Way') as TripRecord['tripType'],
+        passengerCount: cv.passengerCount,
+        vehicleName: isConfirmed ? cv.vehicleName : '',
+        vehiclePlate: isConfirmed ? cv.vehiclePlate : '',
+        driverName: isConfirmed ? cv.driverName : undefined,
+        driverPhone: isConfirmed ? cv.driverPhone : undefined,
+        fare: cv.finalFare || cv.fare,
+        finalFare: cv.finalFare,
+        additionalDetails: cv.additionalDetails,
+        status: (cv.status === 'completed' || cv.status === 'cancelled' || cv.status === 'confirmed' ? cv.status : 'pending') as TripRecord['status'],
+      };
+    });
+  };
 
-        if (live && live.length > 0) {
-          const formatted: TripRecord[] = live.map((b: BookingRecordDto) => ({
+  // Fetch live bookings from PostgreSQL backend when user is authenticated, or fall back to local vouchers
+  const fetchLiveBookings = useCallback(async (isMounted = true) => {
+    if (!user?.id && !user?.phone) {
+      const cached = await getOfflineVouchers();
+      if (isMounted) {
+        if (cached && cached.length > 0) {
+          setTrips(mapOfflineVouchersToTrips(cached));
+        } else {
+          setTrips([]);
+        }
+        setIsLoadingTrips(false);
+      }
+      return;
+    }
+
+    if (isMounted) setIsLoadingTrips(true);
+    try {
+      const live = await getUserBookings({ userId: user?.id, phoneNumber: user?.phone });
+      if (!isMounted) return;
+
+      if (live && live.length > 0) {
+        const formatted: TripRecord[] = live.map((b: BookingRecordDto) => {
+          const rawStatus = b.status.toLowerCase();
+          const status: TripRecord['status'] =
+            rawStatus === 'completed'
+              ? 'completed'
+              : rawStatus === 'cancelled'
+                ? 'cancelled'
+                : rawStatus === 'confirmed'
+                  ? 'confirmed'
+                  : 'pending';
+
+          const isConfirmed = status === 'confirmed' || status === 'completed';
+
+          return {
             id: `trip_${b.bookingId}`,
             bookingRef: b.bookingRef,
             pickup: b.pickupLocation,
@@ -115,65 +165,58 @@ export function MyTripsScreen() {
             date: new Date(b.pickupDate).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }),
             time: b.pickupTime || new Date(b.pickupDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             tripType: b.tripType,
-            vehicleName: b.assignedVehicleModel || b.vehicleTypeName || 'Mahindra Scorpio 4x4',
-            vehiclePlate: b.assignedVehiclePlate || 'Ba 2 Cha (TBD)',
-            fare: b.estimatedFare || 'NPR 12,000',
-            status: b.status.toLowerCase() === 'completed' ? 'completed' : b.status.toLowerCase() === 'cancelled' ? 'cancelled' : 'confirmed',
-          }));
-          setTrips(formatted);
-        } else {
-          // Preserve local offline vouchers if live server database has no active trips for this user
-          const cached = await getOfflineVouchers();
-          if (cached && cached.length > 0) {
-            const converted: TripRecord[] = cached.map((cv) => ({
-              id: cv.id,
-              bookingRef: cv.bookingRef,
-              pickup: cv.pickup,
-              dropoff: cv.dropoff,
-              date: cv.date,
-              time: cv.time,
-              tripType: (cv.tripType === 'Return' || cv.tripType === 'Round Trip' ? cv.tripType : 'One Way') as TripRecord['tripType'],
-              vehicleName: cv.vehicleName,
-              vehiclePlate: cv.vehiclePlate,
-              fare: cv.fare,
-              status: (cv.status === 'completed' || cv.status === 'cancelled' ? cv.status : 'confirmed') as TripRecord['status'],
-            }));
-            setTrips(converted);
-          } else {
-            setTrips([]);
-          }
-        }
-      } catch (e) {
-        console.warn('[MyTrips] Offline or failed to sync live bookings:', e);
-        if (!isMounted) return;
+            passengerCount: b.passengerCount,
+            vehicleName: isConfirmed ? (b.assignedVehicleModel || b.vehicleTypeName || 'Assigned Fleet') : '',
+            vehiclePlate: isConfirmed ? (b.assignedVehiclePlate || 'Assigned') : '',
+            driverName: isConfirmed ? (b.assignedDriverName || undefined) : undefined,
+            driverPhone: isConfirmed ? (b.assignedDriverPhone || undefined) : undefined,
+            fare: b.finalFare || b.estimatedFare || 'Awaiting Quote',
+            finalFare: b.finalFare || undefined,
+            additionalDetails: b.additionalDetails || undefined,
+            status,
+          };
+        });
+        setTrips(formatted);
+      } else {
+        // Preserve local offline vouchers if live server database has no active trips for this user
         const cached = await getOfflineVouchers();
         if (cached && cached.length > 0) {
-          const converted: TripRecord[] = cached.map((cv) => ({
-            id: cv.id,
-            bookingRef: cv.bookingRef,
-            pickup: cv.pickup,
-            dropoff: cv.dropoff,
-            date: cv.date,
-            time: cv.time,
-            tripType: (cv.tripType === 'Return' || cv.tripType === 'Round Trip' ? cv.tripType : 'One Way') as TripRecord['tripType'],
-            vehicleName: cv.vehicleName,
-            vehiclePlate: cv.vehiclePlate,
-            fare: cv.fare,
-            status: (cv.status === 'completed' || cv.status === 'cancelled' ? cv.status : 'confirmed') as TripRecord['status'],
-          }));
-          setTrips(converted);
+          setTrips(mapOfflineVouchersToTrips(cached));
         } else {
           setTrips([]);
         }
-      } finally {
-        if (isMounted) setIsLoadingTrips(false);
       }
+    } catch (e) {
+      console.warn('[MyTrips] Offline or failed to sync live bookings:', e);
+      if (!isMounted) return;
+      const cached = await getOfflineVouchers();
+      if (cached && cached.length > 0) {
+        setTrips(mapOfflineVouchersToTrips(cached));
+      } else {
+        setTrips([]);
+      }
+    } finally {
+      if (isMounted) setIsLoadingTrips(false);
     }
-    fetchLiveBookings();
-    return () => {
-      isMounted = false;
-    };
   }, [user]);
+
+  // Refresh bookings on screen focus
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      fetchLiveBookings(isMounted);
+      return () => {
+        isMounted = false;
+      };
+    }, [fetchLiveBookings])
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    hapticFeedback.light();
+    await fetchLiveBookings(true);
+    setRefreshing(false);
+  }, [fetchLiveBookings]);
 
   // Auto-cache trips to local storage for offline / mountain road access
   useEffect(() => {
@@ -193,7 +236,7 @@ export function MyTripsScreen() {
 
   const shouldShowEmergencyVoucher = isOffline || mountainModeManual;
 
-  const upcomingTrips = trips.filter((t) => t.status === 'confirmed');
+  const upcomingTrips = trips.filter((t) => t.status === 'confirmed' || t.status === 'pending');
   const pastTrips = trips.filter((t) => t.status === 'completed' || t.status === 'cancelled');
   const filteredTrips = tab === 'upcoming' ? upcomingTrips : pastTrips;
 
@@ -256,6 +299,14 @@ export function MyTripsScreen() {
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.accent]}
+            tintColor={colors.accent}
+          />
+        }
       >
         <Text style={styles.screenSubtitle}>
           Track vehicle assignments, access offline vouchers, and view past expedition receipts.
@@ -413,7 +464,7 @@ export function MyTripsScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Book a Ride Now"
               >
-                <Car size={18} color="#FFFFFF" />
+                <Car size={18} color={colors.onAccent} />
                 <Text style={styles.emptyBookBtnText}>Book a Ride Now</Text>
               </Pressable>
             )}
@@ -431,6 +482,8 @@ export function MyTripsScreen() {
                     styles.statusPill,
                     trip.status === 'confirmed'
                       ? styles.statusPillConfirmed
+                      : trip.status === 'pending'
+                      ? styles.statusPillPending
                       : trip.status === 'completed'
                       ? styles.statusPillCompleted
                       : styles.statusPillCancelled,
@@ -441,6 +494,8 @@ export function MyTripsScreen() {
                       styles.statusPillText,
                       trip.status === 'confirmed'
                         ? styles.statusPillTextConfirmed
+                        : trip.status === 'pending'
+                        ? styles.statusPillTextPending
                         : trip.status === 'completed'
                         ? styles.statusPillTextCompleted
                         : styles.statusPillTextCancelled,
@@ -448,6 +503,8 @@ export function MyTripsScreen() {
                   >
                     {trip.status === 'confirmed'
                       ? '🟢 Confirmed'
+                      : trip.status === 'pending'
+                      ? '⏳ Awaiting Dispatch'
                       : trip.status === 'completed'
                       ? '✓ Completed'
                       : '✕ Cancelled'}
@@ -464,7 +521,7 @@ export function MyTripsScreen() {
                     <View style={styles.dot} />
                     <View style={styles.dot} />
                   </View>
-                  <MapPin size={16} color="#EF4444" style={styles.destPinIcon} />
+                  <MapPin size={16} color={colors.error} style={styles.destPinIcon} />
                 </View>
 
                 <View style={styles.routeDetailsCol}>
@@ -508,48 +565,115 @@ export function MyTripsScreen() {
                 </View>
 
                 <View style={styles.metaRight}>
+                  <Text style={styles.fareLabelText}>
+                    {trip.status === 'confirmed' ? 'Agreed Fare' : 'Est. Budget'}
+                  </Text>
                   <Text style={styles.fareAmount}>{trip.fare}</Text>
                 </View>
               </View>
 
-              {/* Assigned Vehicle Container */}
-              <View style={styles.vehicleCard}>
-                <View style={styles.vehicleAvatar}>
-                  <Car size={20} color={colors.onAccent} />
-                </View>
-
-                <View style={styles.vehicleInfoCol}>
-                  <View style={styles.vehicleTitleRow}>
-                    <Text style={styles.vehicleCardName} numberOfLines={1}>
-                      {trip.vehicleName}
-                    </Text>
+              {/* Assigned Vehicle Container (Only if Confirmed or Completed, with vehicle details) */}
+              {trip.status !== 'pending' && Boolean(trip.vehicleName || trip.vehiclePlate) && (
+                <View style={styles.vehicleCard}>
+                  <View style={styles.vehicleAvatar}>
+                    <Car size={20} color={colors.onAccent} />
                   </View>
 
-                  <View style={styles.vehicleRow}>
-                    <View style={styles.plateTag}>
-                      <Text style={styles.plateText}>{trip.vehiclePlate}</Text>
+                  <View style={styles.vehicleInfoCol}>
+                    <View style={styles.vehicleTitleRow}>
+                      <Text style={styles.vehicleCardName} numberOfLines={1}>
+                        {trip.vehicleName || 'Fleet Vehicle'}
+                      </Text>
                     </View>
-                    <Text style={styles.vehicleStatusSubtext}>
-                      {trip.status === 'confirmed' ? 'Assigned & Inspected' : 'Standard Fleet'}
+
+                    <View style={styles.vehicleRow}>
+                      {trip.vehiclePlate ? (
+                        <View style={styles.plateTag}>
+                          <Text style={styles.plateText}>{trip.vehiclePlate}</Text>
+                        </View>
+                      ) : null}
+                      <Text style={styles.vehicleStatusSubtext}>
+                        {trip.status === 'confirmed'
+                          ? 'Assigned & Inspected Fleet'
+                          : 'Standard Fleet'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Quick Call Dispatch Icon */}
+                  {trip.status === 'confirmed' && (
+                    <Pressable
+                      onPress={() => {
+                        hapticFeedback.light();
+                        Linking.openURL(`tel:${CONTACT_INFO.phoneRaw}`);
+                      }}
+                      style={({ pressed }) => [styles.phoneBtn, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Call 24/7 Dispatch Desk"
+                    >
+                      <Phone size={15} color={colors.onAccent} />
+                    </Pressable>
+                  )}
+                </View>
+              )}
+
+              {/* Assigned Driver Card (Only when Confirmed and driver assigned) */}
+              {trip.status === 'confirmed' && trip.driverName && (
+                <View style={styles.driverCard}>
+                  <View style={styles.driverAvatar}>
+                    <User size={18} color={colors.onAccent} />
+                  </View>
+                  <View style={styles.driverInfoCol}>
+                    <Text style={styles.driverTitleLabel}>ASSIGNED DRIVER</Text>
+                    <Text style={styles.driverFullName}>{trip.driverName}</Text>
+                    <Text style={styles.driverPhoneText}>{trip.driverPhone || 'Verified Himalayan Driver'}</Text>
+                  </View>
+                  {trip.driverPhone && (
+                    <View style={styles.driverActionsRow}>
+                      <Pressable
+                        onPress={() => Linking.openURL(`tel:${trip.driverPhone}`)}
+                        style={({ pressed }) => [styles.driverContactBtn, pressed && styles.pressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Call driver ${trip.driverName}`}
+                      >
+                        <Phone size={14} color={colors.onAccent} />
+                      </Pressable>
+                      <Pressable
+                        onPress={() => Linking.openURL(`https://wa.me/${trip.driverPhone?.replace(/\D/g, '')}`)}
+                        style={({ pressed }) => [styles.driverWaBtn, pressed && styles.pressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`WhatsApp driver ${trip.driverName}`}
+                      >
+                        <MessageCircle size={14} color={colors.white} />
+                      </Pressable>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Pending Banner if trip is Pending (No driver or vehicle details shown) */}
+              {trip.status === 'pending' && (
+                <View style={styles.pendingBanner}>
+                  <Clock size={16} color={colors.accent} style={{ marginTop: 2 }} />
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.pendingBannerTitle}>Awaiting Operator Dispatch</Text>
+                    <Text style={styles.pendingBannerDesc}>
+                      Our Kathmandu dispatch desk is reviewing your reservation. Certified driver information, vehicle plate, and confirmed fare will be displayed here once operator confirms.
                     </Text>
+                    <View style={styles.pendingAwaitingTag}>
+                      <Text style={styles.pendingAwaitingTagText}>Driver & Vehicle: Pending Assignment</Text>
+                    </View>
                   </View>
                 </View>
+              )}
 
-                {/* Quick Call Dispatch Icon */}
-                {trip.status === 'confirmed' && (
-                  <Pressable
-                    onPress={() => {
-                      hapticFeedback.light();
-                      Linking.openURL(`tel:${CONTACT_INFO.phoneRaw}`);
-                    }}
-                    style={({ pressed }) => [styles.phoneBtn, pressed && styles.pressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Call 24/7 Dispatch Desk"
-                  >
-                    <Phone size={15} color={colors.onAccent} />
-                  </Pressable>
-                )}
-              </View>
+              {/* Customer Notes / Special Instructions if present */}
+              {trip.additionalDetails && (
+                <View style={styles.userNotesBox}>
+                  <Text style={styles.userNotesLabel}>YOUR TRIP NOTES & INSTRUCTIONS</Text>
+                  <Text style={styles.userNotesText}>{trip.additionalDetails}</Text>
+                </View>
+              )}
 
               {/* Action Buttons Bar */}
               <View style={styles.actionsRow}>
@@ -587,7 +711,7 @@ export function MyTripsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Chat on WhatsApp Dispatch"
                     >
-                      <MessageCircle size={14} color="#FFFFFF" />
+                      <MessageCircle size={14} color={colors.white} />
                       <Text style={styles.actionBtnWhatsAppText}>WhatsApp</Text>
                     </Pressable>
 
@@ -604,8 +728,42 @@ export function MyTripsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Emergency SOS"
                     >
-                      <AlertTriangle size={13} color="#FFFFFF" />
+                      <AlertTriangle size={13} color={colors.white} />
                       <Text style={styles.actionBtnSosText}>SOS</Text>
+                    </Pressable>
+                  </>
+                ) : trip.status === 'pending' ? (
+                  <>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionBtnSecondary,
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() => {
+                        hapticFeedback.light();
+                        Linking.openURL(`tel:${CONTACT_INFO.phoneRaw}`);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Call 24/7 Dispatch Desk"
+                    >
+                      <Phone size={14} color={colors.accent} />
+                      <Text style={styles.actionBtnSecondaryText}>Call Dispatch</Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionBtnWhatsApp,
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() => {
+                        hapticFeedback.light();
+                        Linking.openURL(CONTACT_INFO.whatsappLink);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Chat on WhatsApp Dispatch"
+                    >
+                      <MessageCircle size={14} color={colors.white} />
+                      <Text style={styles.actionBtnWhatsAppText}>WhatsApp</Text>
                     </Pressable>
                   </>
                 ) : (
@@ -772,7 +930,7 @@ function createStyles(colors: ThemeColors) {
     liveBadgeText: {
       fontSize: 9,
       fontWeight: '900',
-      color: '#FFFFFF',
+      color: colors.white,
       letterSpacing: 0.5,
     },
     mountainBarSub: {
@@ -799,7 +957,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.subtle,
     },
     mountainToggleTextActive: {
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
     emergencyCardContainer: {
       marginBottom: spacing.md,
@@ -838,7 +996,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
     },
     segmentBtnTextActive: {
-      color: '#FFFFFF',
+      color: colors.onAccent,
       fontWeight: '800',
     },
     countBadge: {
@@ -858,7 +1016,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
     },
     countBadgeTextActive: {
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
 
     // Trip Card Container
@@ -903,6 +1061,9 @@ function createStyles(colors: ThemeColors) {
     statusPillConfirmed: {
       backgroundColor: colors.successSoft,
     },
+    statusPillPending: {
+      backgroundColor: colors.accentSoft,
+    },
     statusPillCompleted: {
       backgroundColor: colors.accentSoft,
     },
@@ -915,6 +1076,9 @@ function createStyles(colors: ThemeColors) {
     },
     statusPillTextConfirmed: {
       color: colors.success,
+    },
+    statusPillTextPending: {
+      color: colors.accent,
     },
     statusPillTextCompleted: {
       color: colors.accent,
@@ -1034,10 +1198,20 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
     },
     metaRight: {},
+    fareLabelText: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: colors.subtle,
+      letterSpacing: 0.6,
+      textTransform: 'uppercase',
+      textAlign: 'right',
+      marginBottom: 2,
+    },
     fareAmount: {
       fontSize: 16,
       fontWeight: '900',
       color: colors.text,
+      textAlign: 'right',
     },
 
     // Vehicle Box
@@ -1163,10 +1337,10 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      backgroundColor: '#25D366',
+      backgroundColor: colors.whatsapp,
       paddingVertical: 10,
       borderRadius: radius.pill,
-      shadowColor: '#25D366',
+      shadowColor: colors.whatsapp,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
       shadowRadius: 4,
@@ -1175,7 +1349,7 @@ function createStyles(colors: ThemeColors) {
     actionBtnWhatsAppText: {
       fontSize: 12,
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: colors.white,
     },
     actionBtnSos: {
       flexDirection: 'row',
@@ -1193,9 +1367,126 @@ function createStyles(colors: ThemeColors) {
       elevation: 2,
     },
     actionBtnSosText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.onAccent,
+    },
+    pendingBanner: {
+      flexDirection: 'row',
+      backgroundColor: colors.accentSoft,
+      borderRadius: radius.md,
+      padding: spacing.sm + 2,
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    pendingBannerTitle: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.accent,
+      marginBottom: 2,
+    },
+    pendingBannerDesc: {
       fontSize: 11,
-      fontWeight: '900',
-      color: '#FFFFFF',
+      color: colors.text,
+      lineHeight: 15,
+    },
+    pendingAwaitingTag: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.xs + 4,
+      paddingVertical: 3,
+      borderRadius: radius.pill,
+      marginTop: spacing.xs + 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    pendingAwaitingTagText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.accent,
+      letterSpacing: 0.3,
+    },
+    userNotesBox: {
+      backgroundColor: colors.elevated,
+      borderRadius: radius.sm,
+      padding: spacing.sm,
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    userNotesLabel: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: colors.subtle,
+      letterSpacing: 0.8,
+      marginBottom: 2,
+      textTransform: 'uppercase',
+    },
+    userNotesText: {
+      fontSize: 12,
+      color: colors.text,
+      fontStyle: 'italic',
+    },
+    driverCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      padding: spacing.sm + 2,
+      marginTop: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    driverAvatar: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.sm,
+    },
+    driverInfoCol: {
+      flex: 1,
+    },
+    driverTitleLabel: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: colors.subtle,
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+      marginBottom: 1,
+    },
+    driverFullName: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    driverPhoneText: {
+      fontSize: 11,
+      color: colors.subtle,
+      marginTop: 1,
+    },
+    driverActionsRow: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    driverContactBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    driverWaBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.whatsapp,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
 
     // Empty State Card
@@ -1257,7 +1548,7 @@ function createStyles(colors: ThemeColors) {
     emptyBookBtnText: {
       fontSize: 14,
       fontWeight: '800',
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
     pressed: {
       opacity: 0.85,

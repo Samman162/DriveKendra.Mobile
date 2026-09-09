@@ -1,17 +1,17 @@
 # 🚗 Drive Kendra Mobile
 
 [![Expo SDK](https://img.shields.io/badge/Expo-SDK%2057-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev)
-[![React Native](https://img.shields.io/badge/React_Native-0.86.2-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev)
+[![React Native](https://img.shields.io/badge/React_Native-0.86.3-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactnative.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Hono API](https://img.shields.io/badge/API-Hono%20v4-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-success?style=for-the-badge)](https://drivekendra.com)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Samman162/DriveKendra.Mobile)
-[![Tests](https://img.shields.io/badge/Tests-116%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-126%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
 **Drive Kendra Mobile** is a standalone, production-grade cross-platform mobile application built with **React Native (Expo SDK 57)** and **TypeScript** for **Drive Kendra** — Nepal's premier vehicle rental and Himalayan tour transport service.
 
-The mobile app includes its own lightweight, high-performance **Hono/Node.js API** in `server/`. It connects directly to the shared **PostgreSQL database**, operating independently while maintaining complete database compatibility, atomic transactional consistency, interactive zero-cost OpenStreetMap (OSM) map picking, and off-grid Himalayan resilience.
+The mobile app includes its own lightweight, high-performance **Hono/Node.js API** in `server/`. It connects directly to the shared **PostgreSQL database**, operating independently while maintaining complete database compatibility, atomic transactional consistency, interactive zero-cost OpenStreetMap (OSM) map picking, 2FA-secured admin operations, and off-grid Himalayan resilience.
 
 ---
 
@@ -19,7 +19,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 
 - [Key Highlights](#-key-highlights)
 - [Architecture & Tech Stack](#-architecture--tech-stack)
-- [Feature Breakdown & 7 Core Screens](#-feature-breakdown--7-core-screens)
+- [Feature Breakdown: Customer & Admin Screens](#-feature-breakdown-customer--admin-screens)
 - [Interactive Map & Geocoding Engine](#-interactive-map--geocoding-engine)
 - [Project Directory Structure](#-project-directory-structure)
 - [Himalayan Offline-First Resilience](#-himalayan-offline-first-resilience)
@@ -30,7 +30,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - [Prerequisites](#prerequisites)
   - [Installation & First Run](#installation--first-run)
   - [Connecting Physical Devices & Emulators](#connecting-physical-devices--emulators)
-- [Testing & Quality Verification (116 Tests)](#-testing--quality-verification-116-tests)
+- [Testing & Quality Verification (126 Tests)](#-testing--quality-verification-126-tests)
 - [Building with EAS (Android & iOS)](#-building-with-eas-android--ios)
 - [Design System & Theming](#-design-system--theming)
 - [Security & Anti-Spam Architecture](#-security--anti-spam-architecture)
@@ -59,11 +59,11 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                        Drive Kendra Mobile Client                       │
-│       (Expo SDK 57 • React Native 0.86.2 • TypeScript Strict Mode)      │
+│       (Expo SDK 57 • React Native 0.86.3 • TypeScript Strict Mode)      │
 │                                                                         │
 │  ┌───────────────────────┐ ┌──────────────────────┐ ┌────────────────┐ │
 │  │ React Navigation v7   │ │ Theme & UI System    │ │ Auth & Bio SDK │ │
-│  │ (4-Tabs, Stacks, Mod) │ │ (useThemedStyles)    │ │ (SecureStore)  │ │
+│  │ (4-Tabs, Modals, Adm) │ │ (useThemedStyles)    │ │ (SecureStore)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐ ┌──────────────────────┐ ┌────────────────┐ │
@@ -79,7 +79,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 │                                                                         │
 │  ┌───────────────────────┐ ┌──────────────────────┐ ┌────────────────┐ │
 │  │ Routing & Middleware  │ │ Zod Validation & HP  │ │ Idempotency    │ │
-│  │ (CORS, Error Handler) │ │ (Nepal Phone Regex)  │ │ Manager (SHA)  │ │
+│  │ (CORS, Error, Admin)  │ │ (Nepal Phone Regex)  │ │ Manager (SHA)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐                                              │
@@ -97,9 +97,9 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 ```
 
 ### Frontend Stack
-- **Framework**: [Expo](https://expo.dev) SDK 57 (React Native 0.86.2, React 19.2.3)
+- **Framework**: [Expo](https://expo.dev) SDK 57 (React Native 0.86.3, React 19.2.3)
 - **Language**: TypeScript 6.0 (Strict mode enabled)
-- **Navigation**: `@react-navigation/native` v7, `@react-navigation/bottom-tabs`, `@react-navigation/native-stack`
+- **Navigation**: `@react-navigation/native` v7, `@react-navigation/bottom-tabs`, `@react-navigation/native-stack` (Includes isolated `AdminNavigator`)
 - **Mapping & WebViews**: `react-native-webview` (mobile Leaflet bridge) + HTML5 responsive canvas
 - **Icons**: `lucide-react-native`
 - **Pickers & UI Components**: `@react-native-community/datetimepicker`, `@shopify/flash-list`, `react-native-safe-area-context`, `react-native-screens`, `react-native-svg`
@@ -120,19 +120,21 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 
 ---
 
-## 📱 Feature Breakdown & 7 Core Screens
+## 📱 Feature Breakdown: Customer & Admin Screens
 
-### 1. 🌟 Onboarding Walkthrough (`src/screens/OnboardingScreen.tsx`)
+### Customer Screens (7 Core Screens)
+
+#### 1. 🌟 Onboarding Walkthrough (`src/screens/OnboardingScreen.tsx`)
 - First-launch welcome experience introducing travelers to Nepal vehicle rental services.
 - Animated multi-slide cards highlighting 4x4 mountain fleet, 24/7 airport transfers, and offline resilience.
 - Smooth page indicators, skip action, and persistent completion state in `onboardingStorage.ts`.
 
-### 2. 🏠 Home Screen (`src/screens/HomeScreen.tsx`)
+#### 2. 🏠 Home Screen (`src/screens/HomeScreen.tsx`)
 - **Personalized Header**: Top bar featuring user avatar, profile navigation, and theme mode toggle (`light` / `dark`).
 - **Welcome Greeting**: Greets travelers by name or guest profile status.
 - **Service Hub**: Quick action to start a vehicle booking reservation (`BookingScreen`).
 
-### 3. 📝 Booking Engine (`src/screens/BookingScreen.tsx`)
+#### 3. 📝 Booking Engine (`src/screens/BookingScreen.tsx`)
 - Comprehensive trip reservation form:
   - **Personal Details**: Full name, Nepal mobile number (`+977 98/97` or `01XXXXXXX`), optional email.
   - **Interactive Map Pinning**: OpenStreetMap / Leaflet location picker modal for visual pickup/dropoff coordinate selection.
@@ -145,7 +147,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - **Idempotency Header**: Unique `X-Idempotency-Key` prevents double-bookings on flaky networks.
   - **Success Modal**: Animated confirmation dialog with reference details.
 
-### 4. 🎫 My Reservations & Vouchers (`src/screens/MyTripsScreen.tsx`)
+#### 4. 🎫 My Reservations & Vouchers (`src/screens/MyTripsScreen.tsx`)
 - Active and past trip cards with status badges (`Confirmed`, `Completed`, `Cancelled`).
 - Full trip details: Booking reference ID, route, date & time, assigned vehicle model, and registration plate.
 - **Offline QR Voucher**: Display QR code for ticket verification without internet.
@@ -153,7 +155,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - **24/7 Dispatch Hotline**: Instant one-tap phone call button to Drive Kendra operations (`+977 985-1363783`).
 - **Emergency SOS**: Immediate mountain SOS modal with satellite GPS extraction.
 
-### 5. 👤 User Profile (`src/screens/ProfileScreen.tsx`)
+#### 5. 👤 User Profile (`src/screens/ProfileScreen.tsx`)
 - **Guest Mode**: Sign in / Sign up prompts with feature highlights.
 - **Authenticated Mode**:
   - User avatar and account details.
@@ -161,7 +163,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - Settings: Dark/Light theme toggle, Biometrics toggle, Privacy Policy.
   - Secure sign-out with confirmation modal.
 
-### 6. 🔐 Authentication Flow (`src/screens/AuthScreen.tsx`)
+#### 6. 🔐 Authentication Flow (`src/screens/AuthScreen.tsx`)
 - **Sign In**: Login with email or Nepal phone number + password.
 - **Biometric Quick Login**: Touch ID / Face ID hardware unlock for stored credentials.
 - **Sign Up**: New account registration with full name, email, phone, and password verification.
@@ -171,11 +173,34 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   3. Set new secure password
 - **Social Login UI**: Quick action buttons for third-party authentication.
 
-### 7. 📞 Contact & Support (`src/screens/ContactScreen.tsx`)
+#### 7. 📞 Contact & Support (`src/screens/ContactScreen.tsx`)
 - Direct phone call dispatch to 24/7 dispatch desk (`+977 985-1363783`).
 - Instant WhatsApp chat deep link.
 - Email dispatch to `info@drivekendra.com`.
 - Office location information and 24/7 roadside assistance support.
+
+---
+
+### 🛡️ Dedicated Admin Portal Subsystem (`src/screens/admin/`)
+
+The application features an isolated, strictly partitioned administrative interface powered by `AdminNavigator.tsx` and protected by 2FA authentication.
+
+#### 8. 🔑 Admin Login (`src/screens/admin/AdminLoginScreen.tsx`)
+- Step-1 operator authentication requiring administrator credentials (`9800000000` / password).
+- Validates operator role and issues a cryptographically secure 2FA challenge token (`adm_chal_*`).
+
+#### 9. 🔢 2FA Security PIN Gate (`src/screens/admin/AdminPinScreen.tsx`)
+- Step-2 two-factor verification requiring the operator's secret 4-digit security PIN (`6767`).
+- Issues signed 24h admin session JWT (`jwt_admin_*`) and unlocks the control room dashboard.
+
+#### 10. 🎛️ Control Room & Drivers Directory (`src/screens/admin/AdminDashboardScreen.tsx`)
+- **Real-Time KPIs**: Live counters for Pending Requests, Active Fleet, Total Registered Users, Total Drivers, Total Trips, and Gross Revenue (`NPR`).
+- **4-Tab Control Desk**:
+  - **Dispatch Desk**: Review incoming traveler reservations with pickup/dropoff routes, schedule, and passenger counts. Approve and atomically assign a specific fleet vehicle, or reject with a mandatory cancellation reason.
+  - **Drivers Directory**: Full partner driver registry with instant search, status filters (`ALL`, `ACTIVE`, `PENDING`, `INACTIVE`), driver credentials & vehicle type badges, assigned vehicle display, contact action triggers (tap-to-call, tap-to-WhatsApp), availability/status toggles, and unified modal form to register new drivers directly into synchronized `dka_owners` / `cr_owners` while simultaneously registering their assigned vehicle into `dka_vehicles` / `cr_vehicles`.
+  - **Customer Directory**: Search and view customer profiles with historical reservation counts and lifetime expenditure.
+  - **Admin Profile**: Operator identity, 2FA credentials verification state, and secure sign-out.
+- **Strict Navigation Partition**: Admins operate in full isolation inside `AdminNavigator`, completely partitioned from customer screens.
 
 ---
 
@@ -223,13 +248,15 @@ DriveKendra.Mobile/
 ├── server/                       # Dedicated Hono Node.js Mobile API
 │   ├── src/
 │   │   ├── routes/
-│   │   │   ├── auth.ts           # Login, register, OTP reset endpoints
+│   │   │   ├── admin.ts          # 2FA login, PIN verification, dispatch approval, drivers directory, fleet inventory
+│   │   │   ├── auth.ts           # Customer login, register, OTP reset endpoints
 │   │   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency & DB transaction
 │   │   │   └── users.ts          # Profile update and push token registration
 │   │   ├── db.ts                 # PostgreSQL connection pool & RLS client
 │   │   ├── index.ts              # Hono app entry point & CORS configuration
 │   │   └── validation.ts         # Input schemas, honeypot & phone validation
-│   ├── __tests__/                # Server unit & integration tests (2 suites / 36 tests)
+│   ├── __tests__/                # Server unit & integration tests (3 suites / 62 tests)
+│   │   ├── adminEndpoints.test.ts # 2FA admin auth, stats, trip dispatch, drivers directory, vehicle fleet (26 tests)
 │   │   ├── apiEndpoints.test.ts  # Endpoints, auth, bookings, and idempotency tests (25 tests)
 │   │   └── validation.test.ts    # Zod schemas & phone regex validation tests (11 tests)
 │   ├── .env.example              # Server environment template
@@ -238,6 +265,7 @@ DriveKendra.Mobile/
 │   └── README.md                 # Dedicated Server API Reference
 ├── src/                          # React Native Application Source
 │   ├── api/                      # Client API modules
+│   │   ├── admin.ts              # Admin portal API calls (2FA, dispatch, fleet)
 │   │   ├── auth.ts               # Auth API calls & session handling
 │   │   ├── bookings.ts           # Trip booking submission with idempotency
 │   │   ├── client.ts             # Axios client with base URL configuration
@@ -283,15 +311,21 @@ DriveKendra.Mobile/
 │   │   ├── validation.ts         # Validation rules and error strings
 │   │   └── vehicles.ts           # Vehicle type IDs and mappings
 │   ├── context/
+│   │   ├── AdminAuthContext.tsx  # Isolated 2FA admin session context
 │   │   └── AuthContext.tsx       # Auth provider with secure storage persistence
 │   ├── hooks/
 │   │   └── useNetworkStatus.ts   # Network connectivity listener
 │   ├── navigation/
+│   │   ├── AdminNavigator.tsx    # Dedicated isolated admin navigation stack
 │   │   ├── AppNavigator.tsx      # Bottom tabs & stack navigators
 │   │   ├── booking.ts            # Cross-screen booking navigation helpers
 │   │   ├── navigationRef.ts      # Global navigation reference
 │   │   └── types.ts              # React Navigation param lists
-│   ├── screens/                  # 7 production screens
+│   ├── screens/                  # Customer & Admin screens
+│   │   ├── admin/                # Dedicated 2FA Admin Portal screens
+│   │   │   ├── AdminDashboardScreen.tsx # Control room, KPI stats, trip review, fleet
+│   │   │   ├── AdminLoginScreen.tsx     # Operator credentials login
+│   │   │   └── AdminPinScreen.tsx       # 4-digit security PIN verification
 │   │   ├── AuthScreen.tsx        # SignIn, SignUp, and OTP reset
 │   │   ├── BookingScreen.tsx     # Comprehensive booking engine with map picker
 │   │   ├── ContactScreen.tsx     # 24/7 hotline, WhatsApp, and support
@@ -306,8 +340,8 @@ DriveKendra.Mobile/
 │   │   ├── typography.ts         # Font size and weight definitions
 │   │   └── useThemedStyles.ts    # Hook for dynamic stylesheet evaluation
 │   ├── types/
-│   │   ├── api.ts                # DTOs for bookings, vouchers, trips
-│   │   └── auth.ts               # DTOs for auth, users, and tokens
+│   │   ├── api.ts                # DTOs for bookings, vouchers, trips, and admin
+│   │   └── auth.ts               # DTOs for auth, users, tokens, and admin credentials
 │   └── utils/
 │       ├── dates.ts              # Date formatting and comparison
 │       ├── errors.ts             # Axios and runtime error extractors
@@ -319,7 +353,8 @@ DriveKendra.Mobile/
 │       ├── phone.ts              # Nepal phone number sanitization and checks
 │       ├── recentSearchesStorage.ts # Recents location search history
 │       └── secureStorage.ts      # Hardware encrypted credential storage
-├── __tests__/                    # Client unit & integration test suites (10 suites / 58 tests)
+├── __tests__/                    # Client unit & integration test suites (10 suites / 64 tests)
+│   ├── AdminFlow.test.tsx        # Admin 2FA login, PIN verification, and dashboard tests
 │   ├── AuthFlow.test.tsx         # Auth & OTP interaction tests
 │   ├── BookingScreen.test.tsx    # Booking form submission tests
 │   ├── BrandLogoAndSplash.test.tsx # Brand assets and splash rendering tests
@@ -372,6 +407,18 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `POST` | `/api/auth/register`| User registration | `{ name, email, phone, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/forgot-password` | Send 6-digit OTP code | `{ identifier }` | `{ message, code }` |
 | `POST` | `/api/auth/reset-password` | Reset password via OTP | `{ identifier, code, newPassword }` | `{ message }` |
+| `POST` | `/api/admin/login` | Step-1 admin authentication | `{ phone, password }` | `{ pinRequired: true, challengeToken }` |
+| `POST` | `/api/admin/verify-pin` | Step-2 2FA 4-digit PIN verification | `{ challengeToken, pin }` | `{ token: "jwt_admin_*", admin }` |
+| `GET` | `/api/admin/stats` | Control room metrics (trips, drivers, revenue) | `Authorization: Bearer <jwt_admin>` | `{ pendingRequests, activeFleet, totalDrivers, ... }` |
+| `GET` | `/api/admin/trips` | Dispatch incoming bookings list | `?status=Pending\|Confirmed\|Cancelled` | `{ trips: [...] }` |
+| `PATCH`| `/api/admin/trips/:id/approve` | Approve reservation & assign fleet vehicle | `{ vehicleId }` | `{ success: true, booking }` |
+| `PATCH`| `/api/admin/trips/:id/reject` | Reject reservation with reason | `{ reason }` | `{ success: true }` |
+| `GET` | `/api/admin/drivers` | Partner drivers list (`cr_drivers` / `dka_owners`) | `?status=ALL\|ACTIVE\|...&q=` | `{ drivers: [...] }` |
+| `POST` | `/api/admin/drivers` | Register new driver (bidirectional DB sync) | `DriverPayload` | `{ success: true, driver: {...} }` |
+| `PATCH`| `/api/admin/drivers/:id` | Update driver availability or status | `{ status, is_available }` | `{ success: true, driver: {...} }` |
+| `GET` | `/api/admin/vehicles` | Fleet inventory list | `Authorization: Bearer <jwt_admin>` | `{ vehicles: [...] }` |
+| `PATCH`| `/api/admin/vehicles/:id` | Update vehicle status (e.g. maintenance) | `{ status }` | `{ success: true, vehicle }` |
+| `GET` | `/api/admin/users` | Customer directory & spend history | `?q=` | `{ users: [...] }` |
 
 👉 *Read the full API reference in [`server/README.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md).*
 
@@ -382,8 +429,9 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 > [!IMPORTANT]
 > **Strict Database Management Rules**:
 > 1. **Base Schema**: Always maintain and update the master schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
-> 2. **Patches Folder**: For any pending database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_...`, `002_...`).
-> 3. **Execution Constraint**: **NEVER** run SQL queries directly on live production/staging databases. Migrations are executed manually by database administrators.
+> 2. **Patches Folder**: For any pending database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_drivers_and_dka_owners_sync.sql`).
+> 3. **Bidirectional Synchronization**: Real-time reciprocal triggers (`sync_cr_owners_to_dka` and `sync_dka_owners_to_cr`) keep `cr_owners` and `dka_owners` completely synchronized with `pg_trigger_depth() > 1` recursion guard and `cr_drivers` view.
+> 4. **Execution Constraint**: **NEVER** run SQL queries directly on live production/staging databases. Migrations are executed manually by database administrators.
 
 👉 *Read the full database documentation in [`database/README.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md).*
 
@@ -451,7 +499,7 @@ PORT=8787
 
 ---
 
-## 🧪 Testing & Quality Verification (116 Tests)
+## 🧪 Testing & Quality Verification (128 Tests)
 
 Run the automated test suites and static analysis tools:
 
@@ -460,10 +508,10 @@ Run the automated test suites and static analysis tools:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Client Jest Unit & Integration Tests (10 Suites / 58 Tests)
+# 2. Client Jest Unit & Integration Tests (10 Suites / 65 Tests)
 npm test
 
-# 3. Server Jest Validation & Endpoint Tests (3 Suites / 58 Tests)
+# 3. Server Jest Validation & Endpoint Tests (3 Suites / 63 Tests)
 npm test --prefix server
 ```
 
@@ -554,7 +602,7 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
 | `npm run web` | `expo start --web` | Starts React Native Web development server |
 | `npm run server` | `npm run dev --prefix server` | Starts only the Hono backend server in watch mode |
 | `npm run typecheck` | `tsc --noEmit` | Runs static TypeScript typechecking across the client |
-| `npm test` | `jest` | Runs client unit and integration test suites (10 suites / 58 tests) |
+| `npm test` | `jest` | Runs client unit and integration test suites (10 suites / 64 tests) |
 
 ---
 

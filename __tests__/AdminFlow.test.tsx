@@ -123,6 +123,45 @@ jest.mock('../src/api/admin', () => ({
     },
   ]),
   getCustomerTrips: jest.fn().mockResolvedValue([]),
+  getAdminDrivers: jest.fn().mockResolvedValue([
+    {
+      id: 1,
+      ownerId: 1,
+      fullName: 'Pasang Dorje Sherpa',
+      phoneNumber: '+977 9851011223',
+      whatsappNumber: '+977 9851011223',
+      email: 'pasang.sherpa@drivekendra.com',
+      citizenshipOrIdNo: '27-01-72-04512',
+      status: 'active',
+      citizenshipDocId: 'DOC-CTZ-0891',
+      licenseDocId: 'LIC-EXP-9921',
+      createdAt: '2026-07-01T00:00:00.000Z',
+    },
+    {
+      id: 2,
+      ownerId: 2,
+      fullName: 'Birat Thapa',
+      phoneNumber: '+977 9841334455',
+      whatsappNumber: '+977 9841334455',
+      email: 'birat.thapa@gmail.com',
+      citizenshipOrIdNo: '12-02-68-11234',
+      status: 'active',
+      citizenshipDocId: 'DOC-CTZ-1022',
+      licenseDocId: 'LIC-EXP-8843',
+      createdAt: '2026-08-01T00:00:00.000Z',
+    },
+  ]),
+  createAdminDriver: jest.fn().mockResolvedValue({
+    id: 3,
+    ownerId: 3,
+    fullName: 'Pemba Lama',
+    phoneNumber: '+977 9811002233',
+    status: 'active',
+    licenseDocId: 'LIC-999',
+    citizenshipOrIdNo: '99-00-11',
+    createdAt: '2026-09-01T00:00:00.000Z',
+  }),
+  updateAdminDriver: jest.fn().mockResolvedValue({ success: true }),
   approveAdminTrip: jest.fn().mockResolvedValue({ success: true }),
   rejectAdminTrip: jest.fn().mockResolvedValue({ success: true }),
   completeAdminTrip: jest.fn().mockResolvedValue({ success: true, message: 'Trip marked as completed.' }),
@@ -337,8 +376,8 @@ describe('Admin Portal Subsystem Flow & Components', () => {
     });
   });
 
-  describe('3. AdminDashboardScreen (Operations Desk, Fleet & Users)', () => {
-    it('renders overview metrics cards and 3-way segment navigation tabs', async () => {
+  describe('3. AdminDashboardScreen (Operations Desk, Fleet, Users & Profile Tabs)', () => {
+    it('renders overview metrics cards and 4 bottom navigation tabs', async () => {
       let tree: any = null;
       await renderer.act(async () => {
         tree = renderer.create(
@@ -354,15 +393,43 @@ describe('Admin Portal Subsystem Flow & Components', () => {
       // Check RLS badge and logout button
       expect(root.findByProps({ accessibilityLabel: 'Sign out of Admin Portal' })).toBeTruthy();
 
-      // Find segment tabs by finding Text components
+      // Find bottom navigation tabs by finding Text components
       const textNodes = root.findAllByType('Text' as any);
       const textContents = textNodes.map((t: any) => t.props.children).flat().join(' ');
       expect(textContents).toContain('Dispatch Desk');
-      expect(textContents).toContain('Fleet Manager');
+      expect(textContents).toContain('Drivers');
       expect(textContents).toContain('Users Directory');
-      expect(textContents).toContain('Himalayan Road Bulletins');
-      expect(textContents).toContain('BP Highway (Sindhuli Corridor)');
-      expect(root.findByProps({ accessibilityLabel: 'Post Himalayan Road Advisory' })).toBeTruthy();
+      expect(textContents).toContain('Profile');
+      // Himalayan Road Bulletins is removed as requested
+      expect(textContents).not.toContain('Himalayan Road Bulletins');
+
+      // Verify bottom tab accessibility labels
+      expect(root.findByProps({ accessibilityLabel: 'Dispatch Desk', accessibilityRole: 'tab' })).toBeTruthy();
+      expect(root.findByProps({ accessibilityLabel: 'Drivers Directory', accessibilityRole: 'tab' })).toBeTruthy();
+      expect(root.findByProps({ accessibilityLabel: 'Users Directory', accessibilityRole: 'tab' })).toBeTruthy();
+      expect(root.findByProps({ accessibilityLabel: 'Profile', accessibilityRole: 'tab' })).toBeTruthy();
+
+      // Switch to Drivers tab
+      const driversTab = root.findByProps({ accessibilityLabel: 'Drivers Directory', accessibilityRole: 'tab' });
+      await renderer.act(async () => {
+        driversTab.props.onPress();
+      });
+
+      const driversTextNodes = root.findAllByType('Text' as any);
+      const driversTextContents = driversTextNodes.map((t: any) => t.props.children).flat().join(' ');
+      expect(driversTextContents).toContain('Add Driver');
+
+      // Switch to Profile tab
+      const profileTab = root.findByProps({ accessibilityLabel: 'Profile', accessibilityRole: 'tab' });
+      await renderer.act(async () => {
+        profileTab.props.onPress();
+      });
+
+      const profileTextNodes = root.findAllByType('Text' as any);
+      const profileTextContents = profileTextNodes.map((t: any) => t.props.children).flat().join(' ');
+      expect(profileTextContents).toContain('SYSTEM ADMINISTRATOR');
+      expect(profileTextContents).toContain('PostgreSQL Row Level Security (RLS)');
+      expect(profileTextContents).toContain('Display Theme');
 
       renderer.act(() => {
         tree?.unmount();
@@ -479,7 +546,7 @@ describe('Admin Portal Subsystem Flow & Components', () => {
 
       // Admin portal controls must NOT be present
       expect(texts).not.toContain('Dispatch Desk');
-      expect(texts).not.toContain('Fleet Manager');
+      expect(texts).not.toContain('Drivers');
 
       renderer.act(() => {
         tree?.unmount();

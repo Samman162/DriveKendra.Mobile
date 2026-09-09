@@ -98,8 +98,8 @@ export function EmergencySosModal({
 
             {/* 2. WhatsApp Urgent SOS */}
             <Pressable style={styles.sosCard} onPress={sendWhatsAppSos}>
-              <View style={[styles.cardIconBoxSecondary, { backgroundColor: '#25D36620' }]}>
-                <MessageCircle size={20} color="#25D366" />
+              <View style={[styles.cardIconBoxSecondary, { backgroundColor: colors.whatsappSoft }]}>
+                <MessageCircle size={20} color={colors.whatsapp} />
               </View>
               <View style={styles.cardTextBox}>
                 <Text style={styles.cardTitle}>WhatsApp Dispatch Desk</Text>
@@ -112,8 +112,8 @@ export function EmergencySosModal({
               style={styles.sosCard}
               onPress={() => dialNumber('1144')}
             >
-              <View style={[styles.cardIconBoxSecondary, { backgroundColor: '#3B82F620' }]}>
-                <ShieldAlert size={20} color="#3B82F6" />
+              <View style={[styles.cardIconBoxSecondary, { backgroundColor: colors.accentSoft }]}>
+                <ShieldAlert size={20} color={colors.accent} />
               </View>
               <View style={styles.cardTextBox}>
                 <Text style={styles.cardTitle}>Nepal Tourist Police (1144)</Text>
@@ -126,8 +126,8 @@ export function EmergencySosModal({
               style={styles.sosCard}
               onPress={() => dialNumber('100')}
             >
-              <View style={[styles.cardIconBoxSecondary, { backgroundColor: '#EF444420' }]}>
-                <AlertTriangle size={20} color="#EF4444" />
+              <View style={[styles.cardIconBoxSecondary, { backgroundColor: colors.errorSoft }]}>
+                <AlertTriangle size={20} color={colors.error} />
               </View>
               <View style={styles.cardTextBox}>
                 <Text style={styles.cardTitle}>Nepal Police Emergency (100)</Text>
@@ -186,7 +186,7 @@ function createStyles(colors: ThemeColors) {
       width: 38,
       height: 38,
       borderRadius: 19,
-      backgroundColor: '#EF4444',
+      backgroundColor: colors.error,
       alignItems: 'center',
       justifyContent: 'center',
     },

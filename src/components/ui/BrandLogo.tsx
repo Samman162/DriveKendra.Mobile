@@ -148,7 +148,7 @@ export function BrandLogo({
 const createStyles = (theme: ThemeColors) =>
   StyleSheet.create({
     cardContainer: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.surface,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: StyleSheet.hairlineWidth * 1.5,

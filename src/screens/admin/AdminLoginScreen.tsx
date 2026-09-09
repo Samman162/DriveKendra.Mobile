@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { Eye, EyeOff, Lock, Phone, ShieldCheck, Sparkles, X } from 'lucide-react-native';
+import { Eye, EyeOff, Lock, Phone, ShieldCheck, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAdminAuth } from '../../context/AdminAuthContext';
@@ -35,8 +35,8 @@ export function AdminLoginScreen({ onChallengeSuccess, onCancel }: AdminLoginScr
   const styles = useThemedStyles(createStyles);
   const { login, isLoading } = useAdminAuth();
 
-  const [phone, setPhone] = useState<string>('9800000000');
-  const [password, setPassword] = useState<string>('admin@123');
+  const [phone, setPhone] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [phoneFocused, setPhoneFocused] = useState<boolean>(false);
   const [passwordFocused, setPasswordFocused] = useState<boolean>(false);
@@ -70,13 +70,6 @@ export function AdminLoginScreen({ onChallengeSuccess, onCancel }: AdminLoginScr
       setErrorMessage(msg);
       Alert.alert('Authentication Failed', msg);
     }
-  };
-
-  const handleAutofillDemo = () => {
-    hapticFeedback.selection();
-    setPhone('9800000000');
-    setPassword('admin@123');
-    setErrorMessage(null);
   };
 
   const handleClose = () => {
@@ -121,32 +114,10 @@ export function AdminLoginScreen({ onChallengeSuccess, onCancel }: AdminLoginScr
           </Text>
         </View>
 
-        {/* Interactive Quick-Fill Demo Banner */}
-        <Pressable
-          onPress={handleAutofillDemo}
-          style={({ pressed }) => [styles.demoBanner, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Auto-fill Demo Credentials"
-        >
-          <View style={styles.demoBannerLeft}>
-            <Sparkles size={16} color={colors.accent} style={{ marginRight: 6 }} />
-            <Text style={styles.demoBannerTitle}>Demo Operator Profile</Text>
-          </View>
-          <View style={styles.demoChipsRow}>
-            <View style={styles.demoChip}>
-              <Text style={styles.demoChipLabel}>Phone:</Text>
-              <Text style={styles.demoChipValue}>9800000000</Text>
-            </View>
-            <View style={styles.demoChip}>
-              <Text style={styles.demoChipLabel}>Pass:</Text>
-              <Text style={styles.demoChipValue}>admin</Text>
-            </View>
-          </View>
-        </Pressable>
-
         {/* Form Card */}
         <View style={styles.card}>
           <View style={styles.stepHeader}>
+
             <View style={styles.stepBadge}>
               <Text style={styles.stepBadgeText}>1</Text>
             </View>
@@ -355,56 +326,6 @@ function createStyles(colors: ThemeColors) {
       textAlign: 'center',
       paddingHorizontal: spacing.md,
       lineHeight: 18,
-    },
-    demoBanner: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      padding: spacing.md,
-      marginBottom: spacing.lg,
-      borderWidth: 1,
-      borderColor: colors.accentSoft,
-      shadowColor: colors.accent,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 6,
-      elevation: 2,
-    },
-    demoBannerLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: spacing.xs,
-    },
-    demoBannerTitle: {
-      fontSize: 12,
-      fontWeight: '800',
-      color: colors.accent,
-      letterSpacing: 0.3,
-    },
-    demoChipsRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    demoChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.elevated,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 3,
-      borderRadius: radius.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-      gap: 4,
-    },
-    demoChipLabel: {
-      fontSize: 11,
-      color: colors.subtle,
-      fontWeight: '600',
-    },
-    demoChipValue: {
-      fontSize: 11,
-      fontWeight: '800',
-      color: colors.text,
     },
     card: {
       backgroundColor: colors.surface,

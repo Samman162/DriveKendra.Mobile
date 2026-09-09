@@ -21,7 +21,7 @@ Please review this guide before submitting pull requests or making modifications
 ## ⚠️ Core Principles & Rules
 
 > [!IMPORTANT]
-> 1. **Expo SDK Version**: This project runs on **Expo SDK 57** (React Native 0.86.2, React 19.2.3). Always refer to the exact versioned documentation at [https://docs.expo.dev/versions/v57.0.0/](https://docs.expo.dev/versions/v57.0.0/) before introducing native modules or altering configurations.
+> 1. **Expo SDK Version**: This project runs on **Expo SDK 57** (React Native 0.86.3, React 19.2.3). Always refer to the exact versioned documentation at [https://docs.expo.dev/versions/v57.0.0/](https://docs.expo.dev/versions/v57.0.0/) before introducing native modules or altering configurations.
 > 2. **Database Management Rules**:
 >    - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
 >    - Create new sequential patch files in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `002_add_xyz_table.sql`).
@@ -65,8 +65,10 @@ npm run dev
 - **TypeScript**: Strict mode is enabled (`tsconfig.json`). Avoid `any` types; use explicit interfaces and DTOs from `src/types/`.
 - **Component Architecture**:
   - Reusable UI primitives belong in `src/components/ui/`.
-  - Feature-specific screens belong in `src/screens/` (7 core screens: `HomeScreen`, `BookingScreen`, `MyTripsScreen`, `ProfileScreen`, `AuthScreen`, `OnboardingScreen`, `ContactScreen`).
-  - API communication logic belongs in `src/api/`.
+  - Feature-specific screens belong in `src/screens/`:
+    - 7 Customer Screens: `HomeScreen`, `BookingScreen`, `MyTripsScreen`, `ProfileScreen`, `AuthScreen`, `OnboardingScreen`, `ContactScreen`.
+    - 3 Admin Portal Screens (`src/screens/admin/`): `AdminLoginScreen`, `AdminPinScreen`, `AdminDashboardScreen` (featuring Dispatch Desk, Drivers Directory, Users Directory, Profile) rendered exclusively inside `AdminNavigator`.
+  - API communication logic belongs in `src/api/` (Client) and `server/src/routes/` (Backend: `auth.ts`, `bookings.ts`, `users.ts`, `admin.ts`).
   - Offline resilience & geocoding utilities belong in `src/utils/` and `src/constants/`.
 - **Theming**:
   - Never hardcode color hex codes (e.g. `#FFFFFF` or `#0F172A`) inside screen styles. Use `theme.colors.*` values.
@@ -107,12 +109,12 @@ npm run typecheck
 npm run typecheck --prefix server
 ```
 
-### 2. Unit & Integration Test Suites (90 Total Tests)
+### 2. Unit & Integration Test Suites (126 Total Tests)
 ```bash
-# Client test suites (9 suites / 54 tests: AuthFlow, BookingScreen, BrandLogoAndSplash, GeocodingAndMapPicker, HomeScreen, LocationPicker, Onboarding, ProfileScreen, RecentSearches)
+# Client test suites (10 suites / 64 tests: AdminFlow, AuthFlow, BookingScreen, BrandLogoAndSplash, GeocodingAndMapPicker, HomeScreen, LocationPicker, Onboarding, ProfileScreen, RecentSearches)
 npm test
 
-# Server test suites (2 suites / 36 tests: validation schemas, phone regex, honeypot, and full REST endpoints)
+# Server test suites (3 suites / 62 tests: validation schemas, phone regex, honeypot, apiEndpoints, and adminEndpoints)
 npm test --prefix server
 ```
 
@@ -131,7 +133,7 @@ Use standard conventional commit prefixes:
 
 ### Pull Request Checklist
 - [ ] Code passes both client and server `npm run typecheck`.
-- [ ] All 90 automated tests pass (`npm test` and `npm test --prefix server`).
+- [ ] All 126 automated tests pass (`npm test` and `npm test --prefix server`).
 - [ ] Light and Dark theme visuals look crisp, accessible, and responsive.
 - [ ] Any database alterations include both `database/database.sql` updates and a new numbered patch in `database/patches/`.
 - [ ] Offline failover behaviors have been verified (e.g. offline trip vouchers, geocoding fallback, emergency SMS dispatch).

@@ -21,20 +21,21 @@ npm run ios
 npm run web
 ```
 
-### Static Analysis & Testing (90 Automated Tests)
+### Static Analysis & Testing (126 Automated Tests)
 ```bash
 # Static TypeScript typecheck (Client & Server)
 npm run typecheck
 npm run typecheck --prefix server
 
-# Run all Jest test suites (Client: 9 suites / 54 tests, Server: 2 suites / 36 tests - 90 Total)
+# Run all Jest test suites (Client: 10 suites / 64 tests, Server: 3 suites / 62 tests - 126 Total)
 npm test
 npm test --prefix server
 
-# Run specific client test suites (9 Suites)
+# Run specific client test suites (10 Suites)
 npx jest __tests__/HomeScreen.test.tsx
 npx jest __tests__/BookingScreen.test.tsx
 npx jest __tests__/AuthFlow.test.tsx
+npx jest __tests__/AdminFlow.test.tsx
 npx jest __tests__/LocationPicker.test.tsx
 npx jest __tests__/GeocodingAndMapPicker.test.tsx
 npx jest __tests__/Onboarding.test.tsx
@@ -42,9 +43,10 @@ npx jest __tests__/RecentSearches.test.tsx
 npx jest __tests__/BrandLogoAndSplash.test.tsx
 npx jest __tests__/ProfileScreen.test.tsx
 
-# Run specific server test suites (2 Suites)
+# Run specific server test suites (3 Suites)
 npm test --prefix server -- __tests__/validation.test.ts
 npm test --prefix server -- __tests__/apiEndpoints.test.ts
+npm test --prefix server -- __tests__/adminEndpoints.test.ts
 ```
 
 ### Building & Packaging (EAS CLI)
@@ -78,6 +80,11 @@ npx eas-cli build --profile production --platform android
    - Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `EmergencySosModal`, `VoucherQrCode`, and bundled location database (`nepalLocations.ts`) for off-grid resilience.
 6. **Form Validation & Anti-Spam**:
    - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
+7. **Strict Admin Stack Isolation & 2FA**:
+   - Admin sessions (`role === 'admin'`) render exclusively in `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Users Directory, Profile). Admins never see customer tabs or screens.
+   - Admin operations in `server/src/routes/admin.ts` require 2FA authentication and enforce RLS `SET LOCAL app.is_admin = 'true'`.
+8. **Bidirectional Driver/Owner Database Sync**:
+   - PostgreSQL triggers maintain seamless bidirectional synchronization between `cr_owners` and `dka_owners` with recursion protection (`pg_trigger_depth() > 1`). Drivers are managed via `cr_drivers` view and `/api/admin/drivers` endpoints.
 
 ---
 

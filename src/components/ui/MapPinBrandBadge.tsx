@@ -110,7 +110,7 @@ const createStyles = (theme: ThemeColors) =>
     },
     logoCircle: {
       position: 'absolute',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: theme.surface,
       borderWidth: 2.5,
       borderColor: theme.accent,
       alignItems: 'center',

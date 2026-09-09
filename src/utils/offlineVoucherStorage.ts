@@ -17,8 +17,12 @@ export interface OfflineVoucher {
   passengerCount?: number;
   vehicleName: string;
   vehiclePlate: string;
+  driverName?: string;
+  driverPhone?: string;
   fare: string;
-  status: 'confirmed' | 'completed' | 'cancelled';
+  finalFare?: string;
+  additionalDetails?: string;
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   cachedAt: string;
   verificationCode: string;
   emergencyHotline: string;
@@ -53,8 +57,12 @@ export function formatToOfflineVoucher(trip: any): OfflineVoucher {
     passengerCount: trip.passengerCount ?? 1,
     vehicleName: String(trip.vehicleName || 'Vehicle'),
     vehiclePlate: String(trip.vehiclePlate || 'TBD'),
+    driverName: trip.driverName || undefined,
+    driverPhone: trip.driverPhone || undefined,
     fare: String(trip.fare || 'NPR 0'),
-    status: trip.status || 'confirmed',
+    finalFare: trip.finalFare || undefined,
+    additionalDetails: trip.additionalDetails || undefined,
+    status: trip.status || 'pending',
     cachedAt: new Date().toISOString(),
     verificationCode: `DK-VERIFY-${refDigits}-${Math.floor(1000 + Math.random() * 9000)}`,
     emergencyHotline: DEFAULT_EMERGENCY_HOTLINE,

@@ -24,6 +24,7 @@ export interface AdminStats {
   activeFleet: number;
   totalUsers: number;
   totalTrips: number;
+  totalDrivers?: number;
   totalRevenue: string;
 }
 
@@ -75,8 +76,21 @@ export interface AdminTrip {
   assignedVehicleId: number | null;
   assignedVehiclePlate: string | null;
   assignedVehicleModel: string | null;
+  assignedDriverId?: number | null;
+  assignedDriverName?: string | null;
+  assignedDriverPhone?: string | null;
+  finalFare?: string | null;
+  additionalDetails?: string | null;
   rejectionReason: string | null;
   createdAt: string;
+}
+
+export interface ApproveTripPayload {
+  vehicleId?: number;
+  driverId?: number | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  finalPrice?: string | null;
 }
 
 export interface AdminVehicle {
@@ -128,3 +142,67 @@ export interface CreateRoadAdvisoryDto {
   conditionSummary: string;
   severity: 'info' | 'moderate' | 'severe';
 }
+
+export interface AdminDriverVehicle {
+  id: number;
+  vehicleId: number;
+  ownerId?: number;
+  makeModel: string;
+  licensePlate: string;
+  vehicleTypeId?: number;
+  category?: 'SUV' | 'Sedan' | 'HiAce' | 'Bus';
+  seatingCapacity: number;
+  manufactureYear?: number;
+  color?: string;
+  isActive?: boolean;
+  bluebookDocId?: string;
+}
+
+export interface AdminDriver {
+  id: number;
+  ownerId: number;
+  fullName: string;
+  phoneNumber: string;
+  whatsappNumber?: string | null;
+  email?: string | null;
+  citizenshipOrIdNo: string;
+  status: 'active' | 'inactive' | 'pending';
+  citizenshipDocId?: string | null;
+  licenseDocId: string;
+  vehicle?: AdminDriverVehicle | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateDriverDto {
+  fullName: string;
+  phoneNumber: string;
+  whatsappNumber?: string;
+  email?: string;
+  citizenshipOrIdNo: string;
+  status?: 'active' | 'inactive' | 'pending';
+  citizenshipDocId?: string;
+  licenseDocId: string;
+  // Vehicle Details (dka_vehicles / cr_vehicles)
+  makeModel?: string;
+  licensePlate?: string;
+  vehicleTypeId?: number;
+  category?: 'SUV' | 'Sedan' | 'HiAce' | 'Bus';
+  seatingCapacity?: number;
+  manufactureYear?: number;
+  color?: string;
+  bluebookDocId?: string;
+  vehicle?: Partial<AdminDriverVehicle>;
+}
+
+export interface UpdateDriverDto {
+  fullName?: string;
+  phoneNumber?: string;
+  whatsappNumber?: string;
+  email?: string;
+  citizenshipOrIdNo?: string;
+  status?: 'active' | 'inactive' | 'pending';
+  citizenshipDocId?: string;
+  licenseDocId?: string;
+}
+

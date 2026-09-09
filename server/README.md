@@ -3,9 +3,9 @@
 [![Hono API](https://img.shields.io/badge/API-Hono%20v4-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![Tests](https://img.shields.io/badge/Tests-58%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-62%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
-The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, 2FA admin portal operations, fleet inventory management, user authentication, profile updates, and idempotency handling.
+The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, 2FA admin portal operations, driver directory management, fleet inventory, user authentication, profile updates, and idempotency handling.
 
 ---
 
@@ -23,7 +23,7 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
   - [4. Users & Profile](#4-users--profile)
   - [5. Admin Portal Subsystem](#5-admin-portal-subsystem)
 - [Database Security & Row-Level Security (RLS)](#-database-security--row-level-security-rls)
-- [Testing & Quality Assurance (58 Tests)](#-testing--quality-assurance-58-tests)
+- [Testing & Quality Assurance (63 Tests)](#-testing--quality-assurance-63-tests)
 
 ---
 
@@ -34,6 +34,7 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 - **🛡️ Strict Validation & Anti-Spam**: Zod schema validation, honeypot bot traps (`website_hp`), and Nepal phone number sanitization (`+977 98/97` or `01XXXXXXX`).
 - **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `dka_users`, `dka_bookings`, and `dka_idempotency_keys`.
 - **🚙 Vehicle Assignment Tracking**: Seamless assignment of vehicle models and registration plates for confirmed expeditions.
+- **👨‍✈️ Synchronized Drivers Directory**: Management of expedition drivers via `dka_owners` <-> `cr_owners` bidirectional triggers and `cr_drivers` view.
 
 ---
 
@@ -53,13 +54,15 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 server/
 ├── src/
 │   ├── routes/
-│   │   ├── auth.ts           # Login, register, OTP reset endpoints
+│   │   ├── admin.ts          # 2FA login, PIN verification, dispatch approval, drivers directory, fleet inventory
+│   │   ├── auth.ts           # Customer login, register, OTP reset endpoints
 │   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency & DB transaction
 │   │   └── users.ts          # User profile & push token endpoints (/api/users)
 │   ├── db.ts                 # PostgreSQL connection pool & tenant security wrapper
 │   ├── index.ts              # Server entry point & CORS configuration
 │   └── validation.ts         # Zod schemas, honeypot filters, Nepal phone helpers
 ├── __tests__/
+│   ├── adminEndpoints.test.ts # 2FA admin auth, stats, trip dispatch, vehicle fleet, drivers directory (26 tests)
 │   ├── apiEndpoints.test.ts  # Integration tests for health, auth, bookings, users, idempotency (25 tests)
 │   └── validation.test.ts    # Unit tests for validation schemas, regex, and honeypot (11 tests)
 ├── .env.example              # Server environment template
@@ -324,7 +327,7 @@ Step-2 verification for 4-digit security PIN (`6767`).
 - **Response**: `{ "success": true, "token": "jwt_admin_...", "admin": { "id": "1", "name": "Drive Kendra Admin", "role": "admin" } }`
 
 #### `GET /api/admin/stats`
-Returns aggregated control room metrics: `{ "pendingRequests": 2, "activeFleet": 4, "totalUsers": 4, "totalTrips": 3, "totalRevenue": "NPR 148,500" }`.
+Returns aggregated control room metrics: `{ "pendingRequests": 2, "activeFleet": 4, "totalUsers": 4, "totalDrivers": 3, "totalTrips": 3, "totalRevenue": "NPR 148,500" }`.
 
 #### `GET /api/admin/users`
 Lists registered customers with reservation counts and lifetime expenditure. Supports `?q=` search.
@@ -338,11 +341,119 @@ Approves a reservation and atomically assigns a fleet vehicle (`{ "vehicleId": 1
 #### `PATCH /api/admin/trips/:id/reject`
 Cancels reservation with stated reason (`{ "reason": "Severe weather on highway." }`).
 
+#### `GET /api/admin/drivers`
+Retrieves partner drivers list from `cr_drivers` / `dka_owners`. Supports status filtering (`?status=ALL|ACTIVE|PENDING|INACTIVE`) and keyword search (`?q=`).
+
+- **Query Parameters**:
+  - `status`: `ALL`, `ACTIVE`, `PENDING`, `INACTIVE` (default: `ALL`)
+  - `q`: Search driver name, phone, email, or vehicle type
+- **Response `200 OK`**:
+```json
+{
+  "drivers": [
+    {
+      "driverId": 1,
+      "name": "Bikram Shrestha",
+      "phone": "+977 9841234567",
+      "email": "bikram@drivekendra.com",
+      "vehicleType": "SUV / 4x4 (Scorpio)",
+      "experienceYears": 8,
+      "rating": 4.92,
+      "totalTrips": 142,
+      "isAvailable": true,
+      "status": "ACTIVE",
+      "vehicle": {
+        "vehicleId": 3,
+        "makeModel": "Mahindra Scorpio S11 4x4",
+        "licensePlate": "BA 12 PA 9988",
+        "category": "SUV",
+        "seatingCapacity": 7,
+        "manufactureYear": 2022,
+        "color": "Pearl White",
+        "isActive": true
+      }
+    }
+  ]
+}
+```
+
+#### `POST /api/admin/drivers`
+Registers a new partner driver (`dka_owners` / `cr_owners`) along with their assigned fleet vehicle (`dka_vehicles` / `cr_vehicles`) in a single atomic transaction.
+
+- **Request Body**:
+```json
+{
+  "name": "Nabin Thapa",
+  "phone": "9841999888",
+  "email": "nabin@example.com",
+  "vehicle_type": "SUV / 4x4",
+  "experience_years": 6,
+  "license_number": "01-06-88991122",
+  "citizenship_number": "27-01-72-00123",
+  "address": "Baluwatar, Kathmandu",
+  "status": "ACTIVE",
+  "make_model": "Mahindra Scorpio S11 4x4",
+  "license_plate": "BA 15 PA 1234",
+  "category": "SUV",
+  "seating_capacity": 7,
+  "manufacture_year": 2023,
+  "color": "Silver",
+  "bluebook_doc_id": "BB-2023-8891"
+}
+```
+- **Response `201 Created`**:
+```json
+{
+  "success": true,
+  "message": "Driver registered successfully",
+  "driver": {
+    "driverId": 4,
+    "name": "Nabin Thapa",
+    "phone": "+977 9841999888",
+    "vehicleType": "SUV / 4x4",
+    "experienceYears": 6,
+    "status": "ACTIVE",
+    "vehicle": {
+      "vehicleId": 5,
+      "ownerId": 4,
+      "makeModel": "Mahindra Scorpio S11 4x4",
+      "licensePlate": "BA 15 PA 1234",
+      "category": "SUV",
+      "seatingCapacity": 7,
+      "manufactureYear": 2023,
+      "color": "Silver",
+      "isActive": true
+    }
+  }
+}
+```
+
+#### `PATCH /api/admin/drivers/:id`
+Updates driver availability, contact details, or operational status (`ACTIVE`, `PENDING`, `INACTIVE`).
+
+- **Request Body**:
+```json
+{
+  "status": "INACTIVE"
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "driver": {
+    "driverId": 4,
+    "status": "INACTIVE",
+    "isAvailable": false
+  }
+}
+```
+
 #### `GET /api/admin/vehicles` & `POST /api/admin/vehicles`
-Fleet inventory endpoints for listing, filtering, and registering new vehicles.
+Fleet inventory endpoints for listing, filtering, and registering vehicles in `dka_vehicles` (synced bidirectionally with `cr_vehicles`).
 
 #### `PATCH /api/admin/vehicles/:id`
-Updates vehicle status (e.g. toggles between `available` and `maintenance`).
+Updates vehicle status (e.g. toggles `is_active` between active and inactive).
 
 ---
 
@@ -358,18 +469,21 @@ SET LOCAL app.is_admin = 'true';
 ```
 This isolates unauthenticated public requests from administrative operations and enforces strict database tenant safety. All SQL statements use `$1, $2, ...` positional parameterization to ensure complete protection against SQL injection.
 
+### Owner & Driver Bidirectional Synchronization
+The database utilizes two reciprocal PostgreSQL triggers (`trg_sync_cr_owners_to_dka` and `trg_sync_dka_owners_to_cr`) guarded by `pg_trigger_depth() > 1`. Any mutation occurring in `cr_owners` replicates to `dka_owners`, and mutations in `dka_owners` replicate back to `cr_owners`, preventing recursion and maintaining consistent partner driver directories accessed through the `cr_drivers` view.
+
 ---
 
-## 🧪 Testing & Quality Assurance (58 Tests)
+## 🧪 Testing & Quality Assurance (63 Tests)
 
-The server test suite includes **58 automated tests** across **3 test suites**:
+The server test suite includes **63 automated tests** across **3 test suites**:
 - **`validation.test.ts` (11 tests)**: Unit tests for Zod schemas, honeypot bot trap filtering (`website_hp`), and Nepal phone number sanitization (`normalizePhone`).
 - **`apiEndpoints.test.ts` (25 tests)**: Integration tests for `/health`, `/api/auth/*` (login, registration, OTP reset sequence), `/api/bookings` (GET with query filters, POST with transactional multi-table writes and `X-Idempotency-Key` deduplication), and `/api/users/*` (profile and push tokens).
-- **`adminEndpoints.test.ts` (22 tests)**: Complete integration suite for 2FA primary login, PIN gate verification, RLS auth guards, customer directory, trip approval/rejection, and fleet inventory management.
+- **`adminEndpoints.test.ts` (27 tests)**: Complete integration suite for 2FA primary login, PIN gate verification, RLS auth guards, customer directory, trip approval/rejection, fleet inventory management, and driver registration/updates.
 
 ### Run Test Suites
 ```bash
-# Run all server tests (58 tests)
+# Run all server tests (63 tests)
 npm test --prefix server
 
 # Run individual test suites

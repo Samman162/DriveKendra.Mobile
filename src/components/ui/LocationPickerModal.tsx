@@ -433,7 +433,7 @@ function createStyles(colors: ThemeColors) {
       borderTopWidth: 1,
       borderTopColor: colors.border,
       overflow: 'hidden',
-      shadowColor: '#000',
+      shadowColor: colors.shadow,
       shadowOffset: { width: 0, height: -4 },
       shadowOpacity: 0.18,
       shadowRadius: 16,
@@ -518,7 +518,7 @@ function createStyles(colors: ThemeColors) {
     mapActionBtnText: {
       fontSize: 15,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: colors.onAccent,
     },
     sectionHeaderRow: {
       flexDirection: 'row',

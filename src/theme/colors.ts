@@ -21,6 +21,10 @@ export type ThemeColors = {
   tabBar: string;
   tabInactive: string;
   shadow: string;
+  whatsapp: string;
+  whatsappSoft: string;
+  whatsappBorder: string;
+  white: string;
 };
 
 export const lightColors: ThemeColors = {
@@ -46,6 +50,10 @@ export const lightColors: ThemeColors = {
   tabBar: '#051A24',
   tabInactive: '#94A3B8',
   shadow: 'rgba(5, 26, 36, 0.08)',
+  whatsapp: '#25D366',
+  whatsappSoft: 'rgba(37, 211, 102, 0.14)',
+  whatsappBorder: 'rgba(37, 211, 102, 0.35)',
+  white: '#FFFFFF',
 };
 
 export const darkColors: ThemeColors = {
@@ -71,6 +79,10 @@ export const darkColors: ThemeColors = {
   tabBar: '#051A24',
   tabInactive: '#64748B',
   shadow: 'rgba(0, 0, 0, 0.5)',
+  whatsapp: '#25D366',
+  whatsappSoft: 'rgba(37, 211, 102, 0.18)',
+  whatsappBorder: 'rgba(37, 211, 102, 0.4)',
+  white: '#FFFFFF',
 };
 
 /** Default export kept for any leftover static imports during the migration. */

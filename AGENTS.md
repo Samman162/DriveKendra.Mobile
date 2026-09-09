@@ -21,7 +21,7 @@ This document outlines key technical guidelines, architectural patterns, and qua
 
 Drive Kendra Mobile is a production-grade cross-platform mobile application for vehicle rentals and Himalayan tour expeditions in Nepal.
 
-- **Mobile Client (`src/`)**: Built with React Native 0.86.2, Expo SDK 57, React 19.2.3, TypeScript strict mode, and React Navigation v7 (4-tab bottom navigation + stack modal screens).
+- **Mobile Client (`src/`)**: Built with React Native 0.86.3, Expo SDK 57, React 19.2.3, TypeScript strict mode, React Navigation v7 (4-tab bottom navigation + stack modal screens), and an isolated 2FA-secured Admin Portal (`AdminNavigator`).
 - **Backend API (`server/`)**: Built with Hono v4, Node.js (`tsx watch`), Zod v4 validation, and `pg` PostgreSQL connection pool.
 - **Database (`database/`)**: PostgreSQL 15+ canonical schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) and incremental patches in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
 - **Documentation (`docs/`)**: In-depth subsystem guides for Architecture, Offline Resilience, and Deployment.
@@ -52,6 +52,12 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
    - Use `offlineVoucherStorage.ts` when persisting trip vouchers for off-grid access.
    - Use `offlineQueue.ts` for handling network disruptions during mutating operations.
    - Use `EmergencyTripCard.tsx` and `EmergencySosModal.tsx` for GPS emergency SOS dispatch to the 24/7 hotline (`+977 985-1363783`) and Tourist Police (`1144`).
+7. **Strict Admin Stack Isolation & Drivers Directory**:
+   - Admin sessions (`role === 'admin'`) must render exclusively inside `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Users Directory, and Profile tabs). Admins must never see customer tabs or screens.
+   - Administrative endpoints in `server/src/routes/admin.ts` require 2FA authentication (credentials + 4-digit PIN) and set PostgreSQL RLS session `SET LOCAL app.is_admin = 'true'`.
+8. **Owner, Driver & Vehicle Bidirectional Synchronization**:
+   - Maintain strict bidirectional synchronization between `cr_owners` and `dka_owners` via PostgreSQL triggers (`sync_cr_to_dka_owners` / `sync_dka_to_cr_owners`), and between `cr_vehicles` and `dka_vehicles` via triggers (`sync_cr_vehicles_to_dka_vehicles` / `sync_dka_vehicles_to_cr_vehicles`), protected with `pg_trigger_depth() > 1` recursion guard.
+   - Driver listings access the unified `cr_drivers` view and `/api/admin/drivers` endpoints. Adding a driver also assigns and registers their vehicle (`dka_vehicles`) in the same unified workflow.
 
 ---
 
@@ -64,7 +70,7 @@ Always run and verify these commands before concluding a task:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Run automated test suites (10 Client Suites / 58 Tests, 3 Server Suites / 58 Tests - 116 Total)
+# 2. Run automated test suites (11 Client Suites / 67 Tests, 3 Server Suites / 63 Tests - 130 Total)
 npm test
 npm test --prefix server
 ```

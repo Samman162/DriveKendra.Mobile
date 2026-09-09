@@ -21,7 +21,7 @@ This directory contains the canonical PostgreSQL database schema, migration patc
 
 ## 📑 Table of Contents
 
-- [Database Architecture (6 Core Tables)](#-database-architecture-6-core-tables)
+- [Database Architecture & Data Synchronization](#-database-architecture--data-synchronization)
 - [Schema Table Definitions](#-schema-table-definitions)
   - [1. `dka_users`](#1-dka_users)
   - [2. `dka_vehicle_types`](#2-dka_vehicle_types)
@@ -29,13 +29,17 @@ This directory contains the canonical PostgreSQL database schema, migration patc
   - [4. `dka_bookings`](#4-dka_bookings)
   - [5. `dka_notifications`](#5-dka_notifications)
   - [6. `dka_idempotency_keys`](#6-dka_idempotency_keys)
+  - [7. `dka_road_advisories`](#7-dka_road_advisories)
+  - [8. `cr_owners` & `dka_owners`](#8-cr_owners--dka_owners)
+  - [9. Bidirectional Triggers & `cr_drivers` View](#9-bidirectional-triggers--cr_drivers-view)
+- [Incremental Migration Patches](#-incremental-migration-patches)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
-- [Seed Data (Pre-configured Catalog & Accounts)](#-seed-data-pre-configured-catalog--accounts)
+- [Seed Data (Catalog, Accounts, Advisories & Drivers)](#-seed-data-catalog-accounts-advisories--drivers)
 - [Initializing Database from Scratch](#-initializing-database-from-scratch)
 
 ---
 
-## 🏗 Database Architecture (6 Core Tables)
+## 🏗 Database Architecture & Data Synchronization
 
 ```
                        ┌─────────────────────────┐
@@ -52,10 +56,29 @@ This directory contains the canonical PostgreSQL database schema, migration patc
 │    dka_users    ├──────►│  dka_bookings   ├──────►│ dka_notifications │
 └────────┬────────┘       └─────────────────┘       └───────────────────┘
          │ 1:N
+         ├──────────────────────► ┌──────────────────────┐
+         │                        │ dka_road_advisories  │
+         │                        └──────────────────────┘
          ▼
 ┌──────────────────────┐
 │ dka_idempotency_keys │
 └──────────────────────┘
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │     Bidirectional Owner & Vehicle Synchronization           │
+  │                                                             │
+  │     ┌──────────────┐   Triggers (pg_trigger_depth)   ┌──────────────┐     │
+  │     │  cr_owners   │ ◄─────────────────────────────► │  dka_owners  │     │
+  │     └──────────────┘                                 └──────┬───────┘     │
+  │                                                             │ View        │
+  │     ┌──────────────┐   Triggers (pg_trigger_depth)   ┌──────▼───────┐     │
+  │     │ cr_vehicles  │ ◄─────────────────────────────► │  cr_drivers  │     │
+  │     └──────────────┘                                 └──────────────┘     │
+  │            ▲                                                ▲             │
+  │            │                                                │             │
+  │            └────────────────────────────────────────────────┘             │
+  │                        dka_vehicles ◄─► cr_vehicles                       │
+  └─────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -95,21 +118,21 @@ Lookup catalog defining categories of vehicles available for booking.
 ---
 
 ### 3. `dka_vehicles`
-Fleet inventory tracking with real-time assignment and maintenance state.
+Fleet vehicle inventory holding the exact 1:1 schema structure of `public.cr_vehicles`. Synchronized bidirectionally with `cr_vehicles` in real time.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
-| `vehicle_id` | `SERIAL` | `PRIMARY KEY` | Unique vehicle ID |
-| `vehicle_type_id` | `INTEGER` | `REFERENCES dka_vehicle_types ON DELETE SET NULL` | Linked catalog type |
-| `model` | `VARCHAR(100)` | `NOT NULL` | e.g. Mahindra Scorpio S11 4x4 |
-| `registration_plate` | `VARCHAR(50)` | `UNIQUE NOT NULL` | Vehicle license plate (e.g. `BA 2 PA 4521`) |
-| `category` | `VARCHAR(50)` | `NOT NULL` | `SUV`, `Sedan`, `HiAce`, `Bus` |
-| `seats` | `INTEGER` | `NOT NULL DEFAULT 4` | Passenger capacity |
-| `fuel_type` | `VARCHAR(30)` | `NOT NULL DEFAULT 'Diesel'` | `Diesel`, `Petrol`, `EV` |
-| `image_url` | `TEXT` | | Vehicle photo URL |
-| `status` | `VARCHAR(30)` | `NOT NULL DEFAULT 'available'` | `available`, `assigned`, `in_transit`, `maintenance` |
+| `vehicle_id` | `SERIAL` | `PRIMARY KEY` | Unique vehicle identifier |
+| `owner_id` | `INTEGER` | `REFERENCES dka_owners(owner_id) ON DELETE SET NULL` | Linked partner driver / owner (`dka_owners` / `cr_owners`) |
+| `vehicle_type_id` | `INTEGER` | `REFERENCES dka_vehicle_types(vehicle_type_id) ON DELETE SET NULL` | Linked category classification |
+| `make_model` | `VARCHAR(100)` | `NOT NULL` | e.g. Mahindra Scorpio S11 4x4, Hyundai Creta |
+| `license_plate` | `VARCHAR(50)` | `UNIQUE NOT NULL` | Vehicle license plate (e.g. `BA 12 PA 9988`) |
+| `manufacture_year`| `INTEGER` | | Year of vehicle manufacturing |
+| `seating_capacity`| `INTEGER` | `NOT NULL DEFAULT 4` | Maximum passenger seating capacity |
+| `color` | `VARCHAR(50)` | | Vehicle exterior color |
+| `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Operational / active status |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record creation timestamp |
-| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp (Auto-updated via trigger) |
+| `bluebook_doc_id` | `VARCHAR(255)`| | Bluebook registration document identifier |
 
 ---
 
@@ -174,6 +197,165 @@ Prevents duplicate transactions when mobile clients retry on unstable mountain c
 
 ---
 
+### 7. `dka_road_advisories`
+High-altitude highway alerts, seasonal pass status, and expedition safety notices.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `advisory_id` | `SERIAL` | `PRIMARY KEY` | Unique advisory ID |
+| `route_name` | `VARCHAR(100)` | `NOT NULL` | Highway / route name (e.g. `BP Highway`, `Mustang Trail`) |
+| `status` | `VARCHAR(30)` | `NOT NULL DEFAULT 'open'` | `open`, `caution`, `closed` |
+| `condition_summary` | `TEXT` | `NOT NULL` | Detailed road alert and vehicle clearance instructions |
+| `severity` | `VARCHAR(20)` | `NOT NULL DEFAULT 'moderate'` | `info`, `moderate`, `severe` |
+| `updated_by` | `INTEGER` | `REFERENCES dka_users(user_id) ON DELETE SET NULL` | Linked admin operator user |
+| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Auto-updated via trigger |
+
+---
+
+### 8. `cr_owners` & `dka_owners`
+Unified partner vehicle owner and driver registry. Both tables share identical schema structures and are synchronized in real-time.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `owner_id` | `SERIAL` | `PRIMARY KEY` | Unique owner/driver identifier |
+| `name` | `VARCHAR(120)` | `NOT NULL` | Driver / Owner full legal name |
+| `phone` | `VARCHAR(30)` | `NOT NULL UNIQUE` | Contact mobile number (`+977 98/97` or `01XXXXXXX`) |
+| `email` | `VARCHAR(120)` | | Optional email address |
+| `vehicle_type` | `VARCHAR(50)` | `NOT NULL DEFAULT 'SUV / 4x4'` | Primary operated vehicle category |
+| `experience_years` | `INTEGER` | `NOT NULL DEFAULT 1` | Commercial Himalayan driving experience (years) |
+| `license_number` | `VARCHAR(50)` | | Department of Transport Management license number |
+| `citizenship_number` | `VARCHAR(50)` | | National citizenship / identity card number |
+| `address` | `TEXT` | | Permanent or operating base address |
+| `photo_url` | `TEXT` | | Driver profile photo URL |
+| `rating` | `NUMERIC(3, 2)` | `NOT NULL DEFAULT 5.00` | Average traveler rating (1.00 - 5.00) |
+| `total_trips` | `INTEGER` | `NOT NULL DEFAULT 0` | Historical completed expedition count |
+| `is_available` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Real-time dispatch availability |
+| `status` | `VARCHAR(30)` | `NOT NULL DEFAULT 'ACTIVE'` | Operational status (`ACTIVE`, `PENDING`, `INACTIVE`) |
+| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record creation timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record update timestamp |
+
+---
+
+### 9. Bidirectional Triggers & `cr_drivers` View
+
+To ensure zero divergence between the core rental ecosystem (`cr_owners`) and the mobile application schema (`dka_owners`), two reciprocal PostgreSQL triggers synchronize row modifications bidirectionally:
+
+```sql
+-- 1. Sync cr_owners -> dka_owners
+CREATE OR REPLACE FUNCTION sync_cr_to_dka_owners()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF pg_trigger_depth() > 1 THEN
+        RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+    END IF;
+    -- INSERT, UPDATE, DELETE replication logic
+    ...
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sync_cr_owners_to_dka
+AFTER INSERT OR UPDATE OR DELETE ON cr_owners
+FOR EACH ROW EXECUTE FUNCTION sync_cr_to_dka_owners();
+
+-- 2. Sync dka_owners -> cr_owners
+CREATE OR REPLACE FUNCTION sync_dka_to_cr_owners()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF pg_trigger_depth() > 1 THEN
+        RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+    END IF;
+    -- INSERT, UPDATE, DELETE replication logic
+    ...
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sync_dka_owners_to_cr
+AFTER INSERT OR UPDATE OR DELETE ON dka_owners
+FOR EACH ROW EXECUTE FUNCTION sync_dka_to_cr_owners();
+```
+
+#### Bidirectional Vehicle Synchronization (`cr_vehicles` ◄─► `dka_vehicles`)
+Similarly, modifications between `cr_vehicles` and `dka_vehicles` synchronize across the 11 identical columns:
+```sql
+-- 1. Sync cr_vehicles -> dka_vehicles
+CREATE OR REPLACE FUNCTION sync_cr_vehicles_to_dka_vehicles()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF pg_trigger_depth() > 1 THEN
+        RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+    END IF;
+    -- INSERT, UPDATE, DELETE replication logic
+    ...
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sync_cr_vehicles_to_dka
+AFTER INSERT OR UPDATE OR DELETE ON cr_vehicles
+FOR EACH ROW EXECUTE FUNCTION sync_cr_vehicles_to_dka_vehicles();
+
+-- 2. Sync dka_vehicles -> cr_vehicles
+CREATE OR REPLACE FUNCTION sync_dka_vehicles_to_cr_vehicles()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF pg_trigger_depth() > 1 THEN
+        RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+    END IF;
+    -- INSERT, UPDATE, DELETE replication logic
+    ...
+    RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_sync_dka_vehicles_to_cr
+AFTER INSERT OR UPDATE OR DELETE ON dka_vehicles
+FOR EACH ROW EXECUTE FUNCTION sync_dka_vehicles_to_cr_vehicles();
+```
+
+> **Recursion Guard**:
+> Both trigger functions inspect `pg_trigger_depth() > 1` before execution. This prevents infinite trigger recursion when `cr_owners` writes to `dka_owners` (or `cr_vehicles` writes to `dka_vehicles`) and vice-versa.
+
+#### The `cr_drivers` View
+The mobile application and admin control room query the unified `cr_drivers` view:
+```sql
+CREATE OR REPLACE VIEW cr_drivers AS
+SELECT 
+    owner_id AS driver_id,
+    name,
+    phone,
+    email,
+    vehicle_type,
+    experience_years,
+    license_number,
+    citizenship_number,
+    address,
+    photo_url,
+    rating,
+    total_trips,
+    is_available,
+    status,
+    created_at,
+    updated_at
+FROM dka_owners;
+```
+
+---
+
+## 📦 Incremental Migration Patches
+
+All database modifications follow the strict incremental patch workflow documented in [AGENTS.md](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/AGENTS.md):
+
+| Patch File | Scope & Impact | Status |
+|---|---|---|
+| [`001_drivers_and_dka_owners_sync.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/001_drivers_and_dka_owners_sync.sql) | Creates `dka_owners`, bidirectional triggers (`sync_cr_to_dka_owners`, `sync_dka_to_cr_owners`), `cr_drivers` view, and seed Himalayan drivers. | Available for application |
+| [`002_trip_driver_and_pricing_dispatch.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/002_trip_driver_and_pricing_dispatch.sql) | Adds `assigned_driver_id`, `actual_fare`, and `pricing_breakdown` columns to `dka_bookings`. | Available for application |
+| [`003_vehicles_and_dka_vehicles_sync.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/003_vehicles_and_dka_vehicles_sync.sql) | Creates `dka_vehicles` with the exact 11 columns matching `cr_vehicles`, sets up bidirectional triggers (`sync_cr_vehicles_to_dka_vehicles`, `sync_dka_vehicles_to_cr_vehicles`), and initial backfill. | Available for application |
+
+---
+
 ## 🔍 Indexing & Query Optimization
 
 - `idx_dka_users_phone` ON `dka_users(phone_number)`
@@ -188,10 +370,16 @@ Prevents duplicate transactions when mobile clients retry on unstable mountain c
 - `idx_dka_idempotency_keys_user_id` ON `dka_idempotency_keys(user_id)`
 - `idx_dka_idempotency_keys_expires_at` ON `dka_idempotency_keys(expires_at)`
 - `idx_dka_idempotency_keys_hash` ON `dka_idempotency_keys(request_hash)`
+- `idx_dka_road_advisories_status` ON `dka_road_advisories(status)`
+- `idx_dka_road_advisories_created` ON `dka_road_advisories(created_at DESC)`
+- `idx_cr_owners_phone` ON `cr_owners(phone)`
+- `idx_cr_owners_status` ON `cr_owners(status)`
+- `idx_dka_owners_phone` ON `dka_owners(phone)`
+- `idx_dka_owners_status` ON `dka_owners(status)`
 
 ---
 
-## 🌱 Seed Data (Pre-configured Catalog & Accounts)
+## 🌱 Seed Data (Catalog, Accounts, Advisories & Drivers)
 
 [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) includes idempotent seed inserts:
 
@@ -207,7 +395,21 @@ Prevents duplicate transactions when mobile clients retry on unstable mountain c
 | Name | Phone | Email | Role |
 |---|---|---|---|
 | `Samman Chhetri` | `+977 9851363783` | `samman@drivekendra.com` | `customer` |
-| `Drive Kendra Admin` | `+977 9801000000` | `admin@drivekendra.com` | `admin` |
+| `Drive Kendra Admin` | `+977 9800000000` | `admin@drivekendra.com` | `admin` |
+
+### 3. Seed Road Advisories
+| ID | Route Name | Status | Condition Summary | Severity |
+|---|---|---|---|---|
+| `1` | `BP Highway (Sindhuli Corridor)` | `caution` | Single lane alternating traffic near Golanjor due to slope reinforcement. Expect 15-20 min delays. | `moderate` |
+| `2` | `Prithvi Highway (Kathmandu - Pokhara)` | `open` | Both lanes clear. Road widening works underway between Mugling and Anbukhaireni. | `info` |
+| `3` | `Mustang / Muktinath 4x4 Trail` | `caution` | High clearance 4x4 / Scorpio required. River crossings flowing moderately high after rainfall. | `moderate` |
+
+### 4. Seed Himalayan Drivers (`cr_owners` / `dka_owners`)
+| Name | Phone | Vehicle Type | Experience | Rating | Status |
+|---|---|---|---|---|---|
+| `Bikram Shrestha` | `+977 9841234567` | `SUV / 4x4 (Scorpio)` | 8 Years | `4.92` (142 Trips) | `ACTIVE` |
+| `Prem Bahadur Gurung` | `+977 9856012345` | `HiAce / Van` | 12 Years | `4.98` (230 Trips) | `ACTIVE` |
+| `Tenzing Sherpa` | `+977 9801234567` | `Toyota Land Cruiser` | 15 Years | `5.00` (310 Trips) | `ACTIVE` |
 
 ---
 

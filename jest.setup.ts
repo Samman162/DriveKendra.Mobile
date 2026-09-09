@@ -232,3 +232,8 @@ jest.mock('expo-image-picker', () => ({
   },
 }));
 
+// Mock expo-clipboard
+jest.mock('expo-clipboard', () => ({
+  setStringAsync: jest.fn(() => Promise.resolve(true)),
+  getStringAsync: jest.fn(() => Promise.resolve('')),
+}));

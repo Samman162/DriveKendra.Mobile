@@ -19,13 +19,16 @@ import {
   AlertTriangle,
   Bus,
   Calendar,
+  CalendarCheck,
   Car,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   ChevronUp,
   Clock,
   Compass,
+  Copy,
   ExternalLink,
   Eye,
   Filter,
@@ -38,6 +41,7 @@ import {
   LogOut,
   MapPin,
   Maximize2,
+  MessageCircle,
   Minimize2,
   Navigation,
   Phone,
@@ -60,23 +64,25 @@ import {
   X,
   XCircle,
 } from 'lucide-react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   approveAdminTrip,
   completeAdminTrip,
-  createAdminRoadAdvisory,
+  createAdminDriver,
   createAdminVehicle,
-  deleteAdminRoadAdvisory,
-  getAdminRoadAdvisories,
+  getAdminDrivers,
   getAdminStats,
   getAdminTrips,
   getAdminUsers,
   getAdminVehicles,
   getCustomerTrips,
   rejectAdminTrip,
+  updateAdminDriver,
   updateAdminVehicle,
 } from '../../api/admin';
+import { ThemeModeSelector } from '../../components/ui/ThemeModeSelector';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { AuthContext } from '../../context/AuthContext';
 import { navigationRef } from '../../navigation/navigationRef';
@@ -87,17 +93,19 @@ import { radius, spacing } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
 import type {
   AdminCustomer,
+  AdminDriver,
   AdminStats,
   AdminTrip,
   AdminVehicle,
-  CreateRoadAdvisoryDto,
+  CreateDriverDto,
   CreateVehicleDto,
   CustomerTripHistory,
-  RoadAdvisory,
+  UpdateDriverDto,
 } from '../../types/admin';
 import { hapticFeedback } from '../../utils/haptics';
+import { getOfflineVouchers, saveOfflineVouchers } from '../../utils/offlineVoucherStorage';
 
-type TabType = 'trips' | 'fleet' | 'users';
+type TabType = 'trips' | 'drivers' | 'fleet' | 'users' | 'profile';
 
 export function AdminDashboardScreen() {
   const navigation = useNavigation<any>();
@@ -121,25 +129,13 @@ export function AdminDashboardScreen() {
   const [trips, setTrips] = useState<AdminTrip[]>([]);
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
   const [users, setUsers] = useState<AdminCustomer[]>([]);
+  const [drivers, setDrivers] = useState<AdminDriver[]>([]);
 
   // Filtering states
   const [tripFilter, setTripFilter] = useState<'All' | 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled'>('Pending');
-  const [fleetFilter, setFleetFilter] = useState<'all' | 'available' | 'maintenance'>('all');
-  const [fleetCategoryFilter, setFleetCategoryFilter] = useState<'ALL' | 'SUV' | 'HiAce' | 'Sedan' | 'Bus'>('ALL');
-  const [fleetSearch, setFleetSearch] = useState<string>('');
+  const [driverStatusFilter, setDriverStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PENDING' | 'INACTIVE'>('ALL');
+  const [driverSearch, setDriverSearch] = useState<string>('');
   const [userSearch, setUserSearch] = useState<string>('');
-
-  // Himalayan Road Condition Advisories
-  const [advisories, setAdvisories] = useState<RoadAdvisory[]>([]);
-  const [isRoadAdvisoriesExpanded, setIsRoadAdvisoriesExpanded] = useState<boolean>(true);
-  const [isAddAdvisoryOpen, setIsAddAdvisoryOpen] = useState<boolean>(false);
-  const [newAdvisory, setNewAdvisory] = useState<CreateRoadAdvisoryDto>({
-    routeName: '',
-    status: 'caution',
-    conditionSummary: '',
-    severity: 'moderate',
-  });
-  const [isSubmittingAdvisory, setIsSubmittingAdvisory] = useState<boolean>(false);
 
   // Modals
   const [selectedTripToApprove, setSelectedTripToApprove] = useState<AdminTrip | null>(null);
@@ -147,14 +143,32 @@ export function AdminDashboardScreen() {
   const [rejectionReason, setRejectionReason] = useState<string>('');
   const [isSubmittingDispatch, setIsSubmittingDispatch] = useState<boolean>(false);
 
-  const [isAddVehicleOpen, setIsAddVehicleOpen] = useState<boolean>(false);
-  const [newVehicle, setNewVehicle] = useState<CreateVehicleDto>({
-    model: '',
-    registrationPlate: '',
+  // Enhanced Trip Inspection & WhatsApp Dispatch State
+  const [inspectedTrip, setInspectedTrip] = useState<AdminTrip | null>(null);
+  const [dispatchVehicleId, setDispatchVehicleId] = useState<number | null>(null);
+  const [dispatchDriverId, setDispatchDriverId] = useState<number | null>(null);
+  const [dispatchPrice, setDispatchPrice] = useState<string>('');
+  const [copiedWhatsAppToast, setCopiedWhatsAppToast] = useState<boolean>(false);
+
+  const [isAddDriverOpen, setIsAddDriverOpen] = useState<boolean>(false);
+  const [isSubmittingDriver, setIsSubmittingDriver] = useState<boolean>(false);
+  const [newDriver, setNewDriver] = useState<CreateDriverDto>({
+    fullName: '',
+    phoneNumber: '',
+    whatsappNumber: '',
+    email: '',
+    citizenshipOrIdNo: '',
+    status: 'active',
+    citizenshipDocId: '',
+    licenseDocId: '',
+    makeModel: '',
+    licensePlate: '',
     category: 'SUV',
-    seats: 5,
-    fuelType: 'Diesel',
-    status: 'available',
+    vehicleTypeId: 2,
+    seatingCapacity: 7,
+    manufactureYear: 2022,
+    color: 'White',
+    bluebookDocId: '',
   });
 
   const [selectedCustomer, setSelectedCustomer] = useState<AdminCustomer | null>(null);
@@ -163,19 +177,19 @@ export function AdminDashboardScreen() {
 
   const loadAllData = useCallback(async () => {
     try {
-      const [statsRes, tripsRes, fleetRes, usersRes, advisoriesRes] = await Promise.all([
+      const [statsRes, tripsRes, fleetRes, usersRes, driversRes] = await Promise.all([
         getAdminStats(),
         getAdminTrips(),
         getAdminVehicles(),
         getAdminUsers(),
-        getAdminRoadAdvisories(),
+        getAdminDrivers(),
       ]);
 
       if (statsRes) setStats(statsRes);
       if (Array.isArray(tripsRes)) setTrips(tripsRes);
       if (Array.isArray(fleetRes)) setVehicles(fleetRes);
       if (Array.isArray(usersRes)) setUsers(usersRes);
-      if (Array.isArray(advisoriesRes)) setAdvisories(advisoriesRes);
+      if (Array.isArray(driversRes)) setDrivers(driversRes);
     } catch (err) {
       console.warn('[AdminDashboard] Error refreshing dashboard data:', err);
     }
@@ -235,8 +249,194 @@ export function AdminDashboardScreen() {
   };
 
   // ----------------------------------------------------
-  // DISPATCH DESK ACTIONS
+  // DISPATCH DESK ACTIONS & WHATSAPP FORMATTER
   // ----------------------------------------------------
+  const formatWhatsAppDispatchMessage = (
+    trip: AdminTrip,
+    vehicle?: AdminVehicle | null,
+    driver?: AdminDriver | null,
+    price?: string,
+  ): string => {
+    const tripDate = new Date(trip.pickupDate).toLocaleDateString('en-US', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+    const assignedCar = vehicle
+      ? `${vehicle.model} (${vehicle.registrationPlate})`
+      : trip.assignedVehiclePlate
+        ? `${trip.assignedVehicleModel || 'Vehicle'} (${trip.assignedVehiclePlate})`
+        : 'Vehicle TBD (Dispatch in Progress)';
+    const assignedDrv = driver
+      ? `${driver.fullName} (${driver.phoneNumber})`
+      : trip.assignedDriverName
+        ? `${trip.assignedDriverName} (${trip.assignedDriverPhone || ''})`
+        : 'Driver TBD (Dispatch in Progress)';
+    const fareStr = price?.trim() || trip.finalFare || trip.estimatedFare || 'NPR 12,000';
+
+    return `🇳🇵 *DRIVE KENDRA — TRIP DISPATCH RESERVATION*
+━━━━━━━━━━━━━━━━━━━━━━━━
+📋 *Booking Ref:* ${trip.bookingRef}
+📅 *Pickup Date:* ${tripDate} at ${trip.pickupTime || '07:00 AM'}
+🔄 *Trip Type:* ${trip.tripType}
+👥 *Passengers:* ${trip.passengerCount} Pax
+
+👤 *Customer:* ${trip.customerName}
+📞 *Customer Phone:* ${trip.customerPhone}
+
+📍 *Pickup:* ${trip.pickupLocation}
+🏁 *Dropoff:* ${trip.dropoffLocation}
+💬 *Customer Notes:* ${trip.additionalDetails || 'Standard Himalayan expedition route'}
+
+━━━━━━━━━━━━━━━━━━━━━━━━
+🚙 *Assigned Vehicle:* ${assignedCar}
+🧑‍✈️ *Assigned Driver:* ${assignedDrv}
+💵 *Agreed Fare:* ${fareStr}
+━━━━━━━━━━━━━━━━━━━━━━━━
+📞 *Kathmandu 24/7 Dispatch Desk:* +977 985-1363783
+🚨 *Tourist Police Emergency:* 1144`;
+  };
+
+  const handleCopyWhatsApp = async () => {
+    if (!inspectedTrip) return;
+    const targetVehicle = vehicles.find((v) => v.id === dispatchVehicleId) || null;
+    const targetDriver = drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId) || null;
+    const text = formatWhatsAppDispatchMessage(inspectedTrip, targetVehicle, targetDriver, dispatchPrice);
+
+    try {
+      await Clipboard.setStringAsync(text);
+    } catch {
+      if (typeof navigator !== 'undefined' && (navigator as any).clipboard) {
+        await (navigator as any).clipboard.writeText(text).catch(() => {});
+      }
+    }
+    hapticFeedback.success();
+    setCopiedWhatsAppToast(true);
+    setTimeout(() => setCopiedWhatsAppToast(false), 3000);
+  };
+
+  const handleOpenWhatsApp = () => {
+    if (!inspectedTrip) return;
+    const targetVehicle = vehicles.find((v) => v.id === dispatchVehicleId) || null;
+    const targetDriver = drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId) || null;
+    const text = formatWhatsAppDispatchMessage(inspectedTrip, targetVehicle, targetDriver, dispatchPrice);
+    const encoded = encodeURIComponent(text);
+    Linking.openURL(`https://wa.me/?text=${encoded}`).catch(() => {
+      Alert.alert('Notice', 'Unable to open WhatsApp on this device.');
+    });
+  };
+
+  const handleConfirmDispatch = async () => {
+    if (!inspectedTrip) return;
+    const targetDriver = drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId);
+    let resolvedVehicleId = dispatchVehicleId;
+    let targetVehicle = vehicles.find((v) => v.id === resolvedVehicleId);
+
+    if (!targetVehicle && targetDriver?.vehicle?.id) {
+      resolvedVehicleId = targetDriver.vehicle.id;
+      targetVehicle = vehicles.find((v) => v.id === resolvedVehicleId) || {
+        id: targetDriver.vehicle.id,
+        vehicleTypeId: 2,
+        model: targetDriver.vehicle.makeModel,
+        registrationPlate: targetDriver.vehicle.licensePlate,
+        category: (targetDriver.vehicle.category as any) || 'SUV',
+        seats: targetDriver.vehicle.seatingCapacity || 7,
+        fuelType: 'Diesel',
+        imageUrl: '',
+        status: 'available',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    if (!targetDriver && !resolvedVehicleId) {
+      Alert.alert('Assignment Required', 'Please assign an active driver or select a fleet vehicle to dispatch.');
+      return;
+    }
+
+    setIsSubmittingDispatch(true);
+    try {
+      const finalFareVal = dispatchPrice.trim() || inspectedTrip.finalFare || inspectedTrip.estimatedFare || 'NPR 12,000';
+      await approveAdminTrip(inspectedTrip.id, {
+        vehicleId: resolvedVehicleId || undefined,
+        driverId: targetDriver ? (targetDriver.id || targetDriver.ownerId) : undefined,
+        driverName: targetDriver?.fullName,
+        driverPhone: targetDriver?.phoneNumber,
+        finalPrice: finalFareVal,
+      });
+
+      hapticFeedback.success();
+
+      // Update local state
+      setTrips((prev) =>
+        prev.map((t) =>
+          t.id === inspectedTrip.id
+            ? {
+                ...t,
+                status: 'Confirmed',
+                assignedVehicleId: resolvedVehicleId || null,
+                assignedVehiclePlate: targetVehicle?.registrationPlate || (targetDriver?.vehicle?.licensePlate || null),
+                assignedVehicleModel: targetVehicle?.model || (targetDriver?.vehicle?.makeModel || null),
+                assignedDriverId: targetDriver ? (targetDriver.id || targetDriver.ownerId) : null,
+                assignedDriverName: targetDriver?.fullName || null,
+                assignedDriverPhone: targetDriver?.phoneNumber || null,
+                finalFare: finalFareVal,
+              }
+            : t,
+        ),
+      );
+
+      // Update vehicle status in local state if vehicle was assigned
+      if (resolvedVehicleId) {
+        setVehicles((prev) =>
+          prev.map((v) => (v.id === resolvedVehicleId ? { ...v, status: 'assigned' } : v)),
+        );
+      }
+
+      const ref = inspectedTrip.bookingRef;
+      const cust = inspectedTrip.customerName;
+
+      // Also synchronize offline voucher storage for local persistence / testing
+      try {
+        const cachedVouchers = await getOfflineVouchers();
+        if (cachedVouchers && cachedVouchers.length > 0) {
+          const updated = cachedVouchers.map((cv) => {
+            if (cv.bookingRef === ref || cv.id === `trip_${inspectedTrip.id}`) {
+              return {
+                ...cv,
+                status: 'confirmed' as const,
+                vehiclePlate: targetVehicle?.registrationPlate || targetDriver?.vehicle?.licensePlate || 'Assigned Fleet',
+                vehicleName: targetVehicle ? `${targetVehicle.model} (AC)` : (targetDriver?.vehicle?.makeModel || cv.vehicleName),
+                driverName: targetDriver?.fullName,
+                driverPhone: targetDriver?.phoneNumber,
+                fare: finalFareVal,
+                finalFare: finalFareVal,
+              };
+            }
+            return cv;
+          });
+          await saveOfflineVouchers(updated);
+        }
+      } catch (cacheErr) {
+        console.warn('[AdminDashboard] Failed to sync offline voucher:', cacheErr);
+      }
+
+      setInspectedTrip(null);
+      setSelectedTripToApprove(null);
+      Alert.alert(
+        'Dispatch Confirmed',
+        `Trip ${ref} has been confirmed and dispatched to ${cust} with driver & vehicle details.`,
+      );
+    } catch (err: unknown) {
+      hapticFeedback.error();
+      const msg = err instanceof Error ? err.message : 'Could not confirm dispatch.';
+      Alert.alert('Dispatch Error', msg);
+    } finally {
+      setIsSubmittingDispatch(false);
+    }
+  };
+
   const handleApproveWithVehicle = async (vehicleId: number) => {
     if (!selectedTripToApprove) return;
     setIsSubmittingDispatch(true);
@@ -309,102 +509,79 @@ export function AdminDashboardScreen() {
     );
   };
 
-  const handleDeleteAdvisory = (advisory: RoadAdvisory) => {
-    hapticFeedback.selection();
-    Alert.alert(
-      'Dismiss Advisory',
-      `Remove road condition bulletin for "${advisory.routeName}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Dismiss Bulletin',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAdminRoadAdvisory(advisory.id);
-              hapticFeedback.success();
-              setAdvisories((prev) => prev.filter((a) => a.id !== advisory.id));
-            } catch (err: unknown) {
-              hapticFeedback.error();
-              const msg = err instanceof Error ? err.message : 'Could not dismiss advisory.';
-              Alert.alert('Error', msg);
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  const handleCreateAdvisory = async () => {
-    if (!newAdvisory.routeName.trim() || !newAdvisory.conditionSummary.trim()) {
-      hapticFeedback.error();
-      Alert.alert('Missing Details', 'Please provide both the corridor name and condition details.');
-      return;
-    }
-    setIsSubmittingAdvisory(true);
-    try {
-      const created = await createAdminRoadAdvisory(newAdvisory);
-      hapticFeedback.success();
-      setAdvisories((prev) => [created, ...prev]);
-      setIsAddAdvisoryOpen(false);
-      setNewAdvisory({
-        routeName: '',
-        status: 'caution',
-        conditionSummary: '',
-        severity: 'moderate',
-      });
-      Alert.alert('Advisory Published', 'Himalayan road bulletin posted to operations desk.');
-    } catch (err: unknown) {
-      hapticFeedback.error();
-      const msg = err instanceof Error ? err.message : 'Could not publish advisory.';
-      Alert.alert('Failed to Publish', msg);
-    } finally {
-      setIsSubmittingAdvisory(false);
-    }
-  };
-
   // ----------------------------------------------------
-  // FLEET MANAGER ACTIONS
+  // DRIVERS DIRECTORY ACTIONS
   // ----------------------------------------------------
-  const handleToggleMaintenance = async (vehicle: AdminVehicle) => {
+  const handleToggleDriverStatus = async (driver: AdminDriver) => {
     hapticFeedback.selection();
-    const newStatus = vehicle.status === 'maintenance' ? 'available' : 'maintenance';
+    const newStatus = driver.status === 'active' ? 'inactive' : 'active';
     try {
-      await updateAdminVehicle(vehicle.id, { status: newStatus });
+      await updateAdminDriver(driver.id, { status: newStatus });
       hapticFeedback.success();
       await loadAllData();
     } catch (err: unknown) {
       hapticFeedback.error();
-      const msg = err instanceof Error ? err.message : 'Could not toggle vehicle maintenance status.';
+      const msg = err instanceof Error ? err.message : 'Could not toggle driver status.';
       Alert.alert('Update Failed', msg);
     }
   };
 
-  const handleCreateVehicle = async () => {
-    if (!newVehicle.model.trim() || !newVehicle.registrationPlate.trim()) {
+  const handleCreateDriver = async () => {
+    if (!newDriver.fullName.trim()) {
       hapticFeedback.error();
-      Alert.alert('Missing Info', 'Model name and registration plate are required.');
+      Alert.alert('Missing Name', 'Driver full legal name is required.');
+      return;
+    }
+    if (!newDriver.phoneNumber.trim()) {
+      hapticFeedback.error();
+      Alert.alert('Missing Phone', 'Driver contact phone number is required.');
+      return;
+    }
+    if (!newDriver.citizenshipOrIdNo.trim()) {
+      hapticFeedback.error();
+      Alert.alert('Missing ID', 'Citizenship or National ID number is required.');
+      return;
+    }
+    if (!newDriver.licenseDocId.trim()) {
+      hapticFeedback.error();
+      Alert.alert('Missing License', 'Driving license document ID is required.');
       return;
     }
 
+    setIsSubmittingDriver(true);
     try {
-      await createAdminVehicle(newVehicle);
+      await createAdminDriver(newDriver);
       hapticFeedback.success();
-      setIsAddVehicleOpen(false);
-      setNewVehicle({
-        model: '',
-        registrationPlate: '',
+      setIsAddDriverOpen(false);
+      setNewDriver({
+        fullName: '',
+        phoneNumber: '',
+        whatsappNumber: '',
+        email: '',
+        citizenshipOrIdNo: '',
+        status: 'active',
+        citizenshipDocId: '',
+        licenseDocId: '',
+        makeModel: '',
+        licensePlate: '',
         category: 'SUV',
-        seats: 5,
-        fuelType: 'Diesel',
-        status: 'available',
+        vehicleTypeId: 2,
+        seatingCapacity: 7,
+        manufactureYear: 2022,
+        color: 'White',
+        bluebookDocId: '',
       });
       await loadAllData();
-      Alert.alert('Success', 'New vehicle registered into active fleet.');
+      Alert.alert(
+        'Driver & Vehicle Registered',
+        'New driver profile (dka_owners) and vehicle (dka_vehicles) registered and synchronized into partner database.',
+      );
     } catch (err: unknown) {
       hapticFeedback.error();
-      const msg = err instanceof Error ? err.message : 'Could not add vehicle.';
-      Alert.alert('Failed to Add', msg);
+      const msg = err instanceof Error ? err.message : 'Could not register driver and vehicle profile.';
+      Alert.alert('Registration Failed', msg);
+    } finally {
+      setIsSubmittingDriver(false);
     }
   };
 
@@ -431,15 +608,19 @@ export function AdminDashboardScreen() {
     return t.status.toLowerCase() === tripFilter.toLowerCase();
   });
 
-  const filteredFleet = vehicles.filter((v) => {
-    if (fleetFilter === 'available' && v.status !== 'available') return false;
-    if (fleetFilter === 'maintenance' && v.status !== 'maintenance') return false;
-    if (fleetCategoryFilter !== 'ALL' && v.category.toLowerCase() !== fleetCategoryFilter.toLowerCase()) return false;
-    if (fleetSearch.trim()) {
-      const q = fleetSearch.toLowerCase();
+  const filteredDrivers = drivers.filter((d) => {
+    if (driverStatusFilter !== 'ALL' && d.status.toUpperCase() !== driverStatusFilter) {
+      return false;
+    }
+    if (driverSearch.trim()) {
+      const q = driverSearch.toLowerCase();
       return (
-        v.model.toLowerCase().includes(q) ||
-        v.registrationPlate.toLowerCase().includes(q)
+        d.fullName.toLowerCase().includes(q) ||
+        d.phoneNumber.includes(q) ||
+        (d.whatsappNumber && d.whatsappNumber.includes(q)) ||
+        (d.email && d.email.toLowerCase().includes(q)) ||
+        d.citizenshipOrIdNo.toLowerCase().includes(q) ||
+        d.licenseDocId.toLowerCase().includes(q)
       );
     }
     return true;
@@ -495,6 +676,7 @@ export function AdminDashboardScreen() {
 
       {/* Main Scroll Content */}
       <ScrollView
+        style={styles.mainScrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
@@ -504,205 +686,61 @@ export function AdminDashboardScreen() {
           />
         }
       >
-        {/* Metric Cards Banner */}
-        <View style={styles.metricsGrid}>
-          <View style={[styles.metricCard, styles.metricCardAlert]}>
-            <View style={styles.metricTop}>
-              <View style={[styles.metricIconWrap, { backgroundColor: colors.accentSoft }]}>
-                <Clock size={16} color={colors.accent} />
-              </View>
-              <Text style={styles.metricLabel}>Pending</Text>
-            </View>
-            <Text style={[styles.metricValue, { color: colors.accent }]}>
-              {effectiveStats.pendingRequests ?? 0}
-            </Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <View style={styles.metricTop}>
-              <View style={[styles.metricIconWrap, { backgroundColor: colors.successSoft }]}>
-                <Car size={16} color={colors.success} />
-              </View>
-              <Text style={styles.metricLabel}>Available Fleet</Text>
-            </View>
-            <Text style={[styles.metricValue, { color: colors.success }]}>
-              {effectiveStats.activeFleet ?? 0}
-            </Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <View style={styles.metricTop}>
-              <View style={[styles.metricIconWrap, { backgroundColor: colors.navySoft }]}>
-                <Users size={16} color={colors.onNavy} />
-              </View>
-              <Text style={styles.metricLabel}>Customers</Text>
-            </View>
-            <Text style={styles.metricValue}>{effectiveStats.totalUsers ?? 0}</Text>
-          </View>
-
-          <View style={styles.metricCard}>
-            <View style={styles.metricTop}>
-              <View style={[styles.metricIconWrap, { backgroundColor: colors.accentSoft }]}>
-                <TrendingUp size={16} color={colors.highlight} />
-              </View>
-              <Text style={styles.metricLabel}>Gross Spend</Text>
-            </View>
-            <Text style={[styles.metricValue, { fontSize: 13, marginTop: 4 }]}>
-              {effectiveStats.totalRevenue ?? 'NPR 0'}
-            </Text>
-          </View>
-        </View>
-
-        {/* 3-Way Segment Tabs */}
-        <View style={styles.segmentedTabs}>
-          <Pressable
-            onPress={() => {
-              hapticFeedback.selection();
-              setActiveTab('trips');
-            }}
-            style={[styles.segmentBtn, activeTab === 'trips' && styles.segmentBtnActive]}
-          >
-            <Text
-              style={[
-                styles.segmentBtnText,
-                activeTab === 'trips' && styles.segmentBtnTextActive,
-              ]}
-            >
-              Dispatch Desk ({effectiveStats.pendingRequests ?? 0})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              hapticFeedback.selection();
-              setActiveTab('fleet');
-            }}
-            style={[styles.segmentBtn, activeTab === 'fleet' && styles.segmentBtnActive]}
-          >
-            <Text
-              style={[
-                styles.segmentBtnText,
-                activeTab === 'fleet' && styles.segmentBtnTextActive,
-              ]}
-            >
-              Fleet Manager ({vehicles.length})
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              hapticFeedback.selection();
-              setActiveTab('users');
-            }}
-            style={[styles.segmentBtn, activeTab === 'users' && styles.segmentBtnActive]}
-          >
-            <Text
-              style={[
-                styles.segmentBtnText,
-                activeTab === 'users' && styles.segmentBtnTextActive,
-              ]}
-            >
-              Users Directory
-            </Text>
-          </Pressable>
-        </View>
-
         {/* ================= TAB 1: DISPATCH DESK ================= */}
         {activeTab === 'trips' && (
-          <View style={styles.sectionContainer}>
-            {/* Himalayan Mountain Corridor Advisories Banner / Card */}
-            <View style={styles.advisoryCard}>
-              <View style={styles.advisoryCardHeader}>
-                <View style={styles.advisoryHeaderTitleRow}>
-                  <View style={styles.advisoryIconWrap}>
-                    <AlertTriangle size={16} color={colors.accent} />
+          <View>
+            {/* Metric Cards Banner */}
+            <View style={styles.metricsGrid}>
+              <View style={[styles.metricCard, styles.metricCardAlert]}>
+                <View style={styles.metricTop}>
+                  <View style={[styles.metricIconWrap, { backgroundColor: colors.accentSoft }]}>
+                    <Clock size={16} color={colors.accent} />
                   </View>
-                  <View>
-                    <Text style={styles.advisoryCardTitle}>Himalayan Road Bulletins</Text>
-                    <Text style={styles.advisoryCardSubtitle}>
-                      {advisories.length} active mountain highway condition{advisories.length === 1 ? '' : 's'}
-                    </Text>
-                  </View>
+                  <Text style={styles.metricLabel}>Pending</Text>
                 </View>
-
-                <View style={styles.advisoryActionRow}>
-                  <Pressable
-                    onPress={() => {
-                      hapticFeedback.selection();
-                      setIsAddAdvisoryOpen(true);
-                    }}
-                    style={({ pressed }) => [styles.postAdvisoryBtn, pressed && styles.pressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Post Himalayan Road Advisory"
-                  >
-                    <Plus size={14} color={colors.onAccent} />
-                    <Text style={styles.postAdvisoryBtnText}>Post</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => {
-                      hapticFeedback.selection();
-                      setIsRoadAdvisoriesExpanded((prev) => !prev);
-                    }}
-                    style={({ pressed }) => [styles.advisoryToggleBtn, pressed && styles.pressed]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Toggle road advisory details"
-                  >
-                    {isRoadAdvisoriesExpanded ? (
-                      <ChevronUp size={18} color={colors.subtle} />
-                    ) : (
-                      <ChevronDown size={18} color={colors.subtle} />
-                    )}
-                  </Pressable>
-                </View>
+                <Text style={[styles.metricValue, { color: colors.accent }]}>
+                  {effectiveStats.pendingRequests ?? 0}
+                </Text>
               </View>
 
-              {/* Advisory list when expanded */}
-              {isRoadAdvisoriesExpanded && (
-                <View style={styles.advisoriesListContainer}>
-                  {advisories.length === 0 ? (
-                    <Text style={styles.emptyAdvisoriesText}>No active road advisories. All corridors clear.</Text>
-                  ) : (
-                    advisories.map((advisory) => {
-                      const isCaution = advisory.status === 'caution';
-                      const isClosed = advisory.status === 'closed';
-                      const statusBg = isClosed ? colors.errorSoft : isCaution ? colors.accentSoft : colors.successSoft;
-                      const statusColor = isClosed ? colors.error : isCaution ? colors.accent : colors.success;
-                      return (
-                        <View key={advisory.id} style={styles.advisoryItem}>
-                          <View style={styles.advisoryItemTop}>
-                            <Text style={styles.advisoryRouteName}>{advisory.routeName}</Text>
-                            <View style={[styles.advisoryStatusBadge, { backgroundColor: statusBg }]}>
-                              <View style={[styles.statusDotSmall, { backgroundColor: statusColor }]} />
-                              <Text style={[styles.advisoryStatusText, { color: statusColor }]}>
-                                {advisory.status.toUpperCase()}
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={styles.advisorySummary}>{advisory.conditionSummary}</Text>
-                          <View style={styles.advisoryItemBottom}>
-                            <Text style={styles.advisoryDate}>
-                              Updated: {new Date(advisory.createdAt).toLocaleDateString()}
-                            </Text>
-                            <Pressable
-                              onPress={() => handleDeleteAdvisory(advisory)}
-                              style={({ pressed }) => [styles.dismissAdvisoryBtn, pressed && styles.pressed]}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Dismiss advisory for ${advisory.routeName}`}
-                            >
-                              <Trash2 size={13} color={colors.error} />
-                              <Text style={styles.dismissAdvisoryText}>Dismiss</Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      );
-                    })
-                  )}
+              <View style={styles.metricCard}>
+                <View style={styles.metricTop}>
+                  <View style={[styles.metricIconWrap, { backgroundColor: colors.successSoft }]}>
+                    <Car size={16} color={colors.success} />
+                  </View>
+                  <Text style={styles.metricLabel}>Available Fleet</Text>
                 </View>
-              )}
+                <Text style={[styles.metricValue, { color: colors.success }]}>
+                  {effectiveStats.activeFleet ?? 0}
+                </Text>
+              </View>
+
+              <View style={styles.metricCard}>
+                <View style={styles.metricTop}>
+                  <View style={[styles.metricIconWrap, { backgroundColor: colors.navySoft }]}>
+                    <Users size={16} color={colors.onNavy} />
+                  </View>
+                  <Text style={styles.metricLabel}>Customers</Text>
+                </View>
+                <Text style={styles.metricValue}>{effectiveStats.totalUsers ?? 0}</Text>
+              </View>
+
+              <View style={styles.metricCard}>
+                <View style={styles.metricTop}>
+                  <View style={[styles.metricIconWrap, { backgroundColor: colors.accentSoft }]}>
+                    <TrendingUp size={16} color={colors.highlight} />
+                  </View>
+                  <Text style={styles.metricLabel}>Gross Spend</Text>
+                </View>
+                <Text style={[styles.metricValue, { fontSize: 13, marginTop: 4 }]}>
+                  {effectiveStats.totalRevenue ?? 'NPR 0'}
+                </Text>
+              </View>
             </View>
 
-            {/* Filter Pills */}
-            <View style={styles.filterPillsRow}>
+            <View style={styles.sectionContainer}>
+              {/* Filter Pills */}
+              <View style={styles.filterPillsRow}>
               {(['Pending', 'Confirmed', 'Completed', 'Cancelled', 'All'] as const).map((filter) => (
                 <Pressable
                   key={filter}
@@ -736,7 +774,19 @@ export function AdminDashboardScreen() {
               </View>
             ) : (
               filteredTrips.map((trip) => (
-                <View key={trip.id} style={styles.tripCard}>
+                <Pressable
+                  key={trip.id}
+                  onPress={() => {
+                    hapticFeedback.selection();
+                    setInspectedTrip(trip);
+                    setDispatchVehicleId(trip.assignedVehicleId || null);
+                    setDispatchDriverId(trip.assignedDriverId || null);
+                    setDispatchPrice(trip.finalFare || trip.estimatedFare || '');
+                  }}
+                  style={({ pressed }) => [styles.tripCard, pressed && styles.pressed]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Inspect and dispatch ${trip.bookingRef}`}
+                >
                   {/* Card Header */}
                   <View style={styles.tripCardHeader}>
                     <View style={styles.tripCardRefGroup}>
@@ -826,16 +876,26 @@ export function AdminDashboardScreen() {
                       <Text style={styles.tripMetaText}>{trip.vehicleCategory}</Text>
                     </View>
                     <View style={styles.fareBadge}>
-                      <Text style={styles.fareHighlight}>{trip.estimatedFare}</Text>
+                      <Text style={styles.fareHighlight}>{trip.finalFare || trip.estimatedFare}</Text>
                     </View>
                   </View>
 
-                  {/* Assigned Vehicle Display if Confirmed */}
+                  {/* Customer Notes Preview */}
+                  {trip.additionalDetails ? (
+                    <View style={styles.tripCardNotePreview}>
+                      <Text style={styles.tripCardNotePreviewText} numberOfLines={1}>
+                        💬 {trip.additionalDetails}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Assigned Vehicle & Driver Display if Confirmed */}
                   {trip.status === 'Confirmed' && trip.assignedVehiclePlate && (
                     <View style={styles.assignedVehicleBanner}>
                       <Car size={14} color={colors.success} />
                       <Text style={styles.assignedVehicleText}>
                         Dispatched: <Text style={{ fontWeight: '800' }}>{trip.assignedVehicleModel}</Text> ({trip.assignedVehiclePlate})
+                        {trip.assignedDriverName ? ` • Driver: ${trip.assignedDriverName}` : ''}
                       </Text>
                     </View>
                   )}
@@ -848,7 +908,7 @@ export function AdminDashboardScreen() {
                     </View>
                   )}
 
-                  {/* Action Buttons for Pending trips: Reject or Assign */}
+                  {/* Action Buttons for Pending trips: Reject or Inspect & Dispatch */}
                   {trip.status === 'Pending' && (
                     <View style={styles.actionButtonsRow}>
                       <Pressable
@@ -866,14 +926,17 @@ export function AdminDashboardScreen() {
                       <Pressable
                         onPress={() => {
                           hapticFeedback.selection();
-                          setSelectedTripToApprove(trip);
+                          setInspectedTrip(trip);
+                          setDispatchVehicleId(trip.assignedVehicleId || null);
+                          setDispatchDriverId(trip.assignedDriverId || null);
+                          setDispatchPrice(trip.finalFare || trip.estimatedFare || '');
                         }}
                         style={({ pressed }) => [styles.approveBtn, pressed && styles.pressed]}
                         accessibilityRole="button"
-                        accessibilityLabel="Approve and dispatch vehicle"
+                        accessibilityLabel="Inspect and dispatch"
                       >
                         <Car size={14} color={colors.onAccent} style={{ marginRight: 6 }} />
-                        <Text style={styles.approveBtnText}>Assign & Dispatch</Text>
+                        <Text style={styles.approveBtnText}>Inspect & Dispatch</Text>
                       </Pressable>
                     </View>
                   )}
@@ -902,177 +965,224 @@ export function AdminDashboardScreen() {
                       </Text>
                     </View>
                   )}
-                </View>
+
+                  {/* Card Tap Prompt */}
+                  <View style={styles.cardTapPrompt}>
+                    <Eye size={12} color={colors.accent} />
+                    <Text style={styles.cardTapPromptText}>Tap card to inspect & copy WhatsApp message</Text>
+                    <ChevronRight size={12} color={colors.subtle} />
+                  </View>
+                </Pressable>
               ))
             )}
           </View>
-        )}
+        </View>
+      )}
 
-        {/* ================= TAB 2: FLEET MANAGER ================= */}
-        {activeTab === 'fleet' && (
+        {/* ================= TAB 2: DRIVERS DIRECTORY ================= */}
+        {(activeTab === 'drivers' || activeTab === 'fleet') && (
           <View style={styles.sectionContainer}>
-            {/* Search Input for Fleet */}
+            {/* Search Input for Drivers */}
             <View style={styles.searchBar}>
               <Search size={18} color={colors.subtle} style={{ marginRight: spacing.sm }} />
               <TextInput
                 style={styles.searchInput}
-                value={fleetSearch}
-                onChangeText={setFleetSearch}
-                placeholder="Search fleet by model or plate..."
+                value={driverSearch}
+                onChangeText={setDriverSearch}
+                placeholder="Search drivers by name, phone, license..."
                 placeholderTextColor={colors.muted}
               />
-              {fleetSearch ? (
-                <Pressable onPress={() => setFleetSearch('')}>
+              {driverSearch ? (
+                <Pressable onPress={() => setDriverSearch('')}>
                   <X size={18} color={colors.subtle} />
                 </Pressable>
               ) : null}
             </View>
 
-            {/* Category Filter Chips */}
+            {/* Status Filter Chips */}
             <View style={styles.categoryFilterRow}>
-              {(['ALL', 'SUV', 'HiAce', 'Sedan', 'Bus'] as const).map((cat) => (
+              {(['ALL', 'ACTIVE', 'PENDING', 'INACTIVE'] as const).map((st) => (
                 <Pressable
-                  key={cat}
+                  key={st}
                   onPress={() => {
                     hapticFeedback.selection();
-                    setFleetCategoryFilter(cat);
+                    setDriverStatusFilter(st);
                   }}
                   style={[
                     styles.catFilterChip,
-                    fleetCategoryFilter === cat && styles.catFilterChipActive,
+                    driverStatusFilter === st && styles.catFilterChipActive,
                   ]}
                 >
                   <Text
                     style={[
                       styles.catFilterChipText,
-                      fleetCategoryFilter === cat && styles.catFilterChipTextActive,
+                      driverStatusFilter === st && styles.catFilterChipTextActive,
                     ]}
                   >
-                    {cat}
+                    {st}
                   </Text>
                 </Pressable>
               ))}
             </View>
 
-            {/* Fleet Controls Header */}
+            {/* Drivers Controls Header */}
             <View style={styles.fleetHeaderRow}>
-              <View style={styles.filterPillsRow}>
-                {(['all', 'available', 'maintenance'] as const).map((filter) => (
-                  <Pressable
-                    key={filter}
-                    onPress={() => {
-                      hapticFeedback.selection();
-                      setFleetFilter(filter);
-                    }}
-                    style={[
-                      styles.filterPill,
-                      fleetFilter === filter && styles.filterPillActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.filterPillText,
-                        fleetFilter === filter && styles.filterPillTextActive,
-                      ]}
-                    >
-                      {filter.toUpperCase()}
-                    </Text>
-                  </Pressable>
-                ))}
+              <View>
+                <Text style={styles.driverSectionCountText}>
+                  {filteredDrivers.length} {filteredDrivers.length === 1 ? 'Driver' : 'Drivers'} Listed
+                </Text>
               </View>
 
               <Pressable
                 onPress={() => {
                   hapticFeedback.selection();
-                  setIsAddVehicleOpen(true);
+                  setIsAddDriverOpen(true);
                 }}
                 style={({ pressed }) => [styles.addVehicleBtn, pressed && styles.pressed]}
                 accessibilityRole="button"
-                accessibilityLabel="Add new fleet vehicle"
+                accessibilityLabel="Add new driver"
               >
                 <Plus size={16} color={colors.onAccent} />
-                <Text style={styles.addVehicleBtnText}>Add Car</Text>
+                <Text style={styles.addVehicleBtnText}>Add Driver</Text>
               </Pressable>
             </View>
 
-            {/* Fleet Cards */}
-            {filteredFleet.map((car) => (
-              <View key={car.id} style={styles.fleetCard}>
-                <View style={styles.fleetCardTop}>
-                  <View style={styles.fleetCategoryIconWrap}>
-                    {car.category === 'Bus' ? (
-                      <Bus size={22} color={colors.accent} />
-                    ) : (
-                      <Car size={22} color={colors.accent} />
-                    )}
-                  </View>
+            {/* Driver Cards */}
+            {filteredDrivers.length === 0 ? (
+              <View style={styles.emptyState}>
+                <UserCheck size={36} color={colors.subtle} />
+                <Text style={styles.emptyStateTitle}>No drivers found</Text>
+                <Text style={styles.emptyStateDesc}>Tap &quot;+ Add Driver&quot; to register drivers into dka_owners &amp; cr_owners.</Text>
+              </View>
+            ) : (
+              filteredDrivers.map((driver) => (
+                <View key={driver.id} style={styles.driverCard}>
+                  {/* Top Row: Avatar, Name, Status */}
+                  <View style={styles.driverCardTop}>
+                    <View style={styles.driverAvatarCircle}>
+                      <Text style={styles.driverAvatarLetter}>
+                        {driver.fullName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
 
-                  <View style={styles.fleetDetails}>
-                    <Text style={styles.carModel}>{car.model}</Text>
-                    <View style={styles.plateTag}>
-                      <View style={styles.plateFlag} />
-                      <Text style={styles.plateText}>{car.registrationPlate}</Text>
+                    <View style={styles.driverDetails}>
+                      <Text style={styles.driverName}>{driver.fullName}</Text>
+                      <View style={styles.driverSubRow}>
+                        <Text style={styles.driverOwnerRef}>ID #{driver.ownerId}</Text>
+                      </View>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.fleetStatusTag,
+                        driver.status === 'active' && styles.fleetStatusAvailable,
+                        driver.status === 'pending' && styles.fleetStatusAssigned,
+                        driver.status === 'inactive' && styles.fleetStatusMaintenance,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.fleetStatusDot,
+                          driver.status === 'active' && { backgroundColor: colors.success },
+                          driver.status === 'pending' && { backgroundColor: colors.highlight },
+                          driver.status === 'inactive' && { backgroundColor: colors.error },
+                        ]}
+                      />
+                      <Text style={styles.fleetStatusText}>{driver.status.toUpperCase()}</Text>
                     </View>
                   </View>
 
-                  <View
-                    style={[
-                      styles.fleetStatusTag,
-                      car.status === 'available' && styles.fleetStatusAvailable,
-                      car.status === 'assigned' && styles.fleetStatusAssigned,
-                      car.status === 'maintenance' && styles.fleetStatusMaintenance,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.fleetStatusDot,
-                        car.status === 'available' && { backgroundColor: colors.success },
-                        car.status === 'assigned' && { backgroundColor: colors.accent },
-                        car.status === 'maintenance' && { backgroundColor: colors.error },
-                      ]}
-                    />
-                    <Text style={styles.fleetStatusText}>{car.status.toUpperCase()}</Text>
+                  {/* Contact Badges Row */}
+                  <View style={styles.driverContactRow}>
+                    <Pressable
+                      onPress={() => Linking.openURL(`tel:${driver.phoneNumber}`)}
+                      style={({ pressed }) => [styles.driverContactChip, pressed && styles.pressed]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Call ${driver.fullName}`}
+                    >
+                      <Phone size={12} color={colors.accent} />
+                      <Text style={styles.driverContactChipText}>{driver.phoneNumber}</Text>
+                    </Pressable>
+
+                    {driver.whatsappNumber ? (
+                      <Pressable
+                        onPress={() =>
+                          Linking.openURL(
+                            `https://wa.me/${driver.whatsappNumber?.replace(/\D/g, '')}`,
+                          )
+                        }
+                        style={({ pressed }) => [styles.driverWhatsAppChip, pressed && styles.pressed]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`WhatsApp ${driver.fullName}`}
+                      >
+                        <ExternalLink size={12} color={colors.success} />
+                        <Text style={styles.driverWhatsAppChipText}>WhatsApp</Text>
+                      </Pressable>
+                    ) : null}
                   </View>
-                </View>
 
-                {/* Specs row: Category, Seats, Fuel */}
-                <View style={styles.carSpecsRow}>
-                  <Text style={styles.specText}>
-                    Class: <Text style={styles.specBold}>{car.category}</Text>
-                  </Text>
-                  <Text style={styles.specDivider}>•</Text>
-                  <Text style={styles.specText}>
-                    Capacity: <Text style={styles.specBold}>{car.seats} Seats</Text>
-                  </Text>
-                  <Text style={styles.specDivider}>•</Text>
-                  <Text style={styles.specText}>
-                    Fuel: <Text style={styles.specBold}>{car.fuelType}</Text>
-                  </Text>
-                </View>
+                  {/* Credentials / IDs Row */}
+                  <View style={styles.driverCredsRow}>
+                    <View style={styles.driverCredBadge}>
+                      <Text style={styles.driverCredLabel}>CITIZENSHIP:</Text>
+                      <Text style={styles.driverCredValue}>{driver.citizenshipOrIdNo}</Text>
+                    </View>
+                    <View style={styles.driverCredBadge}>
+                      <Text style={styles.driverCredLabel}>LICENSE:</Text>
+                      <Text style={styles.driverCredValue}>{driver.licenseDocId}</Text>
+                    </View>
+                  </View>
 
-                {/* Actions: Maintenance Toggle */}
-                <View style={styles.fleetActionsRow}>
-                  <Pressable
-                    onPress={() => handleToggleMaintenance(car)}
-                    style={({ pressed }) => [
-                      styles.maintenanceToggleBtn,
-                      car.status === 'maintenance' && styles.maintenanceToggleBtnActive,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Wrench size={13} color={car.status === 'maintenance' ? colors.success : colors.subtle} />
-                    <Text
-                      style={[
-                        styles.maintenanceToggleText,
-                        car.status === 'maintenance' && { color: colors.success },
+                  {/* Attached Vehicle (dka_vehicles / cr_vehicles) */}
+                  {driver.vehicle ? (
+                    <View style={styles.driverVehicleBadge}>
+                      <Car size={14} color={colors.accent} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.driverVehicleTitle}>
+                          {driver.vehicle.makeModel} ({driver.vehicle.licensePlate})
+                        </Text>
+                        <Text style={styles.driverVehicleSub}>
+                          {driver.vehicle.category || 'SUV'} • {driver.vehicle.seatingCapacity} Seats • {driver.vehicle.color || 'White'}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {/* Email & Status Toggle Row */}
+                  <View style={styles.driverFooterRow}>
+                    {driver.email ? (
+                      <Text style={styles.driverEmailText} numberOfLines={1}>
+                        {driver.email}
+                      </Text>
+                    ) : (
+                      <View style={{ flex: 1 }} />
+                    )}
+
+                    <Pressable
+                      onPress={() => handleToggleDriverStatus(driver)}
+                      style={({ pressed }) => [
+                        styles.driverStatusToggleBtn,
+                        driver.status === 'inactive' && styles.driverStatusToggleBtnActive,
+                        pressed && styles.pressed,
                       ]}
                     >
-                      {car.status === 'maintenance' ? 'Set as Available' : 'Mark Maintenance'}
-                    </Text>
-                  </Pressable>
+                      <UserCheck
+                        size={13}
+                        color={driver.status === 'inactive' ? colors.success : colors.subtle}
+                      />
+                      <Text
+                        style={[
+                          styles.driverStatusToggleText,
+                          driver.status === 'inactive' && { color: colors.success },
+                        ]}
+                      >
+                        {driver.status === 'active' ? 'Set as Inactive' : 'Activate Driver'}
+                      </Text>
+                    </Pressable>
+                  </View>
                 </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
         )}
 
@@ -1126,67 +1236,520 @@ export function AdminDashboardScreen() {
             ))}
           </View>
         )}
+
+        {/* ================= TAB 4: PROFILE ================= */}
+        {activeTab === 'profile' && (
+          <View style={styles.sectionContainer}>
+            {/* Operator Identity Card */}
+            <View style={styles.profileCard}>
+              <View style={styles.profileHeaderRow}>
+                <View style={[styles.profileAvatarCircle, { backgroundColor: colors.accentSoft }]}>
+                  <ShieldCheck size={32} color={colors.accent} strokeWidth={2.2} />
+                </View>
+                <View style={styles.profileIdentityCol}>
+                  <Text style={styles.profileName}>{adminUser?.name || 'Drive Kendra Admin'}</Text>
+                  <Text style={styles.profilePhone}>{adminUser?.phone || '+977 980-0000000'}</Text>
+                  <View style={styles.profileRoleBadge}>
+                    <View style={styles.profileRoleDot} />
+                    <Text style={styles.profileRoleText}>SYSTEM ADMINISTRATOR</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Quick Operational Metrics */}
+            <View style={styles.profileStatsCard}>
+              <Text style={styles.profileSectionTitle}>System Operations Overview</Text>
+              <View style={styles.profileStatsGrid}>
+                <View style={styles.profileStatBox}>
+                  <Text style={styles.profileStatValue}>{effectiveStats.pendingRequests ?? 0}</Text>
+                  <Text style={styles.profileStatLabel}>Pending Trips</Text>
+                </View>
+                <View style={styles.profileStatBox}>
+                  <Text style={styles.profileStatValue}>{effectiveStats.activeFleet ?? 0}</Text>
+                  <Text style={styles.profileStatLabel}>Active Fleet</Text>
+                </View>
+                <View style={styles.profileStatBox}>
+                  <Text style={styles.profileStatValue}>{effectiveStats.totalUsers ?? 0}</Text>
+                  <Text style={styles.profileStatLabel}>Customers</Text>
+                </View>
+                <View style={styles.profileStatBox}>
+                  <Text style={[styles.profileStatValue, { fontSize: 13 }]}>
+                    {effectiveStats.totalRevenue ?? 'NPR 0'}
+                  </Text>
+                  <Text style={styles.profileStatLabel}>Total Volume</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* System Security & Architecture */}
+            <View style={styles.securityCard}>
+              <Text style={styles.profileSectionTitle}>Security & Access Infrastructure</Text>
+              <View style={styles.securityRow}>
+                <View style={styles.securityIconWrap}>
+                  <Lock size={16} color={colors.accent} />
+                </View>
+                <View style={styles.securityTextCol}>
+                  <Text style={styles.securityTitle}>PostgreSQL Row Level Security (RLS)</Text>
+                  <Text style={styles.securitySubtitle}>
+                    Active session parameter (SET LOCAL app.is_admin = &apos;true&apos;)
+                  </Text>
+                </View>
+                <View style={styles.securityActiveBadge}>
+                  <View style={styles.rlsDot} />
+                  <Text style={styles.securityActiveText}>ACTIVE</Text>
+                </View>
+              </View>
+
+              <View style={styles.securityRow}>
+                <View style={styles.securityIconWrap}>
+                  <Shield size={16} color={colors.accent} />
+                </View>
+                <View style={styles.securityTextCol}>
+                  <Text style={styles.securityTitle}>Two-Factor PIN Gate</Text>
+                  <Text style={styles.securitySubtitle}>
+                    4-Digit hardware biometric / cryptographic challenge
+                  </Text>
+                </View>
+                <View style={styles.securityActiveBadge}>
+                  <View style={styles.rlsDot} />
+                  <Text style={styles.securityActiveText}>ENFORCED</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Appearance / Theme Mode Selector */}
+            <View style={styles.themeSectionCard}>
+              <Text style={styles.profileSectionTitle}>Display Theme</Text>
+              <Text style={styles.profileSectionSubtitle}>
+                Select interface appearance for low-light or daytime mountain operations
+              </Text>
+              <ThemeModeSelector style={{ marginTop: spacing.sm }} />
+            </View>
+
+            {/* Session Exit & Sign Out */}
+            <Pressable
+              onPress={handleSignOut}
+              style={({ pressed }) => [styles.profileSignOutBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out of Admin Portal"
+            >
+              <LogOut size={18} color={colors.error} />
+              <Text style={styles.profileSignOutText}>Lock & Sign Out Admin Portal</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
-      {/* ================= MODAL: DISPATCH / ASSIGN VEHICLE ================= */}
+      {/* ================= BOTTOM TAB NAVIGATION BAR ================= */}
+      <View
+        style={[
+          styles.bottomTabBar,
+          {
+            height: 58 + Math.max(insets.bottom, 10),
+            paddingBottom: Math.max(insets.bottom, 10),
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => {
+            hapticFeedback.selection();
+            setActiveTab('trips');
+          }}
+          style={styles.tabBarItem}
+          accessibilityRole="tab"
+          accessibilityLabel="Dispatch Desk"
+          accessibilityState={{ selected: activeTab === 'trips' }}
+        >
+          <View style={styles.tabIconWrap}>
+            <CalendarCheck
+              size={20}
+              color={activeTab === 'trips' ? colors.accent : colors.subtle}
+              strokeWidth={activeTab === 'trips' ? 2.4 : 2}
+            />
+            {effectiveStats.pendingRequests > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>
+                  {effectiveStats.pendingRequests > 9 ? '9+' : effectiveStats.pendingRequests}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text
+            style={[
+              styles.tabBarLabel,
+              activeTab === 'trips' && styles.tabBarLabelActive,
+            ]}
+            numberOfLines={1}
+          >
+            Dispatch Desk
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            hapticFeedback.selection();
+            setActiveTab('drivers');
+          }}
+          style={styles.tabBarItem}
+          accessibilityRole="tab"
+          accessibilityLabel="Drivers Directory"
+          accessibilityState={{ selected: activeTab === 'drivers' || activeTab === 'fleet' }}
+        >
+          <View style={styles.tabIconWrap}>
+            <UserCheck
+              size={20}
+              color={activeTab === 'drivers' || activeTab === 'fleet' ? colors.accent : colors.subtle}
+              strokeWidth={activeTab === 'drivers' || activeTab === 'fleet' ? 2.4 : 2}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabBarLabel,
+              (activeTab === 'drivers' || activeTab === 'fleet') && styles.tabBarLabelActive,
+            ]}
+            numberOfLines={1}
+          >
+            Drivers
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            hapticFeedback.selection();
+            setActiveTab('users');
+          }}
+          style={styles.tabBarItem}
+          accessibilityRole="tab"
+          accessibilityLabel="Users Directory"
+          accessibilityState={{ selected: activeTab === 'users' }}
+        >
+          <View style={styles.tabIconWrap}>
+            <Users
+              size={20}
+              color={activeTab === 'users' ? colors.accent : colors.subtle}
+              strokeWidth={activeTab === 'users' ? 2.4 : 2}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabBarLabel,
+              activeTab === 'users' && styles.tabBarLabelActive,
+            ]}
+            numberOfLines={1}
+          >
+            Users Directory
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            hapticFeedback.selection();
+            setActiveTab('profile');
+          }}
+          style={styles.tabBarItem}
+          accessibilityRole="tab"
+          accessibilityLabel="Profile"
+          accessibilityState={{ selected: activeTab === 'profile' }}
+        >
+          <View style={styles.tabIconWrap}>
+            <User
+              size={20}
+              color={activeTab === 'profile' ? colors.accent : colors.subtle}
+              strokeWidth={activeTab === 'profile' ? 2.4 : 2}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabBarLabel,
+              activeTab === 'profile' && styles.tabBarLabelActive,
+            ]}
+            numberOfLines={1}
+          >
+            Profile
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* ================= MODAL: TRIP INSPECTION, WHATSAPP DISPATCH & ASSIGNMENT ================= */}
       <Modal
-        visible={!!selectedTripToApprove}
+        visible={!!inspectedTrip}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelectedTripToApprove(null)}
+        onRequestClose={() => setInspectedTrip(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { maxHeight: '90%' }]}>
             <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Dispatch Vehicle</Text>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <Text style={styles.modalTitle}>Trip Reservation</Text>
+                  <View style={styles.tripRefBadge}>
+                    <Text style={styles.tripRefText}>{inspectedTrip?.bookingRef}</Text>
+                  </View>
+                </View>
                 <Text style={styles.modalSubtitle}>
-                  Select available car for {selectedTripToApprove?.bookingRef}
+                  Status: {inspectedTrip?.status} • {inspectedTrip?.tripType}
                 </Text>
               </View>
               <Pressable
-                onPress={() => setSelectedTripToApprove(null)}
+                onPress={() => setInspectedTrip(null)}
                 style={styles.modalCloseBtn}
+                accessibilityLabel="Close modal"
               >
                 <X size={20} color={colors.text} />
               </Pressable>
             </View>
 
-            <Text style={styles.modalSectionLabel}>Available Fleet Vehicles</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: spacing.xl }}>
+              {/* 1. Customer Section */}
+              <View style={styles.inspectSection}>
+                <Text style={styles.inspectSectionLabel}>CUSTOMER DETAILS</Text>
+                <View style={styles.inspectCustomerCard}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.inspectCustomerName}>{inspectedTrip?.customerName}</Text>
+                    <Text style={styles.inspectCustomerEmail}>{inspectedTrip?.customerEmail}</Text>
+                  </View>
+                  <View style={styles.inspectCustomerActions}>
+                    <Pressable
+                      onPress={() => inspectedTrip && Linking.openURL(`tel:${inspectedTrip.customerPhone}`)}
+                      style={({ pressed }) => [styles.inspectActionBtn, pressed && styles.pressed]}
+                      accessibilityLabel={`Call ${inspectedTrip?.customerName}`}
+                    >
+                      <Phone size={14} color={colors.accent} />
+                      <Text style={styles.inspectActionBtnText}>Call</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => inspectedTrip && Linking.openURL(`https://wa.me/${inspectedTrip.customerPhone.replace(/\D/g, '')}`)}
+                      style={({ pressed }) => [styles.inspectActionBtnWhatsApp, pressed && styles.pressed]}
+                      accessibilityLabel={`WhatsApp ${inspectedTrip?.customerName}`}
+                    >
+                      <MessageCircle size={14} color={colors.whatsapp} />
+                      <Text style={styles.inspectActionBtnWhatsAppText}>WhatsApp</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
 
-            <ScrollView style={{ maxHeight: 280 }}>
-              {vehicles
-                .filter((v) => v.status === 'available')
-                .map((car) => (
-                  <Pressable
-                    key={car.id}
-                    disabled={isSubmittingDispatch}
-                    onPress={() => handleApproveWithVehicle(car.id)}
-                    style={({ pressed }) => [styles.vehicleOptionCard, pressed && styles.pressed]}
-                  >
-                    <View style={styles.vehicleOptionIcon}>
-                      <Car size={20} color={colors.accent} />
+              {/* 2. Route & Expedition Details */}
+              <View style={styles.inspectSection}>
+                <Text style={styles.inspectSectionLabel}>EXPEDITION & ROUTE DETAILS</Text>
+                <View style={styles.inspectDetailBox}>
+                  <View style={styles.routeTimeline}>
+                    <View style={styles.routeVisualCol}>
+                      <View style={styles.routeOriginDot} />
+                      <View style={styles.routeConnectorLine} />
+                      <View style={styles.routeDestDot} />
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.vehicleOptionModel}>{car.model}</Text>
-                      <Text style={styles.vehicleOptionPlate}>
-                        {car.registrationPlate} • {car.category} ({car.seats} seats)
+                    <View style={styles.routeLabelsCol}>
+                      <View style={styles.routeStop}>
+                        <Text style={styles.routeStopType}>PICKUP LOCATION</Text>
+                        <Text style={styles.routeLocationName}>{inspectedTrip?.pickupLocation}</Text>
+                      </View>
+                      <View style={styles.routeStopDest}>
+                        <Text style={styles.routeStopTypeDest}>DROPOFF LOCATION</Text>
+                        <Text style={styles.routeLocationName}>{inspectedTrip?.dropoffLocation}</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.inspectGrid}>
+                    <View style={styles.inspectGridItem}>
+                      <Calendar size={13} color={colors.subtle} />
+                      <Text style={styles.inspectGridLabel}>Date & Time:</Text>
+                      <Text style={styles.inspectGridVal}>
+                        {inspectedTrip?.pickupDate ? new Date(inspectedTrip.pickupDate).toLocaleDateString() : ''} • {inspectedTrip?.pickupTime}
                       </Text>
                     </View>
-                    <View style={styles.dispatchSelectBtn}>
-                      <Text style={styles.dispatchSelectBtnText}>Assign</Text>
+                    <View style={styles.inspectGridItem}>
+                      <Users size={13} color={colors.subtle} />
+                      <Text style={styles.inspectGridLabel}>Passengers:</Text>
+                      <Text style={styles.inspectGridVal}>{inspectedTrip?.passengerCount} Pax</Text>
                     </View>
-                  </Pressable>
-                ))}
-            </ScrollView>
+                    <View style={styles.inspectGridItem}>
+                      <Car size={13} color={colors.subtle} />
+                      <Text style={styles.inspectGridLabel}>Vehicle Category:</Text>
+                      <Text style={styles.inspectGridVal}>{inspectedTrip?.vehicleCategory}</Text>
+                    </View>
+                    <View style={styles.inspectGridItem}>
+                      <Tag size={13} color={colors.subtle} />
+                      <Text style={styles.inspectGridLabel}>Target Budget:</Text>
+                      <Text style={styles.inspectGridVal}>{inspectedTrip?.estimatedFare}</Text>
+                    </View>
+                  </View>
 
-            {isSubmittingDispatch && (
-              <View style={styles.modalLoading}>
-                <ActivityIndicator color={colors.accent} />
-                <Text style={styles.modalLoadingText}>Processing assignment transaction...</Text>
+                  {inspectedTrip?.additionalDetails ? (
+                    <View style={styles.inspectNotesWrap}>
+                      <Text style={styles.inspectNotesLabel}>Customer Instructions / Notes:</Text>
+                      <Text style={styles.inspectNotesText}>{inspectedTrip.additionalDetails}</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
-            )}
+
+              {/* 3. WhatsApp Dispatch Briefing Preview & Copy */}
+              <View style={styles.inspectSection}>
+                <View style={styles.whatsappHeaderRow}>
+                  <Text style={styles.inspectSectionLabel}>WHATSAPP DISPATCH MESSAGE</Text>
+                  {copiedWhatsAppToast && (
+                    <View style={styles.copiedToast}>
+                      <Check size={12} color={colors.success} />
+                      <Text style={styles.copiedToastText}>Copied to Clipboard!</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.whatsappTerminal}>
+                  <Text style={styles.whatsappTerminalText}>
+                    {inspectedTrip
+                      ? formatWhatsAppDispatchMessage(
+                          inspectedTrip,
+                          vehicles.find((v) => v.id === dispatchVehicleId),
+                          drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId),
+                          dispatchPrice,
+                        )
+                      : ''}
+                  </Text>
+                </View>
+
+                <View style={styles.whatsappButtonsRow}>
+                  <Pressable
+                    onPress={handleCopyWhatsApp}
+                    style={({ pressed }) => [styles.copyWaBtn, pressed && styles.pressed]}
+                    accessibilityLabel="Copy WhatsApp Message"
+                  >
+                    <Copy size={15} color={colors.onAccent} />
+                    <Text style={styles.copyWaBtnText}>Copy WhatsApp Message</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={handleOpenWhatsApp}
+                    style={({ pressed }) => [styles.openWaBtn, pressed && styles.pressed]}
+                    accessibilityLabel="Open in WhatsApp"
+                  >
+                    <MessageCircle size={15} color={colors.whatsapp} />
+                    <Text style={styles.openWaBtnText}>WhatsApp</Text>
+                  </Pressable>
+                </View>
+              </View>
+
+              {/* 4. Dispatch Form (if Pending) */}
+              {inspectedTrip?.status === 'Pending' ? (
+                <View style={styles.inspectSection}>
+                  <Text style={styles.inspectSectionLabel}>DISPATCH CONTROLS & ASSIGNMENT</Text>
+
+                  {/* Step A: Select Vehicle */}
+                  <Text style={styles.dispatchStepLabel}>1. Select Available Fleet Vehicle *</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.sm }}>
+                    {vehicles
+                      .filter((v) => v.status === 'available' || v.id === dispatchVehicleId)
+                      .map((car) => {
+                        const isSelected = dispatchVehicleId === car.id;
+                        return (
+                          <Pressable
+                            key={car.id}
+                            onPress={() => {
+                              hapticFeedback.selection();
+                              setDispatchVehicleId(car.id);
+                            }}
+                            style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
+                          >
+                            <Car size={16} color={isSelected ? colors.accent : colors.subtle} />
+                            <View style={{ marginLeft: 6 }}>
+                              <Text style={[styles.selectorChipTitle, isSelected && styles.selectorChipTitleActive]}>
+                                {car.model}
+                              </Text>
+                              <Text style={styles.selectorChipSub}>
+                                {car.registrationPlate} • {car.category}
+                              </Text>
+                            </View>
+                            {isSelected && <Check size={14} color={colors.accent} style={{ marginLeft: 6 }} />}
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+
+                  {/* Step B: Select Driver */}
+                  <Text style={styles.dispatchStepLabel}>2. Attach Active Driver</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.sm }}>
+                    {drivers
+                      .filter((d) => d.status === 'active' || (d.id || d.ownerId) === dispatchDriverId)
+                      .map((drv) => {
+                        const drvId = drv.id || drv.ownerId;
+                        const isSelected = dispatchDriverId === drvId;
+                        return (
+                          <Pressable
+                            key={drvId}
+                            onPress={() => {
+                              hapticFeedback.selection();
+                              const nextId = isSelected ? null : drvId;
+                              setDispatchDriverId(nextId);
+                              if (nextId && drv.vehicle?.id && !dispatchVehicleId) {
+                                setDispatchVehicleId(drv.vehicle.id);
+                              }
+                            }}
+                            style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
+                          >
+                            <User size={16} color={isSelected ? colors.accent : colors.subtle} />
+                            <View style={{ marginLeft: 6 }}>
+                              <Text style={[styles.selectorChipTitle, isSelected && styles.selectorChipTitleActive]}>
+                                {drv.fullName}
+                              </Text>
+                              <Text style={styles.selectorChipSub}>{drv.phoneNumber}</Text>
+                            </View>
+                            {isSelected && <Check size={14} color={colors.accent} style={{ marginLeft: 6 }} />}
+                          </Pressable>
+                        );
+                      })}
+                  </ScrollView>
+
+                  {/* Step C: Agreed Price */}
+                  <Text style={styles.dispatchStepLabel}>3. Final Confirmed Fare (NPR)</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    value={dispatchPrice}
+                    onChangeText={setDispatchPrice}
+                    placeholder="e.g. NPR 14,000"
+                    placeholderTextColor={colors.subtle}
+                  />
+
+                  {/* Submit Dispatch */}
+                  <Pressable
+                    disabled={isSubmittingDispatch}
+                    onPress={handleConfirmDispatch}
+                    style={({ pressed }) => [styles.confirmDispatchBtn, pressed && styles.pressed]}
+                    accessibilityLabel="Confirm and dispatch to user"
+                  >
+                    {isSubmittingDispatch ? (
+                      <ActivityIndicator color={colors.onAccent} />
+                    ) : (
+                      <>
+                        <CheckCircle2 size={18} color={colors.onAccent} style={{ marginRight: 8 }} />
+                        <Text style={styles.confirmDispatchBtnText}>Confirm & Dispatch to User</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.inspectSection}>
+                  <Text style={styles.inspectSectionLabel}>ASSIGNED DETAILS</Text>
+                  <View style={styles.inspectDetailBox}>
+                    <Text style={styles.assignedVehicleText}>
+                      Vehicle: <Text style={{ fontWeight: '800' }}>{inspectedTrip?.assignedVehicleModel}</Text> ({inspectedTrip?.assignedVehiclePlate || 'TBD'})
+                    </Text>
+                    {inspectedTrip?.assignedDriverName ? (
+                      <Text style={[styles.assignedVehicleText, { marginTop: 4 }]}>
+                        Driver: <Text style={{ fontWeight: '800' }}>{inspectedTrip.assignedDriverName}</Text> ({inspectedTrip.assignedDriverPhone || ''})
+                      </Text>
+                    ) : null}
+                    <Text style={[styles.assignedVehicleText, { marginTop: 4 }]}>
+                      Confirmed Fare: <Text style={{ fontWeight: '800', color: colors.accent }}>{inspectedTrip?.finalFare || inspectedTrip?.estimatedFare}</Text>
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1246,66 +1809,213 @@ export function AdminDashboardScreen() {
         </View>
       </Modal>
 
-      {/* ================= MODAL: REGISTER VEHICLE ================= */}
+      {/* ================= MODAL: REGISTER DRIVER ================= */}
       <Modal
-        visible={isAddVehicleOpen}
+        visible={isAddDriverOpen}
         transparent
         animationType="slide"
-        onRequestClose={() => setIsAddVehicleOpen(false)}
+        onRequestClose={() => setIsAddDriverOpen(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.sheetHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Register New Vehicle</Text>
+              <View>
+                <Text style={styles.modalTitle}>Register Driver &amp; Vehicle</Text>
+                <Text style={styles.modalSubtitle}>
+                  Register driver (dka_owners) &amp; attached vehicle (dka_vehicles) in one place.
+                </Text>
+              </View>
               <Pressable
-                onPress={() => setIsAddVehicleOpen(false)}
+                onPress={() => setIsAddDriverOpen(false)}
                 style={styles.modalCloseBtn}
               >
                 <X size={20} color={colors.text} />
               </Pressable>
             </View>
 
-            <ScrollView style={{ maxHeight: 380 }}>
+            <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}>
+              {/* SECTION 1: DRIVER PROFILE */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.sm }}>
+                <User size={15} color={colors.accent} />
+                <Text style={{ fontSize: 11, fontWeight: '800', color: colors.accent, letterSpacing: 0.8 }}>
+                  1. DRIVER PROFILE (dka_owners &amp; cr_owners)
+                </Text>
+              </View>
+
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Vehicle Model Name</Text>
+                <Text style={styles.formLabel}>Full Legal Name *</Text>
                 <TextInput
                   style={styles.formInput}
-                  value={newVehicle.model}
-                  onChangeText={(val) => setNewVehicle({ ...newVehicle, model: val })}
-                  placeholder="e.g., Mahindra Scorpio S11 4x4"
+                  value={newDriver.fullName}
+                  onChangeText={(val) => setNewDriver({ ...newDriver, fullName: val })}
+                  placeholder="e.g., Pasang Dorje Sherpa"
                   placeholderTextColor={colors.muted}
                 />
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Registration Plate Number</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={newVehicle.registrationPlate}
-                  onChangeText={(val) => setNewVehicle({ ...newVehicle, registrationPlate: val })}
-                  placeholder="e.g., BA 2 PA 9988"
-                  placeholderTextColor={colors.muted}
-                  autoCapitalize="characters"
-                />
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={styles.formLabel}>Phone Number *</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newDriver.phoneNumber}
+                    onChangeText={(val) => setNewDriver({ ...newDriver, phoneNumber: val })}
+                    placeholder="e.g., +977 9851011223"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>WhatsApp Number</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newDriver.whatsappNumber || ''}
+                    onChangeText={(val) => setNewDriver({ ...newDriver, whatsappNumber: val })}
+                    placeholder="e.g., +977 9851011223"
+                    placeholderTextColor={colors.muted}
+                    keyboardType="phone-pad"
+                  />
+                </View>
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Category</Text>
+                <Text style={styles.formLabel}>Email Address (Optional)</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newDriver.email || ''}
+                  onChangeText={(val) => setNewDriver({ ...newDriver, email: val })}
+                  placeholder="e.g., driver@drivekendra.com"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={styles.formLabel}>Citizenship / ID No *</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newDriver.citizenshipOrIdNo}
+                    onChangeText={(val) =>
+                      setNewDriver({ ...newDriver, citizenshipOrIdNo: val })
+                    }
+                    placeholder="e.g., 27-01-72-04512"
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Driver License No *</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newDriver.licenseDocId}
+                    onChangeText={(val) =>
+                      setNewDriver({ ...newDriver, licenseDocId: val })
+                    }
+                    placeholder="e.g., LIC-EXP-9921"
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Initial Status</Text>
                 <View style={styles.categoryPickerRow}>
-                  {(['SUV', 'Sedan', 'HiAce', 'Bus'] as const).map((cat) => (
+                  {(['active', 'pending'] as const).map((st) => (
                     <Pressable
-                      key={cat}
-                      onPress={() => setNewVehicle({ ...newVehicle, category: cat })}
+                      key={st}
+                      onPress={() => setNewDriver({ ...newDriver, status: st })}
                       style={[
                         styles.catOption,
-                        newVehicle.category === cat && styles.catOptionActive,
+                        newDriver.status === st && styles.catOptionActive,
                       ]}
                     >
                       <Text
                         style={[
                           styles.catOptionText,
-                          newVehicle.category === cat && styles.catOptionTextActive,
+                          newDriver.status === st && styles.catOptionTextActive,
+                        ]}
+                      >
+                        {st.toUpperCase()}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* SECTION 2: ASSIGNED VEHICLE DETAILS */}
+              <View style={styles.modalSectionDivider}>
+                <Car size={16} color={colors.accent} />
+                <Text style={styles.modalSectionDividerTitle}>
+                  2. ASSIGNED VEHICLE (dka_vehicles &amp; cr_vehicles)
+                </Text>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Vehicle Make &amp; Model</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={newDriver.makeModel || ''}
+                  onChangeText={(val) => setNewDriver({ ...newDriver, makeModel: val })}
+                  placeholder="e.g., Mahindra Scorpio S11 4x4 / Toyota HiAce"
+                  placeholderTextColor={colors.muted}
+                />
+              </View>
+
+              <View style={styles.formRow}>
+                <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
+                  <Text style={styles.formLabel}>License Plate No</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newDriver.licensePlate || ''}
+                    onChangeText={(val) => setNewDriver({ ...newDriver, licensePlate: val })}
+                    placeholder="e.g., BA 2 PA 4521"
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+
+                <View style={[styles.formGroup, { flex: 1 }]}>
+                  <Text style={styles.formLabel}>Vehicle Color</Text>
+                  <TextInput
+                    style={styles.formInput}
+                    value={newDriver.color || ''}
+                    onChangeText={(val) => setNewDriver({ ...newDriver, color: val })}
+                    placeholder="e.g., White / Silver / Black"
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Vehicle Category</Text>
+                <View style={styles.categoryPickerRow}>
+                  {(['SUV', 'Sedan', 'HiAce', 'Bus'] as const).map((cat) => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => {
+                        const typeId = cat === 'Sedan' ? 1 : cat === 'HiAce' ? 3 : cat === 'Bus' ? 4 : 2;
+                        const defaultSeats = cat === 'Sedan' ? 4 : cat === 'HiAce' ? 14 : cat === 'Bus' ? 28 : 7;
+                        setNewDriver({
+                          ...newDriver,
+                          category: cat,
+                          vehicleTypeId: typeId,
+                          seatingCapacity: defaultSeats,
+                        });
+                      }}
+                      style={[
+                        styles.catOption,
+                        newDriver.category === cat && styles.catOptionActive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.catOptionText,
+                          newDriver.category === cat && styles.catOptionTextActive,
                         ]}
                       >
                         {cat}
@@ -1317,154 +2027,42 @@ export function AdminDashboardScreen() {
 
               <View style={styles.formRow}>
                 <View style={[styles.formGroup, { flex: 1, marginRight: spacing.sm }]}>
-                  <Text style={styles.formLabel}>Capacity (Seats)</Text>
+                  <Text style={styles.formLabel}>Seating Capacity</Text>
                   <TextInput
                     style={styles.formInput}
-                    value={String(newVehicle.seats)}
+                    value={String(newDriver.seatingCapacity || 7)}
                     onChangeText={(val) =>
-                      setNewVehicle({ ...newVehicle, seats: Number(val) || 4 })
+                      setNewDriver({ ...newDriver, seatingCapacity: parseInt(val, 10) || 7 })
                     }
+                    placeholder="e.g., 7"
+                    placeholderTextColor={colors.muted}
                     keyboardType="number-pad"
                   />
                 </View>
 
                 <View style={[styles.formGroup, { flex: 1 }]}>
-                  <Text style={styles.formLabel}>Fuel Type</Text>
+                  <Text style={styles.formLabel}>Bluebook Document ID</Text>
                   <TextInput
                     style={styles.formInput}
-                    value={newVehicle.fuelType}
-                    onChangeText={(val) => setNewVehicle({ ...newVehicle, fuelType: val })}
-                    placeholder="Diesel / Petrol / EV"
+                    value={newDriver.bluebookDocId || ''}
+                    onChangeText={(val) => setNewDriver({ ...newDriver, bluebookDocId: val })}
+                    placeholder="e.g., DOC-BB-9921"
                     placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
                   />
                 </View>
               </View>
             </ScrollView>
 
             <Pressable
-              onPress={handleCreateVehicle}
-              style={styles.createVehicleSubmitBtn}
+              disabled={isSubmittingDriver}
+              onPress={handleCreateDriver}
+              style={[styles.createVehicleSubmitBtn, isSubmittingDriver && { opacity: 0.7 }]}
             >
-              <Text style={styles.createVehicleSubmitText}>Save to Fleet Inventory</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ================= MODAL: POST ROAD ADVISORY ================= */}
-      <Modal
-        visible={isAddAdvisoryOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setIsAddAdvisoryOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Himalayan Road Bulletin</Text>
-                <Text style={styles.modalSubtitle}>Post mountain highway condition advisory</Text>
-              </View>
-              <Pressable
-                onPress={() => setIsAddAdvisoryOpen(false)}
-                style={styles.modalCloseBtn}
-              >
-                <X size={20} color={colors.text} />
-              </Pressable>
-            </View>
-
-            <ScrollView style={{ maxHeight: 380 }}>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Highway / Corridor Name</Text>
-                <TextInput
-                  style={styles.formInput}
-                  value={newAdvisory.routeName}
-                  onChangeText={(val) => setNewAdvisory({ ...newAdvisory, routeName: val })}
-                  placeholder="e.g., BP Highway (Golanjor - Khurkot)"
-                  placeholderTextColor={colors.muted}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Road Status</Text>
-                <View style={styles.categoryPickerRow}>
-                  {(['open', 'caution', 'closed'] as const).map((st) => (
-                    <Pressable
-                      key={st}
-                      onPress={() => {
-                        hapticFeedback.selection();
-                        setNewAdvisory({ ...newAdvisory, status: st });
-                      }}
-                      style={[
-                        styles.catOption,
-                        newAdvisory.status === st && styles.catOptionActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.catOptionText,
-                          newAdvisory.status === st && styles.catOptionTextActive,
-                        ]}
-                      >
-                        {st.toUpperCase()}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Severity Level</Text>
-                <View style={styles.categoryPickerRow}>
-                  {(['info', 'moderate', 'severe'] as const).map((sev) => (
-                    <Pressable
-                      key={sev}
-                      onPress={() => {
-                        hapticFeedback.selection();
-                        setNewAdvisory({ ...newAdvisory, severity: sev });
-                      }}
-                      style={[
-                        styles.catOption,
-                        newAdvisory.severity === sev && styles.catOptionActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.catOptionText,
-                          newAdvisory.severity === sev && styles.catOptionTextActive,
-                        ]}
-                      >
-                        {sev.toUpperCase()}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Condition Summary & Details</Text>
-                <TextInput
-                  style={styles.rejectionInput}
-                  value={newAdvisory.conditionSummary}
-                  onChangeText={(val) => setNewAdvisory({ ...newAdvisory, conditionSummary: val })}
-                  placeholder="e.g., Landslide clearing at Golanjor; single lane alternating traffic. 4x4 recommended."
-                  placeholderTextColor={colors.muted}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            </ScrollView>
-
-            <Pressable
-              onPress={handleCreateAdvisory}
-              disabled={isSubmittingAdvisory}
-              style={[styles.createVehicleSubmitBtn, isSubmittingAdvisory && { opacity: 0.6 }]}
-            >
-              {isSubmittingAdvisory ? (
+              {isSubmittingDriver ? (
                 <ActivityIndicator color={colors.onAccent} />
               ) : (
-                <Text style={styles.createVehicleSubmitText}>Publish Road Bulletin</Text>
+                <Text style={styles.createVehicleSubmitText}>Register Driver &amp; Vehicle</Text>
               )}
             </Pressable>
           </View>
@@ -1660,32 +2258,245 @@ function createStyles(colors: ThemeColors) {
       color: colors.text,
       marginTop: spacing.xs,
     },
-    segmentedTabs: {
+    mainScrollView: {
+      flex: 1,
+    },
+    bottomTabBar: {
       flexDirection: 'row',
-      marginHorizontal: spacing.md,
-      marginBottom: spacing.md,
       backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      padding: 3,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      paddingTop: 6,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 6,
+      elevation: 8,
+    },
+    tabBarItem: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 2,
+    },
+    tabIconWrap: {
+      position: 'relative',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 28,
+      height: 24,
+    },
+    tabBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -8,
+      backgroundColor: colors.accent,
+      borderRadius: 8,
+      minWidth: 16,
+      height: 16,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 3,
+    },
+    tabBadgeText: {
+      color: colors.onAccent,
+      fontSize: 9,
+      fontWeight: '800',
+    },
+    tabBarLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.subtle,
+      marginTop: 2,
+      paddingBottom: 2,
+      textAlign: 'center',
+    },
+    tabBarLabelActive: {
+      color: colors.accent,
+      fontWeight: '800',
+    },
+    profileCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    profileHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    profileAvatarCircle: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    profileIdentityCol: {
+      flex: 1,
+      gap: 2,
+    },
+    profileName: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    profilePhone: {
+      fontSize: 13,
+      color: colors.subtle,
+      fontWeight: '500',
+    },
+    profileRoleBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      alignSelf: 'flex-start',
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+      marginTop: 4,
+    },
+    profileRoleDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.accent,
+    },
+    profileRoleText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.accent,
+      letterSpacing: 0.5,
+    },
+    profileStatsCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      marginBottom: spacing.md,
       borderWidth: 1,
       borderColor: colors.border,
     },
-    segmentBtn: {
-      flex: 1,
-      paddingVertical: spacing.sm,
-      alignItems: 'center',
-      borderRadius: radius.sm,
+    profileSectionTitle: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.text,
+      marginBottom: spacing.xs,
     },
-    segmentBtnActive: {
-      backgroundColor: colors.accent,
-    },
-    segmentBtnText: {
+    profileSectionSubtitle: {
       fontSize: 11,
-      fontWeight: '700',
       color: colors.subtle,
+      marginBottom: spacing.sm,
     },
-    segmentBtnTextActive: {
-      color: colors.onAccent,
+    profileStatsGrid: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    profileStatBox: {
+      flex: 1,
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      padding: spacing.sm,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    profileStatValue: {
+      fontSize: 15,
+      fontWeight: '800',
+      color: colors.text,
+    },
+    profileStatLabel: {
+      fontSize: 10,
+      color: colors.subtle,
+      marginTop: 2,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    securityCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: spacing.md,
+    },
+    securityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    securityIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: radius.sm,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    securityTextCol: {
+      flex: 1,
+    },
+    securityTitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    securitySubtitle: {
+      fontSize: 10,
+      color: colors.subtle,
+      marginTop: 1,
+    },
+    securityActiveBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.successSoft,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+      borderRadius: radius.pill,
+    },
+    securityActiveText: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: colors.success,
+      letterSpacing: 0.5,
+    },
+    themeSectionCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    profileSignOutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.errorSoft,
+      borderRadius: radius.lg,
+      paddingVertical: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.error,
+      marginTop: spacing.sm,
+      marginBottom: spacing.xl,
+    },
+    profileSignOutText: {
+      fontSize: 13,
+      fontWeight: '800',
+      color: colors.error,
     },
     sectionContainer: {
       paddingHorizontal: spacing.md,
@@ -1714,150 +2525,6 @@ function createStyles(colors: ThemeColors) {
     },
     filterPillTextActive: {
       color: colors.onNavy,
-    },
-    advisoryCard: {
-      backgroundColor: colors.surface,
-      borderRadius: radius.lg,
-      padding: spacing.md,
-      marginBottom: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.04,
-      shadowRadius: 4,
-      elevation: 2,
-    },
-    advisoryCardHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    advisoryHeaderTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
-    },
-    advisoryIconWrap: {
-      width: 32,
-      height: 32,
-      borderRadius: radius.sm,
-      backgroundColor: colors.accentSoft,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    advisoryCardTitle: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: colors.text,
-    },
-    advisoryCardSubtitle: {
-      fontSize: 11,
-      color: colors.subtle,
-      fontWeight: '500',
-    },
-    advisoryActionRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-    },
-    postAdvisoryBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 3,
-      backgroundColor: colors.accent,
-      paddingHorizontal: spacing.sm + 2,
-      paddingVertical: 4,
-      borderRadius: radius.sm,
-    },
-    postAdvisoryBtnText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: colors.onAccent,
-    },
-    advisoryToggleBtn: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: colors.elevated,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    advisoriesListContainer: {
-      marginTop: spacing.md,
-      paddingTop: spacing.sm,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      gap: spacing.sm,
-    },
-    emptyAdvisoriesText: {
-      fontSize: 12,
-      color: colors.subtle,
-      fontStyle: 'italic',
-      textAlign: 'center',
-      paddingVertical: spacing.sm,
-    },
-    advisoryItem: {
-      backgroundColor: colors.elevated,
-      borderRadius: radius.md,
-      padding: spacing.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    advisoryItemTop: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: 4,
-    },
-    advisoryRouteName: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: colors.text,
-      flex: 1,
-      marginRight: spacing.sm,
-    },
-    advisoryStatusBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: radius.pill,
-    },
-    advisoryStatusText: {
-      fontSize: 9,
-      fontWeight: '800',
-      letterSpacing: 0.5,
-    },
-    advisorySummary: {
-      fontSize: 12,
-      color: colors.subtle,
-      lineHeight: 16,
-      marginBottom: 6,
-    },
-    advisoryItemBottom: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingTop: 4,
-    },
-    advisoryDate: {
-      fontSize: 10,
-      color: colors.muted,
-    },
-    dismissAdvisoryBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-    },
-    dismissAdvisoryText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: colors.error,
     },
     emptyState: {
       alignItems: 'center',
@@ -2220,6 +2887,193 @@ function createStyles(colors: ThemeColors) {
       fontSize: 12,
       fontWeight: '700',
       color: colors.onAccent,
+    },
+    driverSectionCountText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.subtle,
+    },
+    driverCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.lg,
+      padding: spacing.md,
+      marginBottom: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
+      elevation: 2,
+    },
+    driverCardTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    driverAvatarCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: spacing.md,
+    },
+    driverAvatarLetter: {
+      fontSize: 18,
+      fontWeight: '800',
+      color: colors.accent,
+    },
+    driverDetails: {
+      flex: 1,
+    },
+    driverName: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    driverSubRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 2,
+    },
+    driverOwnerRef: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.subtle,
+    },
+    driverContactRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    driverContactChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: colors.accentSoft,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+    },
+    driverContactChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+    driverWhatsAppChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      backgroundColor: colors.successSoft,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 5,
+      borderRadius: radius.pill,
+    },
+    driverWhatsAppChipText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.success,
+    },
+    driverCredsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+      marginTop: spacing.sm,
+      paddingTop: spacing.xs,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    driverCredBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.elevated,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    driverCredLabel: {
+      fontSize: 9,
+      fontWeight: '800',
+      color: colors.subtle,
+      letterSpacing: 0.5,
+    },
+    driverCredValue: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    driverVehicleBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.elevated,
+      borderRadius: radius.sm,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: 7,
+      marginTop: spacing.xs + 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    driverVehicleTitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    driverVehicleSub: {
+      fontSize: 11,
+      color: colors.subtle,
+      marginTop: 1,
+    },
+    modalSectionDivider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+      paddingTop: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    modalSectionDividerTitle: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.accent,
+      letterSpacing: 0.8,
+    },
+    driverFooterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.sm,
+      paddingTop: spacing.xs,
+    },
+    driverEmailText: {
+      fontSize: 11,
+      color: colors.subtle,
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    driverStatusToggleBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.elevated,
+    },
+    driverStatusToggleBtnActive: {
+      backgroundColor: colors.successSoft,
+    },
+    driverStatusToggleText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.subtle,
     },
     fleetCard: {
       backgroundColor: colors.surface,
@@ -2659,6 +3513,284 @@ function createStyles(colors: ThemeColors) {
     historyDate: {
       fontSize: 11,
       color: colors.subtle,
+    },
+    tripCardNotePreview: {
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+      borderRadius: radius.xs,
+      marginTop: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tripCardNotePreviewText: {
+      fontSize: 12,
+      color: colors.subtle,
+      fontStyle: 'italic',
+    },
+    cardTapPrompt: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingTop: spacing.xs,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: spacing.xs,
+    },
+    cardTapPromptText: {
+      fontSize: 11,
+      color: colors.subtle,
+      fontWeight: '600',
+    },
+    inspectSection: {
+      marginBottom: spacing.md,
+    },
+    inspectSectionLabel: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.subtle,
+      letterSpacing: 0.8,
+      marginBottom: spacing.xs,
+      textTransform: 'uppercase',
+    },
+    inspectCustomerCard: {
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    inspectCustomerName: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    inspectCustomerEmail: {
+      fontSize: 12,
+      color: colors.subtle,
+      marginTop: 2,
+    },
+    inspectCustomerActions: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    inspectActionBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    inspectActionBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+    inspectActionBtnWhatsApp: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: radius.sm,
+      backgroundColor: colors.whatsappSoft,
+      borderWidth: 1,
+      borderColor: colors.whatsappBorder,
+    },
+    inspectActionBtnWhatsAppText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.whatsapp,
+    },
+    inspectDetailBox: {
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    inspectGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+      paddingTop: spacing.sm,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    inspectGridItem: {
+      width: '48%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    inspectGridLabel: {
+      fontSize: 11,
+      color: colors.subtle,
+    },
+    inspectGridVal: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.text,
+      flex: 1,
+    },
+    inspectNotesWrap: {
+      marginTop: spacing.sm,
+      paddingTop: spacing.xs,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    inspectNotesLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.subtle,
+      marginBottom: 2,
+    },
+    inspectNotesText: {
+      fontSize: 12,
+      color: colors.text,
+      fontStyle: 'italic',
+    },
+    whatsappHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.xs,
+    },
+    copiedToast: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.surface,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      borderRadius: radius.xs,
+      borderWidth: 1,
+      borderColor: colors.success,
+    },
+    copiedToastText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: colors.success,
+    },
+    whatsappTerminal: {
+      backgroundColor: colors.surface,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: spacing.xs,
+    },
+    whatsappTerminalText: {
+      fontSize: 11,
+      color: colors.text,
+      fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+      lineHeight: 16,
+    },
+    whatsappButtonsRow: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+      marginTop: spacing.xs,
+    },
+    copyWaBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: colors.accent,
+      height: 42,
+      borderRadius: radius.sm,
+    },
+    copyWaBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.onAccent,
+    },
+    openWaBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: colors.whatsappSoft,
+      paddingHorizontal: 16,
+      height: 42,
+      borderRadius: radius.sm,
+      borderWidth: 1,
+      borderColor: colors.whatsappBorder,
+    },
+    openWaBtnText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.whatsapp,
+    },
+    dispatchStepLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+      marginTop: spacing.xs,
+      marginBottom: 6,
+    },
+    selectorChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.sm,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginRight: spacing.xs,
+    },
+    selectorChipActive: {
+      borderColor: colors.accent,
+      backgroundColor: colors.surface,
+    },
+    selectorChipTitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    selectorChipTitleActive: {
+      color: colors.accent,
+    },
+    selectorChipSub: {
+      fontSize: 11,
+      color: colors.subtle,
+    },
+    priceInput: {
+      backgroundColor: colors.elevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.sm,
+      height: 44,
+      paddingHorizontal: 12,
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+      marginBottom: spacing.sm,
+    },
+    confirmDispatchBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.accent,
+      height: 48,
+      borderRadius: radius.md,
+      marginTop: spacing.xs,
+    },
+    confirmDispatchBtnText: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.onAccent,
     },
   });
 }

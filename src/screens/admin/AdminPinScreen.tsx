@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { ArrowLeft, Delete, KeyRound, Lock, ShieldAlert, Sparkles } from 'lucide-react-native';
+import { ArrowLeft, Delete, KeyRound, Lock, ShieldAlert } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { navigationRef } from '../../navigation/navigationRef';
@@ -206,13 +206,6 @@ export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: Adm
     setPin('');
   };
 
-  const handleQuickFillPin = () => {
-    if (isVerifying || isLoading) return;
-    hapticFeedback.selection();
-    setErrorText(null);
-    setPin('6767');
-  };
-
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       {/* Top Header */}
@@ -242,20 +235,8 @@ export function AdminPinScreen({ onSuccess, onBack, onMaxAttemptsExceeded }: Adm
         <Text style={styles.subtitle}>
           Enter the 4-digit Master Security PIN for operator authorization.
         </Text>
-
-        {/* Quick-fill Demo PIN Pill */}
-        <Pressable
-          onPress={handleQuickFillPin}
-          style={({ pressed }) => [styles.demoPinPill, pressed && styles.pressed]}
-          accessibilityRole="button"
-          accessibilityLabel="Auto-fill Demo PIN 6767"
-        >
-          <Sparkles size={13} color={colors.accent} style={{ marginRight: 5 }} />
-          <Text style={styles.demoPinPillText}>
-            Quick-fill Master PIN: <Text style={styles.demoPinPillCode}>6767</Text>
-          </Text>
-        </Pressable>
       </View>
+
 
       {/* 4-Digit Indicator Circles */}
       <Animated.View style={[styles.dotsRow, { transform: [{ translateX: shakeAnim }] }]}>
@@ -451,31 +432,6 @@ function createStyles(colors: ThemeColors) {
       color: colors.subtle,
       textAlign: 'center',
       lineHeight: 18,
-    },
-    demoPinPill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.surface,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs + 2,
-      borderRadius: radius.pill,
-      marginTop: spacing.md,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 4,
-      elevation: 2,
-    },
-    demoPinPillText: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: colors.subtle,
-    },
-    demoPinPillCode: {
-      fontWeight: '800',
-      color: colors.accent,
     },
     dotsRow: {
       flexDirection: 'row',

@@ -91,7 +91,7 @@ export function TimePickerField({
                 <Sunset size={12} color={isSelected ? colors.onAccent : colors.accent} />
               )}
               {item.period === 'evening' && (
-                <Moon size={12} color={isSelected ? colors.onAccent : '#8B5CF6'} />
+                <Moon size={12} color={isSelected ? colors.onAccent : colors.accent} />
               )}
               <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
                 {item.time}

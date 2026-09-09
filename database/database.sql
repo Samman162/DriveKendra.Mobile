@@ -57,43 +57,312 @@ CREATE TABLE IF NOT EXISTS dka_vehicle_types (
 );
 
 -- =============================================================================
--- 3. VEHICLE FLEET INVENTORY (dka_vehicles)
+-- 3. DRIVERS & FLEET OWNERS (cr_owners, dka_owners & cr_drivers view)
+-- Defined before dka_vehicles to satisfy foreign key dependencies
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS dka_vehicles (
-    vehicle_id SERIAL PRIMARY KEY,
-    vehicle_type_id INTEGER REFERENCES dka_vehicle_types(vehicle_type_id) ON DELETE SET NULL,
-    model VARCHAR(100) NOT NULL,
-    registration_plate VARCHAR(50) UNIQUE NOT NULL,
-    category VARCHAR(50) NOT NULL, -- 'SUV', 'Sedan', 'HiAce', 'Bus'
-    seats INTEGER NOT NULL DEFAULT 4,
-    fuel_type VARCHAR(30) NOT NULL DEFAULT 'Diesel',
-    image_url TEXT,
-    status VARCHAR(30) NOT NULL DEFAULT 'available', -- 'available', 'assigned', 'in_transit', 'maintenance'
+
+-- Existing Partner Owners Table reference (cr_owners has 10 columns):
+-- owner_id, full_name, phone_number, whatsapp_number, email,
+-- citizenship_or_id_no, status, created_at, citizenship_doc_id, license_doc_id
+
+-- Mobile App Owners Table (dka_owners) - Strictly identical schema to cr_owners
+CREATE TABLE IF NOT EXISTS dka_owners (
+    owner_id SERIAL PRIMARY KEY,
+    full_name VARCHAR(120) NOT NULL,
+    phone_number VARCHAR(30) UNIQUE NOT NULL,
+    whatsapp_number VARCHAR(30),
+    email VARCHAR(120),
+    citizenship_or_id_no VARCHAR(50),
+    status VARCHAR(30) NOT NULL DEFAULT 'active', -- 'active', 'inactive', 'pending'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    citizenship_doc_id VARCHAR(100),
+    license_doc_id VARCHAR(100)
 );
 
-CREATE INDEX IF NOT EXISTS idx_dka_vehicles_status ON dka_vehicles(status);
-CREATE INDEX IF NOT EXISTS idx_dka_vehicles_category ON dka_vehicles(category);
-CREATE INDEX IF NOT EXISTS idx_dka_vehicles_plate ON dka_vehicles(registration_plate);
+-- Safely drop updated_at if it was previously created
+ALTER TABLE dka_owners DROP COLUMN IF EXISTS updated_at;
 
--- Automatic updated_at Trigger for dka_vehicles
-CREATE OR REPLACE FUNCTION update_dka_vehicles_timestamp()
+CREATE INDEX IF NOT EXISTS idx_dka_owners_phone ON dka_owners(phone_number);
+CREATE INDEX IF NOT EXISTS idx_dka_owners_status ON dka_owners(status);
+CREATE INDEX IF NOT EXISTS idx_dka_owners_created_at ON dka_owners(created_at DESC);
+
+-- Drop legacy timestamp triggers if any
+DROP TRIGGER IF EXISTS trigger_dka_owners_updated_at ON dka_owners;
+DROP FUNCTION IF EXISTS update_dka_owners_timestamp();
+
+-- =============================================================================
+-- BIDIRECTIONAL SYNCHRONIZATION TRIGGERS (cr_owners <-> dka_owners)
+-- Recursion protected by pg_trigger_depth() > 1 and sequence aligned via setval
+-- =============================================================================
+
+-- Sync cr_owners -> dka_owners
+CREATE OR REPLACE FUNCTION sync_cr_owners_to_dka_owners()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
+    -- Prevent infinite recursion between bidirectional triggers
+    IF pg_trigger_depth() > 1 THEN
+        IF (TG_OP = 'DELETE') THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
+    END IF;
+
+    IF (TG_OP = 'INSERT') THEN
+        INSERT INTO dka_owners (
+            owner_id, full_name, phone_number, whatsapp_number, email,
+            citizenship_or_id_no, status, created_at, citizenship_doc_id, license_doc_id
+        ) VALUES (
+            NEW.owner_id, NEW.full_name, NEW.phone_number, NEW.whatsapp_number, NEW.email,
+            NEW.citizenship_or_id_no, NEW.status, COALESCE(NEW.created_at, NOW()),
+            NEW.citizenship_doc_id, NEW.license_doc_id
+        )
+        ON CONFLICT (owner_id) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            phone_number = EXCLUDED.phone_number,
+            whatsapp_number = EXCLUDED.whatsapp_number,
+            email = EXCLUDED.email,
+            citizenship_or_id_no = EXCLUDED.citizenship_or_id_no,
+            status = EXCLUDED.status,
+            citizenship_doc_id = EXCLUDED.citizenship_doc_id,
+            license_doc_id = EXCLUDED.license_doc_id;
+
+        PERFORM setval(pg_get_serial_sequence('dka_owners', 'owner_id'), GREATEST(NEW.owner_id, (SELECT COALESCE(MAX(owner_id), 1) FROM dka_owners)));
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        UPDATE dka_owners SET
+            full_name = NEW.full_name,
+            phone_number = NEW.phone_number,
+            whatsapp_number = NEW.whatsapp_number,
+            email = NEW.email,
+            citizenship_or_id_no = NEW.citizenship_or_id_no,
+            status = NEW.status,
+            citizenship_doc_id = NEW.citizenship_doc_id,
+            license_doc_id = NEW.license_doc_id
+        WHERE owner_id = NEW.owner_id;
+        RETURN NEW;
+    ELSIF (TG_OP = 'DELETE') THEN
+        DELETE FROM dka_owners WHERE owner_id = OLD.owner_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trigger_dka_vehicles_updated_at ON dka_vehicles;
-CREATE TRIGGER trigger_dka_vehicles_updated_at
-    BEFORE UPDATE ON dka_vehicles
+DROP TRIGGER IF EXISTS trg_sync_cr_to_dka_owners ON cr_owners;
+CREATE TRIGGER trg_sync_cr_to_dka_owners
+    AFTER INSERT OR UPDATE OR DELETE ON cr_owners
     FOR EACH ROW
-    EXECUTE FUNCTION update_dka_vehicles_timestamp();
+    EXECUTE FUNCTION sync_cr_owners_to_dka_owners();
+
+-- Sync dka_owners -> cr_owners
+CREATE OR REPLACE FUNCTION sync_dka_owners_to_cr_owners()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Prevent infinite recursion between bidirectional triggers
+    IF pg_trigger_depth() > 1 THEN
+        IF (TG_OP = 'DELETE') THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
+    END IF;
+
+    IF (TG_OP = 'INSERT') THEN
+        INSERT INTO cr_owners (
+            owner_id, full_name, phone_number, whatsapp_number, email,
+            citizenship_or_id_no, status, created_at, citizenship_doc_id, license_doc_id
+        ) VALUES (
+            NEW.owner_id, NEW.full_name, NEW.phone_number, NEW.whatsapp_number, NEW.email,
+            NEW.citizenship_or_id_no, NEW.status, COALESCE(NEW.created_at, NOW()),
+            NEW.citizenship_doc_id, NEW.license_doc_id
+        )
+        ON CONFLICT (owner_id) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            phone_number = EXCLUDED.phone_number,
+            whatsapp_number = EXCLUDED.whatsapp_number,
+            email = EXCLUDED.email,
+            citizenship_or_id_no = EXCLUDED.citizenship_or_id_no,
+            status = EXCLUDED.status,
+            citizenship_doc_id = EXCLUDED.citizenship_doc_id,
+            license_doc_id = EXCLUDED.license_doc_id;
+
+        PERFORM setval(pg_get_serial_sequence('cr_owners', 'owner_id'), GREATEST(NEW.owner_id, (SELECT COALESCE(MAX(owner_id), 1) FROM cr_owners)));
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        UPDATE cr_owners SET
+            full_name = NEW.full_name,
+            phone_number = NEW.phone_number,
+            whatsapp_number = NEW.whatsapp_number,
+            email = NEW.email,
+            citizenship_or_id_no = NEW.citizenship_or_id_no,
+            status = NEW.status,
+            citizenship_doc_id = NEW.citizenship_doc_id,
+            license_doc_id = NEW.license_doc_id
+        WHERE owner_id = NEW.owner_id;
+        RETURN NEW;
+    ELSIF (TG_OP = 'DELETE') THEN
+        DELETE FROM cr_owners WHERE owner_id = OLD.owner_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_dka_to_cr_owners ON dka_owners;
+CREATE TRIGGER trg_sync_dka_to_cr_owners
+    AFTER INSERT OR UPDATE OR DELETE ON dka_owners
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_dka_owners_to_cr_owners();
+
+-- Backward-compatibility VIEW: cr_drivers always mirrors cr_owners/dka_owners
+CREATE OR REPLACE VIEW cr_drivers AS SELECT * FROM public.cr_owners;
 
 -- =============================================================================
--- 4. BOOKINGS & TRIP RESERVATIONS (dka_bookings)
+-- 4. VEHICLE FLEET INVENTORY (dka_vehicles) - Strictly matches cr_vehicles (11 columns)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS dka_vehicles (
+    vehicle_id SERIAL PRIMARY KEY,
+    owner_id INTEGER REFERENCES dka_owners(owner_id) ON DELETE SET NULL,
+    vehicle_type_id INTEGER,
+    make_model VARCHAR(120) NOT NULL,
+    license_plate VARCHAR(50) UNIQUE NOT NULL,
+    manufacture_year INTEGER,
+    seating_capacity INTEGER NOT NULL DEFAULT 4,
+    color VARCHAR(50),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    bluebook_doc_id VARCHAR(100)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dka_vehicles_plate ON dka_vehicles(license_plate);
+CREATE INDEX IF NOT EXISTS idx_dka_vehicles_owner ON dka_vehicles(owner_id);
+CREATE INDEX IF NOT EXISTS idx_dka_vehicles_type ON dka_vehicles(vehicle_type_id);
+CREATE INDEX IF NOT EXISTS idx_dka_vehicles_active ON dka_vehicles(is_active);
+
+-- Bidirectional Synchronization Triggers between cr_vehicles and dka_vehicles
+CREATE OR REPLACE FUNCTION sync_cr_vehicles_to_dka_vehicles()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF pg_trigger_depth() > 1 THEN
+        IF (TG_OP = 'DELETE') THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
+    END IF;
+
+    IF (TG_OP = 'INSERT') THEN
+        INSERT INTO dka_vehicles (
+            vehicle_id, owner_id, vehicle_type_id, make_model, license_plate,
+            manufacture_year, seating_capacity, color, is_active, created_at, bluebook_doc_id
+        ) VALUES (
+            NEW.vehicle_id, NEW.owner_id, NEW.vehicle_type_id, NEW.make_model, NEW.license_plate,
+            NEW.manufacture_year, NEW.seating_capacity, NEW.color, NEW.is_active,
+            COALESCE(NEW.created_at, NOW()), NEW.bluebook_doc_id
+        )
+        ON CONFLICT (vehicle_id) DO UPDATE SET
+            owner_id = EXCLUDED.owner_id,
+            vehicle_type_id = EXCLUDED.vehicle_type_id,
+            make_model = EXCLUDED.make_model,
+            license_plate = EXCLUDED.license_plate,
+            manufacture_year = EXCLUDED.manufacture_year,
+            seating_capacity = EXCLUDED.seating_capacity,
+            color = EXCLUDED.color,
+            is_active = EXCLUDED.is_active,
+            bluebook_doc_id = EXCLUDED.bluebook_doc_id;
+
+        PERFORM setval(pg_get_serial_sequence('dka_vehicles', 'vehicle_id'), GREATEST(NEW.vehicle_id, (SELECT COALESCE(MAX(vehicle_id), 1) FROM dka_vehicles)));
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        UPDATE dka_vehicles SET
+            owner_id = NEW.owner_id,
+            vehicle_type_id = NEW.vehicle_type_id,
+            make_model = NEW.make_model,
+            license_plate = NEW.license_plate,
+            manufacture_year = NEW.manufacture_year,
+            seating_capacity = NEW.seating_capacity,
+            color = NEW.color,
+            is_active = NEW.is_active,
+            bluebook_doc_id = NEW.bluebook_doc_id
+        WHERE vehicle_id = NEW.vehicle_id;
+        RETURN NEW;
+    ELSIF (TG_OP = 'DELETE') THEN
+        DELETE FROM dka_vehicles WHERE vehicle_id = OLD.vehicle_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_cr_to_dka_vehicles ON cr_vehicles;
+CREATE TRIGGER trg_sync_cr_to_dka_vehicles
+    AFTER INSERT OR UPDATE OR DELETE ON cr_vehicles
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_cr_vehicles_to_dka_vehicles();
+
+CREATE OR REPLACE FUNCTION sync_dka_vehicles_to_cr_vehicles()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF pg_trigger_depth() > 1 THEN
+        IF (TG_OP = 'DELETE') THEN
+            RETURN OLD;
+        ELSE
+            RETURN NEW;
+        END IF;
+    END IF;
+
+    IF (TG_OP = 'INSERT') THEN
+        INSERT INTO cr_vehicles (
+            vehicle_id, owner_id, vehicle_type_id, make_model, license_plate,
+            manufacture_year, seating_capacity, color, is_active, created_at, bluebook_doc_id
+        ) VALUES (
+            NEW.vehicle_id, NEW.owner_id, NEW.vehicle_type_id, NEW.make_model, NEW.license_plate,
+            NEW.manufacture_year, NEW.seating_capacity, NEW.color, NEW.is_active,
+            COALESCE(NEW.created_at, NOW()), NEW.bluebook_doc_id
+        )
+        ON CONFLICT (vehicle_id) DO UPDATE SET
+            owner_id = EXCLUDED.owner_id,
+            vehicle_type_id = EXCLUDED.vehicle_type_id,
+            make_model = EXCLUDED.make_model,
+            license_plate = EXCLUDED.license_plate,
+            manufacture_year = EXCLUDED.manufacture_year,
+            seating_capacity = EXCLUDED.seating_capacity,
+            color = EXCLUDED.color,
+            is_active = EXCLUDED.is_active,
+            bluebook_doc_id = EXCLUDED.bluebook_doc_id;
+
+        PERFORM setval(pg_get_serial_sequence('cr_vehicles', 'vehicle_id'), GREATEST(NEW.vehicle_id, (SELECT COALESCE(MAX(vehicle_id), 1) FROM cr_vehicles)));
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        UPDATE cr_vehicles SET
+            owner_id = NEW.owner_id,
+            vehicle_type_id = NEW.vehicle_type_id,
+            make_model = NEW.make_model,
+            license_plate = NEW.license_plate,
+            manufacture_year = NEW.manufacture_year,
+            seating_capacity = NEW.seating_capacity,
+            color = NEW.color,
+            is_active = NEW.is_active,
+            bluebook_doc_id = NEW.bluebook_doc_id
+        WHERE vehicle_id = NEW.vehicle_id;
+        RETURN NEW;
+    ELSIF (TG_OP = 'DELETE') THEN
+        DELETE FROM cr_vehicles WHERE vehicle_id = OLD.vehicle_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_dka_to_cr_vehicles ON dka_vehicles;
+CREATE TRIGGER trg_sync_dka_to_cr_vehicles
+    AFTER INSERT OR UPDATE OR DELETE ON dka_vehicles
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_dka_vehicles_to_cr_vehicles();
+
+-- =============================================================================
+-- 5. BOOKINGS & TRIP RESERVATIONS (dka_bookings)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS dka_bookings (
     booking_id SERIAL PRIMARY KEY,
@@ -113,6 +382,10 @@ CREATE TABLE IF NOT EXISTS dka_bookings (
     booking_status VARCHAR(50) NOT NULL DEFAULT 'Pending',
     assigned_vehicle_plate VARCHAR(50),
     assigned_vehicle_model VARCHAR(100),
+    assigned_driver_id INTEGER REFERENCES cr_owners(owner_id) ON DELETE SET NULL,
+    assigned_driver_name VARCHAR(120),
+    assigned_driver_phone VARCHAR(30),
+    final_fare VARCHAR(50),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -123,6 +396,7 @@ CREATE INDEX IF NOT EXISTS idx_dka_bookings_pickup_date ON dka_bookings(pickup_d
 CREATE INDEX IF NOT EXISTS idx_dka_bookings_created_at ON dka_bookings(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_dka_bookings_user_status ON dka_bookings(user_id, booking_status);
 CREATE INDEX IF NOT EXISTS idx_dka_bookings_assigned_vehicle ON dka_bookings(assigned_vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_dka_bookings_assigned_driver ON dka_bookings(assigned_driver_id);
 
 -- Automatic updated_at Trigger for dka_bookings
 CREATE OR REPLACE FUNCTION update_dka_bookings_timestamp()
@@ -140,7 +414,7 @@ CREATE TRIGGER trigger_dka_bookings_updated_at
     EXECUTE FUNCTION update_dka_bookings_timestamp();
 
 -- =============================================================================
--- 5. NOTIFICATIONS TABLE (dka_notifications)
+-- 6. NOTIFICATIONS TABLE (dka_notifications)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS dka_notifications (
     notification_id SERIAL PRIMARY KEY,
@@ -157,7 +431,7 @@ CREATE INDEX IF NOT EXISTS idx_dka_notifications_user_id ON dka_notifications(us
 CREATE INDEX IF NOT EXISTS idx_dka_notifications_created_at ON dka_notifications(created_at DESC);
 
 -- =============================================================================
--- 6. IDEMPOTENCY KEYS & NETWORK RETRIES (dka_idempotency_keys)
+-- 7. IDEMPOTENCY KEYS & NETWORK RETRIES (dka_idempotency_keys)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS dka_idempotency_keys (
     idempotency_key VARCHAR(128) PRIMARY KEY,
@@ -177,7 +451,7 @@ CREATE INDEX IF NOT EXISTS idx_dka_idempotency_keys_expires_at ON dka_idempotenc
 CREATE INDEX IF NOT EXISTS idx_dka_idempotency_keys_hash ON dka_idempotency_keys(request_hash);
 
 -- =============================================================================
--- 7. HIMALAYAN EXPEDITION ROAD ADVISORIES (dka_road_advisories)
+-- 8. HIMALAYAN EXPEDITION ROAD ADVISORIES (dka_road_advisories)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS dka_road_advisories (
     advisory_id SERIAL PRIMARY KEY,
@@ -209,7 +483,7 @@ CREATE TRIGGER trigger_dka_road_advisories_updated_at
     EXECUTE FUNCTION update_dka_road_advisories_timestamp();
 
 -- =============================================================================
--- 8. SEED DATA (VEHICLE TYPES, FLEET, ADMIN ACCOUNTS & ROAD ADVISORIES)
+-- 9. SEED DATA (VEHICLE TYPES, FLEET, ADMIN ACCOUNTS, DRIVERS & ADVISORIES)
 -- =============================================================================
 INSERT INTO dka_vehicle_types (vehicle_type_id, type_name, description)
 VALUES 
@@ -219,14 +493,48 @@ VALUES
     (4, 'Coaster / Bus', 'Comfortable 25-35 seater tourist buses for large groups.')
 ON CONFLICT (vehicle_type_id) DO NOTHING;
 
-INSERT INTO dka_vehicles (model, registration_plate, category, seats, fuel_type, status, image_url)
-VALUES
-    ('Mahindra Scorpio S11 4x4', 'BA 2 PA 4521', 'SUV', 7, 'Diesel', 'available', 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=600&q=80'),
-    ('Toyota HiAce Super GL Luxury', 'BA 3 PA 8820', 'HiAce', 14, 'Diesel', 'available', 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=600&q=80'),
-    ('Hyundai Creta Adventure Edition', 'BAGMATI-02-029 PA 1190', 'SUV', 5, 'Petrol', 'available', 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=600&q=80'),
-    ('Toyota Coaster Tourist Coach', 'BA 1 KHA 9022', 'Bus', 28, 'Diesel', 'available', 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=600&q=80'),
-    ('Suzuki Dzire VXi', 'BA 4 PA 3340', 'Sedan', 4, 'Petrol', 'maintenance', 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=600&q=80')
-ON CONFLICT (registration_plate) DO NOTHING;
+-- Initial backfill from existing cr_owners into dka_owners
+INSERT INTO dka_owners (
+    owner_id, full_name, phone_number, whatsapp_number, email,
+    citizenship_or_id_no, status, created_at, citizenship_doc_id, license_doc_id
+)
+SELECT 
+    owner_id, full_name, phone_number, whatsapp_number, email,
+    citizenship_or_id_no, status, created_at, citizenship_doc_id, license_doc_id
+FROM public.cr_owners
+ON CONFLICT (owner_id) DO UPDATE SET
+    full_name = EXCLUDED.full_name,
+    phone_number = EXCLUDED.phone_number,
+    whatsapp_number = EXCLUDED.whatsapp_number,
+    email = EXCLUDED.email,
+    citizenship_or_id_no = EXCLUDED.citizenship_or_id_no,
+    status = EXCLUDED.status,
+    citizenship_doc_id = EXCLUDED.citizenship_doc_id,
+    license_doc_id = EXCLUDED.license_doc_id;
+
+SELECT setval(pg_get_serial_sequence('dka_owners', 'owner_id'), COALESCE(MAX(owner_id), 1)) FROM dka_owners;
+
+-- Initial backfill from existing cr_vehicles into dka_vehicles
+INSERT INTO dka_vehicles (
+    vehicle_id, owner_id, vehicle_type_id, make_model, license_plate,
+    manufacture_year, seating_capacity, color, is_active, created_at, bluebook_doc_id
+)
+SELECT 
+    vehicle_id, owner_id, vehicle_type_id, make_model, license_plate,
+    manufacture_year, seating_capacity, color, is_active, created_at, bluebook_doc_id
+FROM public.cr_vehicles
+ON CONFLICT (vehicle_id) DO UPDATE SET
+    owner_id = EXCLUDED.owner_id,
+    vehicle_type_id = EXCLUDED.vehicle_type_id,
+    make_model = EXCLUDED.make_model,
+    license_plate = EXCLUDED.license_plate,
+    manufacture_year = EXCLUDED.manufacture_year,
+    seating_capacity = EXCLUDED.seating_capacity,
+    color = EXCLUDED.color,
+    is_active = EXCLUDED.is_active,
+    bluebook_doc_id = EXCLUDED.bluebook_doc_id;
+
+SELECT setval(pg_get_serial_sequence('dka_vehicles', 'vehicle_id'), COALESCE(MAX(vehicle_id), 1)) FROM dka_vehicles;
 
 INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_active, is_verified)
 VALUES

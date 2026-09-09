@@ -52,6 +52,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-status-bar',
     '@react-native-community/datetimepicker',
     'expo-dev-client',
+    'expo-secure-store',
+    'expo-sharing',
     [
       'expo-location',
       {

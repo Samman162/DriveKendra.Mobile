@@ -78,7 +78,9 @@ export interface BookingScreenProps {
     vehicleName: string;
     vehiclePlate: string;
     fare: string;
-    status: 'confirmed';
+    passengerCount?: number;
+    additionalDetails?: string;
+    status: 'confirmed' | 'pending';
   }) => void;
   isModal?: boolean;
   initialParams?: BookParams;
@@ -292,10 +294,14 @@ export function BookingScreen({
         date: dateStr || 'Tomorrow',
         time: form.pickup_time || '7:00 AM',
         tripType: form.trip_type as 'One Way' | 'Return' | 'Round Trip',
-        vehicleName: `${vehicleName} (AC)`,
-        vehiclePlate: `Ba ${Math.floor(1 + Math.random() * 5)} Cha ${randomRefNum}`,
-        fare: budget.trim() ? budget.trim() : 'NPR 12,000',
-        status: 'confirmed' as const,
+        vehicleName: '',
+        vehiclePlate: '',
+        driverName: undefined,
+        driverPhone: undefined,
+        fare: budget.trim() ? (budget.trim().startsWith('NPR') ? budget.trim() : `NPR ${budget.trim()}`) : 'Awaiting Quote',
+        passengerCount: form.passenger_count,
+        additionalDetails: emptyToNull(combinedDetails) || undefined,
+        status: 'pending' as const,
       };
 
       // Persist to offline vouchers immediately for mountain emergency & offline access

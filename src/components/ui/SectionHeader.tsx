@@ -53,7 +53,7 @@ function createStyles(colors: ThemeColors) {
       marginTop: spacing.xs,
     },
     subtitleLight: {
-      color: '#CBD5E1',
+      color: colors.subtle,
     },
   });
 }

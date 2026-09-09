@@ -1,9 +1,124 @@
-import { describe, expect, it } from '@jest/globals';
+import { afterAll, beforeAll, describe, expect, it } from '@jest/globals';
 import { app } from '../src/index.js';
+import {
+  fallbackBookings,
+  fallbackDrivers,
+  fallbackVehicles,
+  resetFallbackData,
+} from '../src/routes/admin.js';
 
 describe('Admin Portal Subsystem API Test Suite', () => {
   let challengeToken: string = '';
   let adminToken: string = '';
+
+  beforeAll(() => {
+    fallbackVehicles.push(
+      {
+        id: 1,
+        vehicleTypeId: 2,
+        model: 'Mahindra Scorpio S11 4x4',
+        registrationPlate: 'BA 2 PA 4521',
+        category: 'SUV',
+        seats: 7,
+        fuelType: 'Diesel',
+        imageUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf',
+        status: 'available',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 2,
+        vehicleTypeId: 3,
+        model: 'Toyota HiAce Super GL Luxury',
+        registrationPlate: 'BA 3 PA 8820',
+        category: 'HiAce',
+        seats: 14,
+        fuelType: 'Diesel',
+        imageUrl: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341',
+        status: 'available',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    );
+
+    fallbackBookings.push(
+      {
+        id: 101,
+        bookingRef: 'DK-2026-0101',
+        userId: 1,
+        customerName: 'Samman Chhetri',
+        customerPhone: '+977 9851363783',
+        customerEmail: 'samman@drivekendra.com',
+        pickupLocation: 'Tribhuvan International Airport, Kathmandu',
+        dropoffLocation: 'Lakeside, Pokhara',
+        pickupDate: new Date(Date.now() + 86400000).toISOString(),
+        pickupTime: '08:00 AM',
+        returnDate: new Date(Date.now() + 4 * 86400000).toISOString(),
+        passengerCount: 4,
+        tripType: 'Round Trip',
+        vehicleCategory: 'SUV / Scorpio 4x4',
+        estimatedFare: 'NPR 34,500',
+        finalFare: null,
+        status: 'Pending',
+        assignedVehicleId: null,
+        assignedVehiclePlate: null,
+        assignedVehicleModel: null,
+        assignedDriverId: null,
+        assignedDriverName: null,
+        assignedDriverPhone: null,
+        additionalDetails: 'Flight arrival at TIA at 07:15 AM.',
+        rejectionReason: null,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 102,
+        bookingRef: 'DK-2026-0102',
+        userId: 1,
+        customerName: 'Samman Chhetri',
+        customerPhone: '+977 9851363783',
+        customerEmail: 'samman@drivekendra.com',
+        pickupLocation: 'Thamel, Kathmandu',
+        dropoffLocation: 'Syabrubesi (Langtang Trek)',
+        pickupDate: new Date(Date.now() + 2 * 86400000).toISOString(),
+        pickupTime: '06:30 AM',
+        returnDate: null,
+        passengerCount: 6,
+        tripType: 'One Way',
+        vehicleCategory: 'HiAce / Van',
+        estimatedFare: 'NPR 22,000',
+        finalFare: null,
+        status: 'Pending',
+        assignedVehicleId: null,
+        assignedVehiclePlate: null,
+        assignedVehicleModel: null,
+        assignedDriverId: null,
+        assignedDriverName: null,
+        assignedDriverPhone: null,
+        additionalDetails: 'Starting Langtang trek.',
+        rejectionReason: null,
+        createdAt: new Date().toISOString(),
+      },
+    );
+
+    fallbackDrivers.push({
+      id: 1,
+      ownerId: 1,
+      fullName: 'Bikram Thapa',
+      phoneNumber: '+977 9851011223',
+      whatsappNumber: '+977 9851011223',
+      email: 'bikram.thapa@drivekendra.com',
+      citizenshipOrIdNo: '27-01-72-04512',
+      status: 'active',
+      citizenshipDocId: 'DOC-CTZ-0891',
+      licenseDocId: 'LIC-EXP-9921',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  });
+
+  afterAll(() => {
+    resetFallbackData();
+  });
 
   describe('1. 2FA Authentication Gate (Phone + Password -> PIN)', () => {
     it('Step 1: Successfully authenticates primary credentials and returns challengeToken', async () => {
@@ -205,6 +320,31 @@ describe('Admin Portal Subsystem API Test Suite', () => {
       expect(data.booking.assignedVehiclePlate).toBeTruthy();
     });
 
+    it('PATCH /api/admin/trips/:id/approve: Approves reservation with driver assignment and final price', async () => {
+      const res = await app.request(`/api/admin/trips/102/approve`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          vehicleId: 2, // HiAce
+          driverId: 1,
+          driverName: 'Bikram Thapa',
+          driverPhone: '+977 9851011223',
+          finalPrice: 'NPR 35,000',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(data.success).toBe(true);
+      expect(data.booking.status).toBe('Confirmed');
+      expect(data.booking.assignedDriverName).toBe('Bikram Thapa');
+      expect(data.booking.assignedDriverPhone).toBe('+977 9851011223');
+      expect(data.booking.finalFare).toBe('NPR 35,000');
+    });
+
     it('PATCH /api/admin/trips/:id/reject: Rejects reservation with reason', async () => {
       const res = await app.request(`/api/admin/trips/${pendingTripId}/reject`, {
         method: 'PATCH',
@@ -348,6 +488,82 @@ describe('Admin Portal Subsystem API Test Suite', () => {
       expect(res.status).toBe(200);
       const data = (await res.json()) as any;
       expect(data.success).toBe(true);
+    });
+  });
+
+  describe('7. Drivers & Fleet Owners Directory (dka_owners <-> cr_owners)', () => {
+    let newDriverId: number;
+
+    it('GET /api/admin/drivers: Lists all registered drivers with their details', async () => {
+      const res = await app.request('/api/admin/drivers', {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(Array.isArray(data.drivers)).toBe(true);
+      expect(data.drivers.length).toBeGreaterThanOrEqual(1);
+      expect(data.drivers[0]).toHaveProperty('fullName');
+      expect(data.drivers[0]).toHaveProperty('phoneNumber');
+      expect(data.drivers[0]).toHaveProperty('citizenshipOrIdNo');
+      expect(data.drivers[0]).toHaveProperty('licenseDocId');
+    });
+
+    it('POST /api/admin/drivers: Registers a new driver profile with validation', async () => {
+      const res = await app.request('/api/admin/drivers', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: 'Pemba Tenzing Lama',
+          phoneNumber: '+977 9851122334',
+          whatsappNumber: '+977 9851122334',
+          email: 'pemba.tenzing@expedition.np',
+          citizenshipOrIdNo: '14-03-71-00998',
+          status: 'active',
+          citizenshipDocId: 'DOC-CTZ-7788',
+          licenseDocId: 'LIC-EXP-5522',
+        }),
+      });
+
+      expect(res.status).toBe(201);
+      const data = (await res.json()) as any;
+      expect(data.success).toBe(true);
+      expect(data.driver.fullName).toBe('Pemba Tenzing Lama');
+      expect(data.driver.phoneNumber).toBe('+9779851122334');
+      expect(data.driver.licenseDocId).toBe('LIC-EXP-5522');
+      newDriverId = data.driver.id;
+    });
+
+    it('PATCH /api/admin/drivers/:id: Updates driver status or information', async () => {
+      const res = await app.request(`/api/admin/drivers/${newDriverId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'inactive',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(data.success).toBe(true);
+      expect(data.driver.status).toBe('inactive');
+    });
+
+    it('GET /api/admin/stats: Returns totalDrivers metric', async () => {
+      const res = await app.request('/api/admin/stats', {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(typeof data.totalDrivers).toBe('number');
+      expect(data.totalDrivers).toBeGreaterThan(0);
     });
   });
 });

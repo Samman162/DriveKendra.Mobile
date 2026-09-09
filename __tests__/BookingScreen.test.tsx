@@ -31,5 +31,29 @@ describe('Booking & Pricing Engine Calculations', () => {
       expect(voucher.altitudeNote).toContain('High Altitude Zone');
       expect(voucher.emergencyHotline).toBe('+9779851363783');
     });
+
+    it('formats pending reservation with user notes and assigned driver upon confirmation', () => {
+      const pendingTrip = {
+        id: 'trip_2',
+        bookingRef: 'DK-2026-9999',
+        pickup: 'Thamel, Kathmandu',
+        dropoff: 'Lakeside, Pokhara',
+        date: '2026-09-10',
+        time: '06:00 AM',
+        fare: 'NPR 14,000',
+        finalFare: 'NPR 14,000',
+        driverName: 'Pasang Tamang',
+        driverPhone: '+977 9851011223',
+        additionalDetails: 'Flight arrival 6:00 AM, 4 luggage items',
+        status: 'pending',
+      };
+      const voucher = formatToOfflineVoucher(pendingTrip);
+      expect(voucher.bookingRef).toBe('DK-2026-9999');
+      expect(voucher.status).toBe('pending');
+      expect(voucher.driverName).toBe('Pasang Tamang');
+      expect(voucher.driverPhone).toBe('+977 9851011223');
+      expect(voucher.finalFare).toBe('NPR 14,000');
+      expect(voucher.additionalDetails).toContain('Flight arrival');
+    });
   });
 });
