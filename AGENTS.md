@@ -58,6 +58,10 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
 8. **Owner, Driver & Vehicle Bidirectional Synchronization**:
    - Maintain strict bidirectional synchronization between `cr_owners` and `dka_owners` via PostgreSQL triggers (`sync_cr_to_dka_owners` / `sync_dka_to_cr_owners`), and between `cr_vehicles` and `dka_vehicles` via triggers (`sync_cr_vehicles_to_dka_vehicles` / `sync_dka_vehicles_to_cr_vehicles`), protected with `pg_trigger_depth() > 1` recursion guard.
    - Driver listings access the unified `cr_drivers` view and `/api/admin/drivers` endpoints. Adding a driver also assigns and registers their vehicle (`dka_vehicles`) in the same unified workflow.
+9. **Real-Time Push Notifications & Notification Center**:
+   - Manage push tokens via `src/services/notificationService.ts` and register devices via `POST /api/users/push-token`.
+   - Dispatch real-time lifecycle alerts for booking submissions, driver/vehicle assignments, trip rejections, and completions using `recordAndPushTripNotification` (`server/src/push.ts`).
+   - Maintain customer (`CustomerNotificationsModal.tsx`) and admin (`AdminNotificationsModal.tsx`) notification centers backed by `dka_notifications` and `dka_push_tokens`.
 
 ---
 
@@ -70,7 +74,7 @@ Always run and verify these commands before concluding a task:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Run automated test suites (11 Client Suites / 67 Tests, 3 Server Suites / 63 Tests - 130 Total)
+# 2. Run automated test suites (12 Client Suites / 71 Tests, 4 Server Suites / 75 Tests - 146 Total)
 npm test
 npm test --prefix server
 ```

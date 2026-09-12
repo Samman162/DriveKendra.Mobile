@@ -7,7 +7,7 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS%20%7C%20Web-success?style=for-the-badge)](https://drivekendra.com)
 [![CI/CD](https://img.shields.io/badge/CI%2FCD-Passing-brightgreen?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Samman162/DriveKendra.Mobile)
-[![Tests](https://img.shields.io/badge/Tests-126%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-146%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
 **Drive Kendra Mobile** is a standalone, production-grade cross-platform mobile application built with **React Native (Expo SDK 57)** and **TypeScript** for **Drive Kendra** — Nepal's premier vehicle rental and Himalayan tour transport service.
 
@@ -30,7 +30,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - [Prerequisites](#prerequisites)
   - [Installation & First Run](#installation--first-run)
   - [Connecting Physical Devices & Emulators](#connecting-physical-devices--emulators)
-- [Testing & Quality Verification (126 Tests)](#-testing--quality-verification-126-tests)
+- [Testing & Quality Verification (146 Tests)](#-testing--quality-verification-146-tests)
 - [Building with EAS (Android & iOS)](#-building-with-eas-android--ios)
 - [Design System & Theming](#-design-system--theming)
 - [Security & Anti-Spam Architecture](#-security--anti-spam-architecture)
@@ -45,6 +45,7 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - 🗺️ **Interactive OpenStreetMap (OSM) Location Picker**: Free, interactive Leaflet map integration (`FullScreenMapPicker`) enabling users to visually pin pickup & dropoff coordinates anywhere across Nepal with zero third-party API key costs.
 - 📍 **Free Reverse Geocoding & Nepal Dataset**: Instant coordinate-to-address resolution via OSM Nominatim with robust fallback to a bundled 77-district offline dataset (`nepalLocations.ts`, `geocoding.ts`).
 - 🚙 **Fleet Options**: Mahindra Scorpios (4x4 SUV), 14-seater Toyota HiAce vans, comfortable sedans, and tourist buses.
+- 🔔 **Real-Time Push Notifications & Notification Center**: Expo Push Notification Service with high-priority Android dispatch channel (`trip_updates`) and in-app notification centers for travelers (`CustomerNotificationsModal`) and dispatch operators (`AdminNotificationsModal`).
 - 🔒 **End-to-End Authentication & Biometrics**: Sign In, Sign Up, and OTP-based password reset with persistent session storage via `SecureStore` and TouchID / FaceID biometric verification.
 - 📱 **Interactive Trip Management & Offline Vouchers**: View upcoming and completed reservations, vehicle plate numbers, assigned models, offline QR vouchers, and 24/7 dispatch hotline access.
 - 🆘 **Himalayan Emergency SOS**: Offline GPS coordinate capture with pre-filled SMS emergency dispatch to rescue hotlines (`+977 985-1363783`) and tourist police (`1144`).
@@ -130,7 +131,8 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - Smooth page indicators, skip action, and persistent completion state in `onboardingStorage.ts`.
 
 #### 2. 🏠 Home Screen (`src/screens/HomeScreen.tsx`)
-- **Personalized Header**: Top bar featuring user avatar, profile navigation, and theme mode toggle (`light` / `dark`).
+- **Personalized Header**: Top bar featuring user avatar, profile navigation, unread notification counter badge, and theme mode toggle (`light` / `dark`).
+- **Notification Hub (`CustomerNotificationsModal.tsx`)**: Real-time drawer displaying trip updates, driver assignment confirmations, and road advisories with mark-as-read capability.
 - **Welcome Greeting**: Greets travelers by name or guest profile status.
 - **Service Hub**: Quick action to start a vehicle booking reservation (`BookingScreen`).
 
@@ -200,6 +202,7 @@ The application features an isolated, strictly partitioned administrative interf
   - **Drivers Directory**: Full partner driver registry with instant search, status filters (`ALL`, `ACTIVE`, `PENDING`, `INACTIVE`), driver credentials & vehicle type badges, assigned vehicle display, contact action triggers (tap-to-call, tap-to-WhatsApp), availability/status toggles, and unified modal form to register new drivers directly into synchronized `dka_owners` / `cr_owners` while simultaneously registering their assigned vehicle into `dka_vehicles` / `cr_vehicles`.
   - **Customer Directory**: Search and view customer profiles with historical reservation counts and lifetime expenditure.
   - **Admin Profile**: Operator identity, 2FA credentials verification state, and secure sign-out.
+- **Broadcast & Notification Desk (`AdminNotificationsModal.tsx`)**: Dispatch instant push notifications and review real-time activity feed.
 - **Strict Navigation Partition**: Admins operate in full isolation inside `AdminNavigator`, completely partitioned from customer screens.
 
 ---
@@ -248,16 +251,18 @@ DriveKendra.Mobile/
 ├── server/                       # Dedicated Hono Node.js Mobile API
 │   ├── src/
 │   │   ├── routes/
-│   │   │   ├── admin.ts          # 2FA login, PIN verification, dispatch approval, drivers directory, fleet inventory
+│   │   │   ├── admin.ts          # 2FA login, PIN verification, dispatch approval, drivers directory, fleet inventory, broadcast
 │   │   │   ├── auth.ts           # Customer login, register, OTP reset endpoints
-│   │   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency & DB transaction
-│   │   │   └── users.ts          # Profile update and push token registration
+│   │   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency, DB transaction, & notification triggers
+│   │   │   └── users.ts          # Profile, notifications, and push token registration
 │   │   ├── db.ts                 # PostgreSQL connection pool & RLS client
 │   │   ├── index.ts              # Hono app entry point & CORS configuration
+│   │   ├── push.ts               # Native Expo push notification engine & trip event recorder
 │   │   └── validation.ts         # Input schemas, honeypot & phone validation
-│   ├── __tests__/                # Server unit & integration tests (3 suites / 62 tests)
-│   │   ├── adminEndpoints.test.ts # 2FA admin auth, stats, trip dispatch, drivers directory, vehicle fleet (26 tests)
-│   │   ├── apiEndpoints.test.ts  # Endpoints, auth, bookings, and idempotency tests (25 tests)
+│   ├── __tests__/                # Server unit & integration tests (4 suites / 75 tests)
+│   │   ├── adminEndpoints.test.ts # 2FA admin auth, stats, trip dispatch, drivers directory, fleet (29 tests)
+│   │   ├── apiEndpoints.test.ts  # Endpoints, auth, bookings, users, and idempotency tests (26 tests)
+│   │   ├── fullTripLifecycleE2E.test.ts # End-to-end trip lifecycle, dispatch review & completion (9 tests)
 │   │   └── validation.test.ts    # Zod schemas & phone regex validation tests (11 tests)
 │   ├── .env.example              # Server environment template
 │   ├── package.json              # Server dependencies & scripts
@@ -271,7 +276,7 @@ DriveKendra.Mobile/
 │   │   ├── client.ts             # Axios client with base URL configuration
 │   │   ├── config.ts             # API URL constants
 │   │   ├── offlineQueue.ts       # Action replay queue for offline mutations
-│   │   └── users.ts              # Profile and push token API
+│   │   └── users.ts              # Profile, notifications, and push token API
 │   ├── components/
 │   │   ├── honeypot/             # Anti-spam HoneypotField component
 │   │   │   └── HoneypotField.tsx
@@ -282,6 +287,7 @@ DriveKendra.Mobile/
 │   │       ├── BrandLogo.tsx
 │   │       ├── Button.tsx
 │   │       ├── Card.tsx
+│   │       ├── CustomerNotificationsModal.tsx
 │   │       ├── DateField.tsx
 │   │       ├── EmergencySosModal.tsx
 │   │       ├── EmergencyTripCard.tsx
@@ -306,10 +312,6 @@ DriveKendra.Mobile/
 │   │       ├── TimePickerField.tsx
 │   │       └── VoucherQrCode.tsx
 │   ├── constants/
-│   │   ├── contact.ts            # Phone, WhatsApp, email, and address constants
-│   │   ├── nepalLocations.ts     # 77 districts, tourist hubs, airports, highways
-│   │   ├── validation.ts         # Validation rules and error strings
-│   │   └── vehicles.ts           # Vehicle type IDs and mappings
 │   ├── context/
 │   │   ├── AdminAuthContext.tsx  # Isolated 2FA admin session context
 │   │   └── AuthContext.tsx       # Auth provider with secure storage persistence
@@ -323,16 +325,19 @@ DriveKendra.Mobile/
 │   │   └── types.ts              # React Navigation param lists
 │   ├── screens/                  # Customer & Admin screens
 │   │   ├── admin/                # Dedicated 2FA Admin Portal screens
-│   │   │   ├── AdminDashboardScreen.tsx # Control room, KPI stats, trip review, fleet
-│   │   │   ├── AdminLoginScreen.tsx     # Operator credentials login
-│   │   │   └── AdminPinScreen.tsx       # 4-digit security PIN verification
+│   │   │   ├── AdminDashboardScreen.tsx    # Control room, KPI stats, trip review, fleet
+│   │   │   ├── AdminLoginScreen.tsx        # Operator credentials login
+│   │   │   ├── AdminNotificationsModal.tsx # Broadcast alerts & notification center
+│   │   │   └── AdminPinScreen.tsx          # 4-digit security PIN verification
 │   │   ├── AuthScreen.tsx        # SignIn, SignUp, and OTP reset
 │   │   ├── BookingScreen.tsx     # Comprehensive booking engine with map picker
 │   │   ├── ContactScreen.tsx     # 24/7 hotline, WhatsApp, and support
-│   │   ├── HomeScreen.tsx        # Hero greeting, service selection, theme toggle
+│   │   ├── HomeScreen.tsx        # Hero greeting, service selection, notification bell
 │   │   ├── MyTripsScreen.tsx     # Active/past reservations, QR voucher & PDF export
 │   │   ├── OnboardingScreen.tsx  # First-launch onboarding walkthrough
 │   │   └── ProfileScreen.tsx     # User profile, statistics, settings, theme toggle
+│   ├── services/                 # Native hardware & background services
+│   │   └── notificationService.ts # Expo push notifications, channel setup & token sync
 │   ├── theme/
 │   │   ├── ThemeProvider.tsx     # Theme context & hook
 │   │   ├── colors.ts             # Light & Dark color palettes
@@ -353,7 +358,7 @@ DriveKendra.Mobile/
 │       ├── phone.ts              # Nepal phone number sanitization and checks
 │       ├── recentSearchesStorage.ts # Recents location search history
 │       └── secureStorage.ts      # Hardware encrypted credential storage
-├── __tests__/                    # Client unit & integration test suites (10 suites / 64 tests)
+├── __tests__/                    # Client unit & integration test suites (12 suites / 71 tests)
 │   ├── AdminFlow.test.tsx        # Admin 2FA login, PIN verification, and dashboard tests
 │   ├── AuthFlow.test.tsx         # Auth & OTP interaction tests
 │   ├── BookingScreen.test.tsx    # Booking form submission tests
@@ -361,6 +366,8 @@ DriveKendra.Mobile/
 │   ├── GeocodingAndMapPicker.test.tsx # OSM Geocoding & coordinate tests
 │   ├── HomeScreen.test.tsx       # Hero greeting, theme toggle, and services
 │   ├── LocationPicker.test.tsx   # Landmark selector & filtering tests
+│   ├── MyTripsConfirmationFlow.test.tsx # Trip confirmation lifecycle & offline vouchers
+│   ├── NotificationsFlow.test.tsx # Notification center modal, badges & push token flow
 │   ├── Onboarding.test.tsx       # First-launch onboarding walkthrough tests
 │   ├── ProfileScreen.test.tsx    # User profile interactions & auth gate tests
 │   └── RecentSearches.test.tsx   # Search caching & eviction tests
@@ -403,6 +410,8 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `POST` | `/api/bookings` | Submit new booking with Idempotency | `X-Idempotency-Key`, `BookingEntryDto` | `{ "message": "Booking submitted successfully", "bookingRef": "..." }` |
 | `PUT` | `/api/users/profile` | Update user profile details | `{ userId, fullName, phone, avatarUrl }` | `{ "success": true }` |
 | `POST` | `/api/users/push-token` | Register Expo push token | `{ pushToken, customerId, phoneNumber }` | `{ "success": true }` |
+| `GET` | `/api/users/notifications` | Customer trip lifecycle notifications list | `?userId=` or `?phoneNumber=` | `{ "notifications": [...] }` |
+| `PATCH`| `/api/users/notifications/:id/read` | Mark notification as read | — | `{ "success": true }` |
 | `POST` | `/api/auth/login` | User login (email or phone) | `{ identifier, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/register`| User registration | `{ name, email, phone, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/forgot-password` | Send 6-digit OTP code | `{ identifier }` | `{ message, code }` |
@@ -419,6 +428,8 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `GET` | `/api/admin/vehicles` | Fleet inventory list | `Authorization: Bearer <jwt_admin>` | `{ vehicles: [...] }` |
 | `PATCH`| `/api/admin/vehicles/:id` | Update vehicle status (e.g. maintenance) | `{ status }` | `{ success: true, vehicle }` |
 | `GET` | `/api/admin/users` | Customer directory & spend history | `?q=` | `{ users: [...] }` |
+| `GET` | `/api/admin/notifications` | Control room notification audit log | `Authorization: Bearer <jwt_admin>` | `{ "notifications": [...] }` |
+| `POST` | `/api/admin/notifications/broadcast` | Dispatch alert with instant push notification | `{ userId, bookingId, title, message }` | `{ "success": true }` |
 
 👉 *Read the full API reference in [`server/README.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/server/README.md).*
 
@@ -499,7 +510,7 @@ PORT=8787
 
 ---
 
-## 🧪 Testing & Quality Verification (128 Tests)
+## 🧪 Testing & Quality Verification (146 Tests)
 
 Run the automated test suites and static analysis tools:
 
@@ -508,10 +519,10 @@ Run the automated test suites and static analysis tools:
 npm run typecheck
 npm run typecheck --prefix server
 
-# 2. Client Jest Unit & Integration Tests (10 Suites / 65 Tests)
+# 2. Client Jest Unit & Integration Tests (12 Suites / 71 Tests)
 npm test
 
-# 3. Server Jest Validation & Endpoint Tests (3 Suites / 63 Tests)
+# 3. Server Jest Validation & Endpoint Tests (4 Suites / 75 Tests)
 npm test --prefix server
 ```
 
@@ -602,7 +613,7 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
 | `npm run web` | `expo start --web` | Starts React Native Web development server |
 | `npm run server` | `npm run dev --prefix server` | Starts only the Hono backend server in watch mode |
 | `npm run typecheck` | `tsc --noEmit` | Runs static TypeScript typechecking across the client |
-| `npm test` | `jest` | Runs client unit and integration test suites (10 suites / 64 tests) |
+| `npm test` | `jest` | Runs client unit and integration test suites (12 suites / 71 tests) |
 
 ---
 

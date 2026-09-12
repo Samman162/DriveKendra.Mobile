@@ -3,9 +3,9 @@
 [![Hono API](https://img.shields.io/badge/API-Hono%20v4-E36002?style=for-the-badge&logo=hono&logoColor=white)](https://hono.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org)
-[![Tests](https://img.shields.io/badge/Tests-62%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
+[![Tests](https://img.shields.io/badge/Tests-75%20Passed-success?style=for-the-badge)](https://github.com/Samman162/DriveKendra.Mobile)
 
-The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, 2FA admin portal operations, driver directory management, fleet inventory, user authentication, profile updates, and idempotency handling.
+The **Drive Kendra Mobile API** is a high-performance, lightweight REST API built with [Hono](https://hono.dev) v4 running on Node.js. It powers the Drive Kendra mobile application, providing endpoints for vehicle bookings, 2FA admin portal operations, driver directory management, fleet inventory, user authentication, profile updates, real-time push notifications, and idempotency handling.
 
 ---
 
@@ -23,16 +23,17 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
   - [4. Users & Profile](#4-users--profile)
   - [5. Admin Portal Subsystem](#5-admin-portal-subsystem)
 - [Database Security & Row-Level Security (RLS)](#-database-security--row-level-security-rls)
-- [Testing & Quality Assurance (63 Tests)](#-testing--quality-assurance-63-tests)
+- [Testing & Quality Assurance (75 Tests)](#-testing--quality-assurance-75-tests)
 
 ---
 
 ## 🌟 Key Features
 
 - **⚡ Blazing Fast Routing**: Powered by Hono v4 and `@hono/node-server`.
+- **🔔 Real-Time Push Notifications**: Integrated Expo Push Notification Service (`src/push.ts`) delivering real-time lifecycle alerts when trips are requested, approved, rejected, or completed.
 - **🔒 Idempotent Booking Engine**: Eliminates duplicate charges/reservations caused by flaky mountain cellular networks using `X-Idempotency-Key` and database caching.
 - **🛡️ Strict Validation & Anti-Spam**: Zod schema validation, honeypot bot traps (`website_hp`), and Nepal phone number sanitization (`+977 98/97` or `01XXXXXXX`).
-- **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `dka_users`, `dka_bookings`, and `dka_idempotency_keys`.
+- **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `dka_users`, `dka_bookings`, `dka_notifications`, and `dka_idempotency_keys`.
 - **🚙 Vehicle Assignment Tracking**: Seamless assignment of vehicle models and registration plates for confirmed expeditions.
 - **👨‍✈️ Synchronized Drivers Directory**: Management of expedition drivers via `dka_owners` <-> `cr_owners` bidirectional triggers and `cr_drivers` view.
 
@@ -44,6 +45,7 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 - **Runtime**: Node.js (ES Modules) with `tsx` hot-reloading
 - **Database Driver**: `pg` (node-postgres connection pool)
 - **Validation**: [Zod](https://zod.dev) v4
+- **Push Engine**: Native Expo Push Notification API (`push.ts`)
 - **Testing**: [Jest](https://jestjs.io) with `ts-jest` & Experimental VM Modules
 
 ---
@@ -54,16 +56,18 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 server/
 ├── src/
 │   ├── routes/
-│   │   ├── admin.ts          # 2FA login, PIN verification, dispatch approval, drivers directory, fleet inventory
+│   │   ├── admin.ts          # 2FA login, PIN verification, dispatch approval, drivers directory, fleet inventory, broadcast
 │   │   ├── auth.ts           # Customer login, register, OTP reset endpoints
-│   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency & DB transaction
-│   │   └── users.ts          # User profile & push token endpoints (/api/users)
+│   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency, DB transaction, & notification triggers
+│   │   └── users.ts          # Profile, notifications, & push token endpoints (/api/users)
 │   ├── db.ts                 # PostgreSQL connection pool & tenant security wrapper
 │   ├── index.ts              # Server entry point & CORS configuration
+│   ├── push.ts               # Expo push notification dispatcher & trip event recorder
 │   └── validation.ts         # Zod schemas, honeypot filters, Nepal phone helpers
 ├── __tests__/
-│   ├── adminEndpoints.test.ts # 2FA admin auth, stats, trip dispatch, vehicle fleet, drivers directory (26 tests)
-│   ├── apiEndpoints.test.ts  # Integration tests for health, auth, bookings, users, idempotency (25 tests)
+│   ├── adminEndpoints.test.ts # 2FA admin auth, stats, trip dispatch, vehicle fleet, drivers directory (29 tests)
+│   ├── apiEndpoints.test.ts  # Integration tests for health, auth, bookings, users, idempotency (26 tests)
+│   ├── fullTripLifecycleE2E.test.ts # End-to-end trip submission, admin review, vehicle assignment & completion (9 tests)
 │   └── validation.test.ts    # Unit tests for validation schemas, regex, and honeypot (11 tests)
 ├── .env.example              # Server environment template
 ├── package.json              # Dependencies and scripts
@@ -82,6 +86,12 @@ DATABASE_URL=postgresql://postgres:your_password@localhost:5432/car_rental_db
 
 # Port for the Hono server (default: 8787)
 PORT=8787
+
+# JWT secret for 2FA operator session signing
+JWT_SECRET=drivekendra_admin_himalayan_jwt_secret_v1
+
+# Optional Expo access token for high-volume push dispatching
+EXPO_ACCESS_TOKEN=
 ```
 
 ---
@@ -312,6 +322,41 @@ Registers or updates a client device push notification token.
 }
 ```
 
+#### `GET /api/users/notifications`
+Retrieves trip lifecycle notifications for a customer by `userId` or `phoneNumber`.
+
+- **Query Parameters**:
+  - `userId` *(optional)*: Filter by customer user ID
+  - `phoneNumber` *(optional)*: Filter by registered phone number
+- **Response `200 OK`**:
+```json
+{
+  "notifications": [
+    {
+      "id": 101,
+      "userId": 1,
+      "bookingId": 42,
+      "title": "Driver Assigned 🚙",
+      "message": "Bikram Shrestha (+977 9841234567) has been assigned to your trip DK-2026-0042.",
+      "type": "driver_assigned",
+      "isRead": false,
+      "createdAt": "2026-09-01T08:30:00.000Z"
+    }
+  ]
+}
+```
+
+#### `PATCH /api/users/notifications/:id/read`
+Marks a specific notification as read.
+
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "Notification marked as read."
+}
+```
+
 ---
 
 ### 5. Admin Portal Subsystem
@@ -455,6 +500,51 @@ Fleet inventory endpoints for listing, filtering, and registering vehicles in `d
 #### `PATCH /api/admin/vehicles/:id`
 Updates vehicle status (e.g. toggles `is_active` between active and inactive).
 
+#### `GET /api/admin/notifications`
+Lists all recent customer notifications with linked user and booking details. Requires `role: 'admin'`.
+
+- **Response `200 OK`**:
+```json
+{
+  "notifications": [
+    {
+      "id": 101,
+      "userId": 1,
+      "bookingId": 42,
+      "title": "Booking Submitted",
+      "message": "Your booking DK-2026-0042 has been submitted for review.",
+      "type": "booking_submitted",
+      "isRead": true,
+      "createdAt": "2026-09-01T08:00:00.000Z",
+      "fullName": "Samman Shakya",
+      "phoneNumber": "9851363783"
+    }
+  ]
+}
+```
+
+#### `POST /api/admin/notifications/broadcast`
+Sends a trip notification to a traveler and dispatches an instant high-priority Expo push alert to their device.
+
+- **Request Body**:
+```json
+{
+  "userId": 1,
+  "bookingId": 42,
+  "title": "Expedition Update 📢",
+  "message": "Your Scorpio 4WD is scheduled for departure at 06:00 AM.",
+  "type": "admin_broadcast"
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "Trip notification dispatched to traveler.",
+  "notificationId": 102
+}
+```
+
 ---
 
 ## 🔒 Database Security & Row-Level Security (RLS)
@@ -474,22 +564,24 @@ The database utilizes two reciprocal PostgreSQL triggers (`trg_sync_cr_owners_to
 
 ---
 
-## 🧪 Testing & Quality Assurance (63 Tests)
+## 🧪 Testing & Quality Assurance (75 Tests)
 
-The server test suite includes **63 automated tests** across **3 test suites**:
+The server test suite includes **75 automated tests** across **4 test suites**:
 - **`validation.test.ts` (11 tests)**: Unit tests for Zod schemas, honeypot bot trap filtering (`website_hp`), and Nepal phone number sanitization (`normalizePhone`).
-- **`apiEndpoints.test.ts` (25 tests)**: Integration tests for `/health`, `/api/auth/*` (login, registration, OTP reset sequence), `/api/bookings` (GET with query filters, POST with transactional multi-table writes and `X-Idempotency-Key` deduplication), and `/api/users/*` (profile and push tokens).
-- **`adminEndpoints.test.ts` (27 tests)**: Complete integration suite for 2FA primary login, PIN gate verification, RLS auth guards, customer directory, trip approval/rejection, fleet inventory management, and driver registration/updates.
+- **`apiEndpoints.test.ts` (26 tests)**: Integration tests for `/health`, `/api/auth/*` (login, registration, OTP reset sequence), `/api/bookings` (GET with query filters, POST with transactional multi-table writes and `X-Idempotency-Key` deduplication), and `/api/users/*` (profile, notifications, and push tokens).
+- **`adminEndpoints.test.ts` (29 tests)**: Complete integration suite for 2FA primary login, PIN gate verification, RLS auth guards, customer directory, trip approval/rejection with vehicle assignment, fleet inventory management, driver registration/updates, and notification broadcast.
+- **`fullTripLifecycleE2E.test.ts` (9 tests)**: Full end-to-end integration test verifying booking submission, admin dispatch review, driver/vehicle assignment, notification and push generation, and trip completion.
 
 ### Run Test Suites
 ```bash
-# Run all server tests (63 tests)
+# Run all server tests (75 tests across 4 suites)
 npm test --prefix server
 
 # Run individual test suites
 npm test --prefix server -- __tests__/validation.test.ts
 npm test --prefix server -- __tests__/apiEndpoints.test.ts
 npm test --prefix server -- __tests__/adminEndpoints.test.ts
+npm test --prefix server -- __tests__/fullTripLifecycleE2E.test.ts
 ```
 
 ### Run TypeScript Typechecking

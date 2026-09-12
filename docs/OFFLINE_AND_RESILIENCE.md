@@ -22,6 +22,7 @@ Traveling through Nepal often involves mountainous routes with zero cellular cov
   - [7. Dynamic Offline Action Queue (`offlineQueue.ts`)](#7-dynamic-offline-action-queue-offlinequeuets)
   - [8. Network Status Listener (`useNetworkStatus.ts`)](#8-network-status-listener-usenetworkstatusts)
   - [9. Admin Dispatch & Driver Directory Resilience (`src/api/admin.ts`)](#9-admin-dispatch--driver-directory-resilience-srcapiadmints)
+  - [10. Offline Notification & Push Token Resilience (`src/services/notificationService.ts`)](#10-offline-notification--push-token-resilience-srcservicesnotificationservicets)
 - [Data Flow During Offline Operations](#-data-flow-during-offline-operations)
 - [Testing Offline Scenarios](#-testing-offline-scenarios)
 
@@ -57,6 +58,7 @@ Drive Kendra Mobile eliminates these points of failure through localized caching
 │  offlineQueue.ts       │ Action replay queue on reconnect              │
 │  onboardingStorage.ts  │ Persistent first-launch state caching         │
 │  useNetworkStatus.ts   │ Real-time connectivity state banner           │
+│  notificationService   │ Resilient push token registration & fallback  │
 │  src/api/admin.ts      │ Resilient driver directory with fallback cache│
 └────────────────────────┴───────────────────────────────────────────────┘
 ```
@@ -160,6 +162,15 @@ Mountain vehicle dispatchers operating from provincial terminals (e.g. Pokhara, 
 - **Local Fallback Registry**: The client API module caches driver rosters (`cr_drivers` / `dka_owners`) in memory with fallback default data sets.
 - **Fail-Safe Contact Dispatch**: Operators can tap-to-call or open WhatsApp links to Himalayan drivers even when the remote API server undergoes transient outages.
 - **Local State Synchronization**: Driver status changes (`ACTIVE`, `INACTIVE`) are applied optimistically so dispatch desk operations never stall.
+
+---
+
+### 10. Offline Notification & Push Token Resilience (`src/services/notificationService.ts`)
+
+Mountain expeditions frequently operate through low-connectivity valley corridors:
+- **Graceful Token Registration Fallback**: If network connectivity drops while registering device push tokens (`POST /api/users/push-token`), `initNotificationService()` catches the network error, prevents UI unhandled rejections, and logs a warning so the traveler can continue using the application offline.
+- **In-App Notification Center Fallback**: `CustomerNotificationsModal` safely displays cached or empty state without locking the interface if the server is unreachable.
+- **Reconnection Synchronization**: As soon as the device regains internet connection, network listeners trigger state refresh for unread notifications and pending dispatch updates.
 
 ---
 

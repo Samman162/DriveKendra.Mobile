@@ -21,17 +21,17 @@ npm run ios
 npm run web
 ```
 
-### Static Analysis & Testing (126 Automated Tests)
+### Static Analysis & Testing (146 Automated Tests)
 ```bash
 # Static TypeScript typecheck (Client & Server)
 npm run typecheck
 npm run typecheck --prefix server
 
-# Run all Jest test suites (Client: 10 suites / 64 tests, Server: 3 suites / 62 tests - 126 Total)
+# Run all Jest test suites (Client: 12 suites / 71 tests, Server: 4 suites / 75 tests - 146 Total)
 npm test
 npm test --prefix server
 
-# Run specific client test suites (10 Suites)
+# Run specific client test suites (12 Suites)
 npx jest __tests__/HomeScreen.test.tsx
 npx jest __tests__/BookingScreen.test.tsx
 npx jest __tests__/AuthFlow.test.tsx
@@ -42,11 +42,14 @@ npx jest __tests__/Onboarding.test.tsx
 npx jest __tests__/RecentSearches.test.tsx
 npx jest __tests__/BrandLogoAndSplash.test.tsx
 npx jest __tests__/ProfileScreen.test.tsx
+npx jest __tests__/MyTripsConfirmationFlow.test.tsx
+npx jest __tests__/NotificationsFlow.test.tsx
 
-# Run specific server test suites (3 Suites)
+# Run specific server test suites (4 Suites)
 npm test --prefix server -- __tests__/validation.test.ts
 npm test --prefix server -- __tests__/apiEndpoints.test.ts
 npm test --prefix server -- __tests__/adminEndpoints.test.ts
+npm test --prefix server -- __tests__/fullTripLifecycleE2E.test.ts
 ```
 
 ### Building & Packaging (EAS CLI)
@@ -85,6 +88,10 @@ npx eas-cli build --profile production --platform android
    - Admin operations in `server/src/routes/admin.ts` require 2FA authentication and enforce RLS `SET LOCAL app.is_admin = 'true'`.
 8. **Bidirectional Driver/Owner Database Sync**:
    - PostgreSQL triggers maintain seamless bidirectional synchronization between `cr_owners` and `dka_owners` with recursion protection (`pg_trigger_depth() > 1`). Drivers are managed via `cr_drivers` view and `/api/admin/drivers` endpoints.
+9. **Real-Time Push Notifications & Notification Center**:
+   - Manage device push tokens via `src/services/notificationService.ts` and `POST /api/users/push-token`.
+   - Dispatch real-time lifecycle alerts for booking submissions, driver/vehicle assignments, trip rejections, and completions via `server/src/push.ts`.
+   - In-app notification centers for travelers (`CustomerNotificationsModal.tsx`) and admins (`AdminNotificationsModal.tsx`).
 
 ---
 

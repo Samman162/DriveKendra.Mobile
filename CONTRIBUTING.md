@@ -64,11 +64,12 @@ npm run dev
 
 - **TypeScript**: Strict mode is enabled (`tsconfig.json`). Avoid `any` types; use explicit interfaces and DTOs from `src/types/`.
 - **Component Architecture**:
-  - Reusable UI primitives belong in `src/components/ui/`.
+  - Reusable UI primitives and modals belong in `src/components/ui/` (including `CustomerNotificationsModal.tsx` for traveler alerts).
   - Feature-specific screens belong in `src/screens/`:
     - 7 Customer Screens: `HomeScreen`, `BookingScreen`, `MyTripsScreen`, `ProfileScreen`, `AuthScreen`, `OnboardingScreen`, `ContactScreen`.
-    - 3 Admin Portal Screens (`src/screens/admin/`): `AdminLoginScreen`, `AdminPinScreen`, `AdminDashboardScreen` (featuring Dispatch Desk, Drivers Directory, Users Directory, Profile) rendered exclusively inside `AdminNavigator`.
-  - API communication logic belongs in `src/api/` (Client) and `server/src/routes/` (Backend: `auth.ts`, `bookings.ts`, `users.ts`, `admin.ts`).
+    - 3 Admin Portal Screens (`src/screens/admin/`): `AdminLoginScreen`, `AdminPinScreen`, `AdminDashboardScreen` (featuring Dispatch Desk, Drivers Directory, Users Directory, Profile, and `AdminNotificationsModal.tsx`) rendered exclusively inside `AdminNavigator`.
+  - Services belong in `src/services/` (e.g. `notificationService.ts` for Expo Push Notifications and permissions).
+  - API communication logic belongs in `src/api/` (Client) and `server/src/routes/` (Backend: `auth.ts`, `bookings.ts`, `users.ts`, `admin.ts`, plus `push.ts` dispatcher).
   - Offline resilience & geocoding utilities belong in `src/utils/` and `src/constants/`.
 - **Theming**:
   - Never hardcode color hex codes (e.g. `#FFFFFF` or `#0F172A`) inside screen styles. Use `theme.colors.*` values.
@@ -92,7 +93,7 @@ If your feature requires schema additions or alterations:
 1. Update the base schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
 2. Create a new patch file in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) with standard naming:
    ```
-   database/patches/002_your_feature_name.sql
+   database/patches/010_your_feature_name.sql
    ```
 3. Use `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS` clauses to ensure idempotency.
 4. Once verified and applied to production/staging, delete the applied patch file to keep `database/patches/` clean.
@@ -109,12 +110,12 @@ npm run typecheck
 npm run typecheck --prefix server
 ```
 
-### 2. Unit & Integration Test Suites (126 Total Tests)
+### 2. Unit & Integration Test Suites (146 Total Tests)
 ```bash
-# Client test suites (10 suites / 64 tests: AdminFlow, AuthFlow, BookingScreen, BrandLogoAndSplash, GeocodingAndMapPicker, HomeScreen, LocationPicker, Onboarding, ProfileScreen, RecentSearches)
+# Client test suites (12 suites / 71 tests: AdminFlow, AuthFlow, BookingScreen, BrandLogoAndSplash, GeocodingAndMapPicker, HomeScreen, LocationPicker, MyTripsConfirmationFlow, NotificationsFlow, Onboarding, ProfileScreen, RecentSearches)
 npm test
 
-# Server test suites (3 suites / 62 tests: validation schemas, phone regex, honeypot, apiEndpoints, and adminEndpoints)
+# Server test suites (4 suites / 75 tests: validation schemas, phone regex, honeypot, apiEndpoints, fullTripLifecycleE2E, and adminEndpoints)
 npm test --prefix server
 ```
 
@@ -133,7 +134,7 @@ Use standard conventional commit prefixes:
 
 ### Pull Request Checklist
 - [ ] Code passes both client and server `npm run typecheck`.
-- [ ] All 126 automated tests pass (`npm test` and `npm test --prefix server`).
+- [ ] All 146 automated tests pass (`npm test` and `npm test --prefix server`).
 - [ ] Light and Dark theme visuals look crisp, accessible, and responsive.
 - [ ] Any database alterations include both `database/database.sql` updates and a new numbered patch in `database/patches/`.
 - [ ] Offline failover behaviors have been verified (e.g. offline trip vouchers, geocoding fallback, emergency SMS dispatch).

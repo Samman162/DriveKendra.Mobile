@@ -208,8 +208,8 @@ The repository includes a fully configured workflow in [`.github/workflows/ci-cd
    - `npm run typecheck` (Client TypeScript check)
    - `npm run typecheck --prefix server` (Server TypeScript check)
 2. **Automated Unit & Integration Tests**:
-   - `npm test` (Client Jest test suites - 10 suites / 64 tests)
-   - `npm test --prefix server` (Server Jest test suites - 3 suites / 62 tests - 126 Total)
+   - `npm test` (Client Jest test suites - 12 suites / 71 tests)
+   - `npm test --prefix server` (Server Jest test suites - 4 suites / 75 tests - 146 Total)
 3. **EAS Build Verification**:
    - Verifies `eas.json` schema configuration on release branch commits.
 
@@ -222,5 +222,6 @@ The repository includes a fully configured workflow in [`.github/workflows/ci-cd
 | `EXPO_PUBLIC_API_BASE_URL` | Client (`.env`) | Base URL pointing to the Hono API (e.g. `https://api-mobile.drivekendra.com/api`) |
 | `DATABASE_URL` | Server (`server/.env`)| PostgreSQL connection string |
 | `PORT` | Server (`server/.env`)| Port number (default: `8787`) |
+| `JWT_SECRET` | Server (`server/.env`)| Cryptographic secret key for signing operator 2FA session tokens |
 | `EXPO_ACCESS_TOKEN` | Server (`server/.env`)| Optional token for high-volume push notifications |
 | `EXPO_TOKEN` | GitHub Secrets | Token for automated EAS CLI build verification |

@@ -396,6 +396,10 @@ All database modifications follow the strict incremental patch workflow document
 - `idx_dka_idempotency_keys_hash` ON `dka_idempotency_keys(request_hash)`
 - `idx_dka_road_advisories_status` ON `dka_road_advisories(status)`
 - `idx_dka_road_advisories_created` ON `dka_road_advisories(created_at DESC)`
+- `idx_dka_notifications_user_id` ON `dka_notifications(user_id)`
+- `idx_dka_notifications_booking_id` ON `dka_notifications(booking_id)`
+- `idx_dka_push_tokens_user_id` ON `dka_push_tokens(user_id)`
+- `idx_dka_push_tokens_token` ON `dka_push_tokens(push_token)`
 - `idx_cr_owners_phone` ON `cr_owners(phone)`
 - `idx_cr_owners_status` ON `cr_owners(status)`
 - `idx_dka_owners_phone` ON `dka_owners(phone)`

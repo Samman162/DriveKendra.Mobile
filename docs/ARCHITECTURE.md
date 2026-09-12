@@ -24,9 +24,10 @@ This document details the high-level system design, data flows, security boundar
   - [Idempotency & Concurrency Handling](#idempotency--concurrency-handling)
   - [Validation & Anti-Spam Pipeline](#validation--anti-spam-pipeline)
   - [Database Abstraction & Security Wrapper](#database-abstraction--security-wrapper)
+- [Real-Time Push Notifications & Notification Center](#-real-time-push-notifications--notification-center)
 - [Offline-First & Himalayan Resilience Strategy](#-offline-first--himalayan-resilience-strategy)
 - [Security & Authentication Model](#-security--authentication-model)
-- [Testing & Quality Verification (126 Tests)](#-testing--quality-verification-126-tests)
+- [Testing & Quality Verification (146 Tests)](#-testing--quality-verification-146-tests)
 
 ---
 
@@ -43,12 +44,12 @@ This document details the high-level system design, data flows, security boundar
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
 │  ┌───────────┴───────────┐ ┌──────────────────────┐ ┌────────────────┐ │
-│  │ Offline Cache & Queue │ │ Network Status       │ │ OpenStreetMap  │ │
-│  │ (AsyncStorage Voucher)│ │ Listener (NetInfo)   │ │ Leaflet Engine │ │
-│  └───────────────────────┘ └──────────────────────┘ └────────────────┘ │
-└────────────────────────────────────┬────────────────────────────────────┘
-                                     │ HTTPS / JSON (Axios + Headers)
-                                     ▼
+│  │ Offline Cache & Queue │ │ Push Notifications   │ │ OpenStreetMap  │ │
+│  │ (AsyncStorage Voucher)│ │ (expo-notifications) │ │ Leaflet Engine │ │
+│  └───────────────────────┘ └──────────┬───────────┘ └────────────────┘ │
+└───────────────────────────────────────┼────────────────────────────────┘
+                                        │ HTTPS / JSON (Axios + Push Tokens)
+                                        ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                       Drive Kendra API (server/)                        │
 │                 Hono v4 on Node.js / tsx Watch Engine                   │
@@ -58,17 +59,19 @@ This document details the high-level system design, data flows, security boundar
 │  │ (CORS, Error, Admin)  │ │ (Nepal Phone Regex)  │ │ Manager (SHA)  │ │
 │  └───────────┬───────────┘ └──────────────────────┘ └────────────────┘ │
 │              │                                                          │
-│  ┌───────────┴───────────┐                                              │
-│  │ Transaction Manager   │                                              │
-│  │ (Multi-Table Atomic)  │                                              │
-│  └───────────┬───────────┘                                              │
-└──────────────┼──────────────────────────────────────────────────────────┘
-               │ PostgreSQL Connection Pool (pg)
-               ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       PostgreSQL Database Server                        │
-│   (dka_bookings • dka_users • dka_owners ◄► cr_owners • cr_drivers view) │
-└─────────────────────────────────────────────────────────────────────────┘
+│  ┌───────────┴───────────┐ ┌──────────────────────┐                     │
+│  │ Transaction Manager   │ │ Push Dispatch Engine │                     │
+│  │ (Multi-Table Atomic)  │ │ (server/src/push.ts) │                     │
+│  └───────────┬───────────┘ └──────────┬───────────┘                     │
+└──────────────┼────────────────────────┼─────────────────────────────────┘
+               │ PostgreSQL (pg)        │ Expo Push Service API
+               ▼                        ▼
+┌──────────────────────────────────────┐┌────────────────────────────────┐
+│      PostgreSQL Database Server      ││   Expo Push Service Gateway    │
+│  (dka_bookings • dka_users •         ││     (Native APNs & FCM)        │
+│   dka_notifications • dka_push_tokens││                                │
+│   cr_owners ◄► dka_owners)           ││                                │
+└──────────────────────────────────────┘└────────────────────────────────┘
 ```
 
 ---
@@ -144,9 +147,9 @@ This pattern ensures instantaneous theme switching, avoids memory leaks, and ena
 The server entry point (`server/src/index.ts`) mounts distinct feature routes onto a unified Hono application:
 - `/health` ➔ Database connectivity & health check (returns `{ status, database, timestamp }`)
 - `/api/auth` ➔ Authentication and OTP recovery flow (`login`, `register`, `forgot-password`, `reset-password`)
-- `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params; returns `{ bookings: [...] }`) and POST idempotent booking transactions (with `X-Idempotency-Key`)
-- `/api/users` ➔ User profile updates (`PUT /profile`) and push token registration (`POST /push-token`)
-- `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & vehicle assignment (`GET /trips`, `PATCH /trips/:id/approve`, `PATCH /trips/:id/reject`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `PATCH /vehicles/:id`), and customer directory (`GET /users`)
+- `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params; returns `{ bookings: [...] }`) and POST idempotent booking transactions (with `X-Idempotency-Key` and push notification triggers)
+- `/api/users` ➔ User profile updates (`PUT /profile`), notification retrieval (`GET /notifications`), mark read (`PATCH /notifications/:id/read`), and push token registration (`POST /push-token`)
+- `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & vehicle assignment (`GET /trips`, `PATCH /trips/:id/approve`, `PATCH /trips/:id/reject`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `PATCH /vehicles/:id`), customer directory (`GET /users`), and notification dispatch (`GET /notifications`, `POST /notifications/broadcast`)
 
 ### Idempotency & Concurrency Handling
 When the mobile client submits a booking, it generates a unique `X-Idempotency-Key` header. The server verifies this key against the `dka_idempotency_keys` table:
@@ -168,6 +171,22 @@ All queries run inside scoped client helpers in `server/src/db.ts`:
 - **Connection Pooling**: Built on node-postgres pool with configurable limits.
 - **Atomic Transactions**: Multi-table operations wrap in `BEGIN` ... `COMMIT` and guarantee a clean `ROLLBACK` on unhandled errors.
 - **Bidirectional Partner & Vehicle Synchronization**: PostgreSQL triggers `sync_cr_to_dka_owners()` / `sync_dka_to_cr_owners()` synchronize driver records between `cr_owners` and `dka_owners`, exposing the unified `cr_drivers` view. Similarly, `sync_cr_vehicles_to_dka_vehicles()` and `sync_dka_vehicles_to_cr_vehicles()` synchronize vehicle records between `cr_vehicles` and `dka_vehicles` with `pg_trigger_depth() > 1` recursion protection.
+
+---
+
+## 🔔 Real-Time Push Notifications & Notification Center
+
+The application integrates an end-to-end push and in-app notification subsystem:
+1. **Device Push Token Registration**: On mobile startup, `src/services/notificationService.ts` prompts the traveler for push permission, retrieves the unique Expo Push Token via `expo-notifications`, and registers it with the backend (`POST /api/users/push-token`).
+2. **Android Priority Channel**: Configures the high-priority `trip_updates` channel with custom sound, LED lights, and vibration patterns for Himalayan dispatch alerts.
+3. **Automated Lifecycle Alerts**: When critical trip events occur, `server/src/push.ts` atomically persists the notification into `dka_notifications` and pushes native alerts to targeted user devices:
+   - **Trip Submitted**: Alerts traveler and admin dispatch desk.
+   - **Driver & Vehicle Assigned**: Delivers assigned vehicle plate, model, and driver contact details.
+   - **Trip Rejected**: Dispatches cancellation reason with hotline support options.
+   - **Trip Completed**: Sends trip summary and receipt generation prompt.
+4. **In-App Notification Centers**:
+   - **Traveler Hub** (`CustomerNotificationsModal.tsx`): Accessible via the header bell icon on `HomeScreen`, displaying unread badges, timestamped alerts, and mark-as-read interactions.
+   - **Admin Control Desk** (`AdminNotificationsModal.tsx`): Accessible from `AdminDashboardScreen`, allowing operators to review dispatched alerts and broadcast immediate travel updates.
 
 ---
 
@@ -193,11 +212,11 @@ Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) fre
 
 ---
 
-## 🧪 Testing & Quality Verification (128 Tests)
+## 🧪 Testing & Quality Verification (146 Tests)
 
-The system maintains **100% automated test pass rate** across **13 test suites and 128 total tests**:
+The system maintains **100% automated test pass rate** across **16 test suites and 146 total tests**:
 
-### 1. Mobile Client Test Suites (10 Suites / 65 Tests)
+### 1. Mobile Client Test Suites (12 Suites / 71 Tests)
 - `__tests__/AdminFlow.test.tsx` ➔ Admin 2FA login, PIN verification gate, and dashboard operations (including Drivers Directory)
 - `__tests__/HomeScreen.test.tsx` ➔ Hero header, theme toggle, service navigation, and greeting
 - `__tests__/BookingScreen.test.tsx` ➔ Booking submission, honeypot traps, vehicle selection
@@ -208,8 +227,11 @@ The system maintains **100% automated test pass rate** across **13 test suites a
 - `__tests__/ProfileScreen.test.tsx` ➔ Profile stats, guest/authenticated state, theme toggling
 - `__tests__/RecentSearches.test.tsx` ➔ LRU search history caching and eviction
 - `__tests__/BrandLogoAndSplash.test.tsx` ➔ Brand typography, SVG logo, and custom splash loader
+- `__tests__/MyTripsConfirmationFlow.test.tsx` ➔ Reservation confirmation lifecycle, voucher status transitions, and offline persistence
+- `__tests__/NotificationsFlow.test.tsx` ➔ Notification center modal, unread counters, mark-as-read, and push token registration
 
-### 2. Backend Server Test Suites (3 Suites / 63 Tests)
+### 2. Backend Server Test Suites (4 Suites / 75 Tests)
 - `server/__tests__/validation.test.ts` (11 tests) ➔ Zod schemas, honeypot bot trap filtering, and Nepal phone regex
-- `server/__tests__/apiEndpoints.test.ts` (25 tests) ➔ Health ping, auth flows, bookings with idempotency caching, and profile management
-- `server/__tests__/adminEndpoints.test.ts` (27 tests) ➔ 2FA admin authentication, control room stats with driver metrics, trip dispatch approval/rejection with vehicle assignment, and drivers directory CRUD endpoints
+- `server/__tests__/apiEndpoints.test.ts` (26 tests) ➔ Health ping, auth flows, bookings with idempotency caching, profile, notifications, and push tokens
+- `server/__tests__/adminEndpoints.test.ts` (29 tests) ➔ 2FA admin authentication, control room stats with driver metrics, trip dispatch approval/rejection with vehicle assignment, drivers directory CRUD, and notification broadcast
+- `server/__tests__/fullTripLifecycleE2E.test.ts` (9 tests) ➔ End-to-end trip submission, admin review, vehicle assignment, notifications, and completion lifecycle
