@@ -559,7 +559,11 @@ INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_a
 VALUES
     ('Samman Chhetri', '+977 9851363783', 'samman@drivekendra.com', '$2b$10$demoHashedPasswordSamman1234567890', 'customer', TRUE, TRUE),
     ('Drive Kendra Admin', '+977 9800000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE),
-    ('Drive Kendra Admin', '9800000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE)
+    ('Drive Kendra Admin', '9800000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE),
+    ('Drive Kendra Admin', '+9779800000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE),
+    ('Drive Kendra Admin', '9801000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE),
+    ('Drive Kendra Admin', '+977 9801000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE),
+    ('Drive Kendra Admin', '+9779801000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE)
 ON CONFLICT (phone_number) DO UPDATE SET
     role = 'admin',
     password_hash = EXCLUDED.password_hash;

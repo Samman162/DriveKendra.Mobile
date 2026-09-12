@@ -28,10 +28,11 @@ This directory contains the canonical PostgreSQL database schema, migration patc
   - [3. `dka_vehicles`](#3-dka_vehicles)
   - [4. `dka_bookings`](#4-dka_bookings)
   - [5. `dka_notifications`](#5-dka_notifications)
-  - [6. `dka_idempotency_keys`](#6-dka_idempotency_keys)
-  - [7. `dka_road_advisories`](#7-dka_road_advisories)
-  - [8. `cr_owners` & `dka_owners`](#8-cr_owners--dka_owners)
-  - [9. Bidirectional Triggers & `cr_drivers` View](#9-bidirectional-triggers--cr_drivers-view)
+  - [6. `dka_push_tokens`](#6-dka_push_tokens)
+  - [7. `dka_idempotency_keys`](#7-dka_idempotency_keys)
+  - [8. `dka_road_advisories`](#8-dka_road_advisories)
+  - [9. `cr_owners` & `dka_owners`](#9-cr_owners--dka_owners)
+  - [10. Bidirectional Triggers & `cr_drivers` View](#10-bidirectional-triggers--cr_drivers-view)
 - [Incremental Migration Patches](#-incremental-migration-patches)
 - [Indexing & Query Optimization](#-indexing--query-optimization)
 - [Seed Data (Catalog, Accounts, Advisories & Drivers)](#-seed-data-catalog-accounts-advisories--drivers)
@@ -179,7 +180,21 @@ Dispatched customer trip notifications and approval alerts.
 
 ---
 
-### 6. `dka_idempotency_keys`
+### 6. `dka_push_tokens`
+Hardware push notification registration tokens for Expo Push Notifications dispatched on booking status changes.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `token_id` | `SERIAL` | `PRIMARY KEY` | Unique token ID |
+| `user_id` | `INTEGER` | `REFERENCES dka_users(user_id) ON DELETE CASCADE` | Registered recipient user |
+| `push_token` | `TEXT` | `NOT NULL` | Expo Push Token (`ExponentPushToken[...]`) |
+| `device_type` | `VARCHAR(20)` | `DEFAULT 'mobile'` | Device form factor (`mobile`, `tablet`, `web`) |
+| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Registration timestamp |
+| `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Last update timestamp |
+
+---
+
+### 7. `dka_idempotency_keys`
 Prevents duplicate transactions when mobile clients retry on unstable mountain cellular networks.
 
 | Column | Type | Constraints | Description |
@@ -197,7 +212,7 @@ Prevents duplicate transactions when mobile clients retry on unstable mountain c
 
 ---
 
-### 7. `dka_road_advisories`
+### 8. `dka_road_advisories`
 High-altitude highway alerts, seasonal pass status, and expedition safety notices.
 
 | Column | Type | Constraints | Description |
@@ -213,7 +228,7 @@ High-altitude highway alerts, seasonal pass status, and expedition safety notice
 
 ---
 
-### 8. `cr_owners` & `dka_owners`
+### 9. `cr_owners` & `dka_owners`
 Unified partner vehicle owner and driver registry. Both tables share identical schema structures and are synchronized in real-time.
 
 | Column | Type | Constraints | Description |
@@ -237,7 +252,7 @@ Unified partner vehicle owner and driver registry. Both tables share identical s
 
 ---
 
-### 9. Bidirectional Triggers & `cr_drivers` View
+### 10. Bidirectional Triggers & `cr_drivers` View
 
 To ensure zero divergence between the core rental ecosystem (`cr_owners`) and the mobile application schema (`dka_owners`), two reciprocal PostgreSQL triggers synchronize row modifications bidirectionally:
 
@@ -348,11 +363,20 @@ FROM dka_owners;
 
 All database modifications follow the strict incremental patch workflow documented in [AGENTS.md](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/AGENTS.md):
 
-| Patch File | Scope & Impact | Status |
-|---|---|---|
-| [`001_drivers_and_dka_owners_sync.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/001_drivers_and_dka_owners_sync.sql) | Creates `dka_owners`, bidirectional triggers (`sync_cr_to_dka_owners`, `sync_dka_to_cr_owners`), `cr_drivers` view, and seed Himalayan drivers. | Available for application |
-| [`002_trip_driver_and_pricing_dispatch.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/002_trip_driver_and_pricing_dispatch.sql) | Adds `assigned_driver_id`, `actual_fare`, and `pricing_breakdown` columns to `dka_bookings`. | Available for application |
-| [`003_vehicles_and_dka_vehicles_sync.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/003_vehicles_and_dka_vehicles_sync.sql) | Creates `dka_vehicles` with the exact 11 columns matching `cr_vehicles`, sets up bidirectional triggers (`sync_cr_vehicles_to_dka_vehicles`, `sync_dka_vehicles_to_cr_vehicles`), and initial backfill. | Available for application |
+> [!NOTE]
+> All patches from `001` through `009` have been fully consolidated and incorporated into canonical [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql). Per Rule 3 (Patch Consolidation & Cleanup), applied patches are consolidated and deleted from `database/patches/`.
+
+| Patch | Scope & Impact | Canonical Schema Location | Consolidation Status |
+|---|---|---|---|
+| `001` | Creates `dka_owners`, bidirectional triggers (`sync_cr_to_dka_owners`, `sync_dka_to_cr_owners`), `cr_drivers` view, and initial backfill. | [`database.sql:L69-L220`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L69-L220) | Consolidated into canonical schema |
+| `002` | Adds `assigned_driver_id`, `assigned_driver_name`, `assigned_driver_phone`, and `final_fare` to `dka_bookings`. | [`database.sql:L388-L403`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L388-L403) | Consolidated into canonical schema |
+| `003` | Creates `dka_vehicles` (11 columns), bidirectional triggers (`sync_cr_vehicles_to_dka_vehicles`, `sync_dka_vehicles_to_cr_vehicles`), and initial backfill. | [`database.sql:L224-L366`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L224-L366) | Consolidated into canonical schema |
+| `004` | Sequence synchronization (`PERFORM setval`) for all owner and vehicle bidirectional triggers. | [`database.sql:L130-L338`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L130-L338) | Consolidated into canonical schema |
+| `005` | Adds `assigned_vehicle_id`, `rejection_reason` to `dka_bookings`, and creates `dka_notifications` table. | [`database.sql:L374-L435`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L374-L435) | Consolidated into canonical schema |
+| `006` | Admin account phone number and email role assignments (`role = 'admin'`). | [`database.sql:L558-L570`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L558-L570) | Consolidated into canonical schema |
+| `007` | Allow `NULL` `owner_id` for company-owned fleet vehicles in `cr_vehicles`. | [`database.sql:L244-L245`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L244-L245) | Consolidated into canonical schema |
+| `008` | Ephemeral test bookings & audit test passenger purge. | One-time migration / test audit | Completed |
+| `009` | Purge broadcast advisories and create `dka_push_tokens` table with device type and token indexes. | [`database.sql:L437-L451`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql#L437-L451) | Consolidated into canonical schema |
 
 ---
 
