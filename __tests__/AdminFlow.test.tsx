@@ -553,6 +553,44 @@ describe('Admin Portal Subsystem Flow & Components', () => {
       });
     });
 
+    it('AppNavigator renders AdminNavigator when user logged in with 9800000000 even if role was omitted in storage', async () => {
+      (secureStorage.getUserData as jest.Mock).mockResolvedValue({
+        id: '11',
+        name: 'Admin User',
+        phone: '9800000000',
+      });
+      (secureStorage.getAccessToken as jest.Mock).mockResolvedValue('jwt_token_123');
+      (secureStorage.getAdminAccessToken as jest.Mock).mockResolvedValue(null);
+      (secureStorage.getAdminUserData as jest.Mock).mockResolvedValue(null);
+
+      let tree: any = null;
+      await renderer.act(async () => {
+        tree = renderer.create(
+          <NavigationContainer>
+            <ThemeProvider>
+              <AuthProvider>
+                <AdminAuthProvider>
+                  <AppNavigator />
+                </AdminAuthProvider>
+              </AuthProvider>
+            </ThemeProvider>
+          </NavigationContainer>,
+        );
+        await new Promise((r) => setTimeout(r, 100));
+      });
+
+      const root = tree.root;
+      // Must render AdminPinScreen (part of AdminNavigator) rather than MainTabs customer screens
+      const textNodes = root.findAllByType('Text' as any);
+      const texts = textNodes.map((t: any) => t.props.children).flat().join(' ');
+      expect(texts).toContain('Security PIN');
+      expect(texts).not.toContain('Book Ride');
+
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
+
     it('AdminPinScreen renders Exit button and cancel link to safely return to login', async () => {
       let tree: any = null;
       await renderer.act(async () => {

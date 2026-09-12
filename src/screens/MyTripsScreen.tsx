@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Linking from 'expo-linking';
 import {
   AlertTriangle,
+  Bell,
   Calendar,
   Car,
   Clock,
@@ -33,6 +34,7 @@ import {
 } from 'lucide-react-native';
 
 import { getUserBookings } from '../api/bookings';
+import { CustomerNotificationsModal } from '../components/ui/CustomerNotificationsModal';
 import { EmergencySosModal } from '../components/ui/EmergencySosModal';
 import { EmergencyTripCard } from '../components/ui/EmergencyTripCard';
 import { Screen } from '../components/ui/Screen';
@@ -97,6 +99,8 @@ export function MyTripsScreen() {
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
   const [sosModalVisible, setSosModalVisible] = useState<boolean>(false);
   const [sosTrip, setSosTrip] = useState<TripRecord | null>(null);
+  const [notificationsModalVisible, setNotificationsModalVisible] = useState<boolean>(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
 
   // Helper to map offline vouchers to TripRecord
   const mapOfflineVouchersToTrips = (cached: OfflineVoucher[]): TripRecord[] => {
@@ -292,7 +296,21 @@ export function MyTripsScreen() {
           <Text style={styles.categoryLabel}>MY RESERVATIONS</Text>
           <Text style={styles.screenTitle}>My Trips</Text>
         </View>
-        <ThemeToggle variant="onSurface" />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Pressable
+            onPress={() => {
+              hapticFeedback.light();
+              setNotificationsModalVisible(true);
+            }}
+            style={({ pressed }) => [styles.notifBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+          >
+            <Bell size={18} color={colors.text} />
+            {unreadNotifCount > 0 && <View style={styles.notifBadgeDot} />}
+          </Pressable>
+          <ThemeToggle variant="onSurface" />
+        </View>
       </View>
 
       <ScrollView
@@ -819,6 +837,15 @@ export function MyTripsScreen() {
         }}
         bookingRef={sosTrip?.bookingRef}
       />
+
+      {/* Customer Notifications Modal */}
+      <CustomerNotificationsModal
+        visible={notificationsModalVisible}
+        onClose={() => setNotificationsModalVisible(false)}
+        userId={user?.id ? Number(user.id) : undefined}
+        phoneNumber={user?.phone}
+        onUnreadCountChange={setUnreadNotifCount}
+      />
     </Screen>
   );
 }
@@ -832,6 +859,25 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
       paddingBottom: spacing.sm,
+    },
+    notifBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    notifBadgeDot: {
+      position: 'absolute',
+      top: 5,
+      right: 5,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
     },
     topBarLeft: {
       flex: 1,

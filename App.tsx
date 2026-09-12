@@ -15,6 +15,7 @@ import { AdminAuthProvider, useAdminAuth } from './src/context/AdminAuthContext'
 import { ThemeProvider, useTheme } from './src/theme/ThemeProvider';
 import { AppSplashScreen } from './src/components/ui/AppSplashScreen';
 import { hasCompletedOnboarding, subscribeOnboarding } from './src/utils/onboardingStorage';
+import { useTripNotificationsWatcher } from './src/hooks/useTripNotificationsWatcher';
 
 // Keep native splash screen visible while app initializes JS engine & assets
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -25,6 +26,9 @@ function ThemedApp() {
   const { isLoading: isAdminAuthLoading } = useAdminAuth();
   const [isOnboardingChecked, setIsOnboardingChecked] = useState(false);
   const [isOnboardingCompleted, setIsOnboardingCompleted] = useState(true);
+
+  // Real-time Trip Notifications & Permissions Watcher
+  useTripNotificationsWatcher();
 
   // Check if first-launch onboarding walkthrough has been completed
   useEffect(() => {

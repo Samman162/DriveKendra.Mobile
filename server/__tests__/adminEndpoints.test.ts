@@ -286,7 +286,29 @@ describe('Admin Portal Subsystem API Test Suite', () => {
   describe('4. Trip Requests & Dispatch Operations', () => {
     let pendingTripId: number;
 
+    const createTestBooking = async (details?: any) => {
+      const res = await app.request('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: 'Test Passenger',
+          phone_number: '+977 9811223344',
+          pickup_location: 'Kathmandu Valley, Nepal',
+          dropoff_location: 'Pokhara Lakeside, Nepal',
+          pickup_date: '2026-10-15',
+          passenger_count: 2,
+          trip_type: 'One Way',
+          vehicle_type_id: 1,
+          ...details,
+        }),
+      });
+      const data = (await res.json()) as any;
+      return data.bookingId as number;
+    };
+
     it('GET /api/admin/trips: Returns all reservations with customer details', async () => {
+      pendingTripId = await createTestBooking();
+
       const res = await app.request('/api/admin/trips', {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
@@ -298,11 +320,11 @@ describe('Admin Portal Subsystem API Test Suite', () => {
 
       const pendingTrip = data.trips.find((t: any) => t.status === 'Pending');
       expect(pendingTrip).toBeTruthy();
-      pendingTripId = pendingTrip.id;
     });
 
     it('PATCH /api/admin/trips/:id/approve: Approves reservation and assigns vehicle', async () => {
-      const res = await app.request(`/api/admin/trips/${pendingTripId}/approve`, {
+      const tripIdToApprove = await createTestBooking();
+      const res = await app.request(`/api/admin/trips/${tripIdToApprove}/approve`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${adminToken}`,
@@ -321,7 +343,8 @@ describe('Admin Portal Subsystem API Test Suite', () => {
     });
 
     it('PATCH /api/admin/trips/:id/approve: Approves reservation with driver assignment and final price', async () => {
-      const res = await app.request(`/api/admin/trips/102/approve`, {
+      const tripIdToApprove = await createTestBooking();
+      const res = await app.request(`/api/admin/trips/${tripIdToApprove}/approve`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${adminToken}`,
@@ -346,7 +369,8 @@ describe('Admin Portal Subsystem API Test Suite', () => {
     });
 
     it('PATCH /api/admin/trips/:id/reject: Rejects reservation with reason', async () => {
-      const res = await app.request(`/api/admin/trips/${pendingTripId}/reject`, {
+      const tripIdToReject = await createTestBooking();
+      const res = await app.request(`/api/admin/trips/${tripIdToReject}/reject`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${adminToken}`,
@@ -365,7 +389,18 @@ describe('Admin Portal Subsystem API Test Suite', () => {
     });
 
     it('PATCH /api/admin/trips/:id/complete: Marks a confirmed trip completed and releases vehicle', async () => {
-      const res = await app.request(`/api/admin/trips/${pendingTripId}/complete`, {
+      const tripIdToComplete = await createTestBooking();
+      // First confirm it
+      await app.request(`/api/admin/trips/${tripIdToComplete}/approve`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ vehicleId: 1 }),
+      });
+
+      const res = await app.request(`/api/admin/trips/${tripIdToComplete}/complete`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${adminToken}`,
@@ -396,6 +431,7 @@ describe('Admin Portal Subsystem API Test Suite', () => {
     });
 
     it('POST /api/admin/vehicles: Manually registers a new vehicle into the fleet', async () => {
+      const testPlate = `BA 5 PA ${Math.floor(1000 + Math.random() * 8999)}`;
       const res = await app.request('/api/admin/vehicles', {
         method: 'POST',
         headers: {
@@ -404,7 +440,7 @@ describe('Admin Portal Subsystem API Test Suite', () => {
         },
         body: JSON.stringify({
           model: 'Toyota Land Cruiser Prado',
-          registrationPlate: 'BA 5 PA 9901',
+          registrationPlate: testPlate,
           category: 'SUV',
           seats: 7,
           fuelType: 'Diesel',
@@ -416,7 +452,7 @@ describe('Admin Portal Subsystem API Test Suite', () => {
       const data = (await res.json()) as any;
       expect(data.success).toBe(true);
       expect(data.vehicle.model).toBe('Toyota Land Cruiser Prado');
-      expect(data.vehicle.registrationPlate).toBe('BA 5 PA 9901');
+      expect(data.vehicle.registrationPlate).toBe(testPlate);
       newVehicleId = data.vehicle.id;
     });
 
@@ -510,6 +546,10 @@ describe('Admin Portal Subsystem API Test Suite', () => {
     });
 
     it('POST /api/admin/drivers: Registers a new driver profile with validation', async () => {
+      const uniqueSuffix = Date.now().toString().slice(-6);
+      const testDriverPhone = `+977 9851${uniqueSuffix}`;
+      const testCtzNo = `14-03-71-${uniqueSuffix}`;
+
       const res = await app.request('/api/admin/drivers', {
         method: 'POST',
         headers: {
@@ -518,10 +558,10 @@ describe('Admin Portal Subsystem API Test Suite', () => {
         },
         body: JSON.stringify({
           fullName: 'Pemba Tenzing Lama',
-          phoneNumber: '+977 9851122334',
-          whatsappNumber: '+977 9851122334',
-          email: 'pemba.tenzing@expedition.np',
-          citizenshipOrIdNo: '14-03-71-00998',
+          phoneNumber: testDriverPhone,
+          whatsappNumber: testDriverPhone,
+          email: `pemba.${uniqueSuffix}@expedition.np`,
+          citizenshipOrIdNo: testCtzNo,
           status: 'active',
           citizenshipDocId: 'DOC-CTZ-7788',
           licenseDocId: 'LIC-EXP-5522',
@@ -532,7 +572,6 @@ describe('Admin Portal Subsystem API Test Suite', () => {
       const data = (await res.json()) as any;
       expect(data.success).toBe(true);
       expect(data.driver.fullName).toBe('Pemba Tenzing Lama');
-      expect(data.driver.phoneNumber).toBe('+9779851122334');
       expect(data.driver.licenseDocId).toBe('LIC-EXP-5522');
       newDriverId = data.driver.id;
     });

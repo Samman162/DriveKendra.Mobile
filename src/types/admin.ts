@@ -206,3 +206,25 @@ export interface UpdateDriverDto {
   licenseDocId?: string;
 }
 
+export interface AdminNotification {
+  id: number;
+  userId?: number | null;
+  bookingId?: number | null;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+  userName?: string | null;
+  userPhone?: string | null;
+}
+
+export interface BroadcastNotificationDto {
+  userId?: number | null;
+  bookingId?: number | null;
+  title: string;
+  message: string;
+  type?: string;
+}
+
+

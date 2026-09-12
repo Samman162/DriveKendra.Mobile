@@ -17,6 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import {
   AlertTriangle,
+  Bell,
   Bus,
   Calendar,
   CalendarCheck,
@@ -82,6 +83,7 @@ import {
   updateAdminDriver,
   updateAdminVehicle,
 } from '../../api/admin';
+import { AdminNotificationsModal } from './AdminNotificationsModal';
 import { ThemeModeSelector } from '../../components/ui/ThemeModeSelector';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { AuthContext } from '../../context/AuthContext';
@@ -133,11 +135,13 @@ export function AdminDashboardScreen() {
 
   // Filtering states
   const [tripFilter, setTripFilter] = useState<'All' | 'Pending' | 'Confirmed' | 'Completed' | 'Cancelled'>('Pending');
+  const [tripSearch, setTripSearch] = useState<string>('');
   const [driverStatusFilter, setDriverStatusFilter] = useState<'ALL' | 'ACTIVE' | 'PENDING' | 'INACTIVE'>('ALL');
   const [driverSearch, setDriverSearch] = useState<string>('');
   const [userSearch, setUserSearch] = useState<string>('');
 
   // Modals
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState<boolean>(false);
   const [selectedTripToApprove, setSelectedTripToApprove] = useState<AdminTrip | null>(null);
   const [selectedTripToReject, setSelectedTripToReject] = useState<AdminTrip | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>('');
@@ -604,8 +608,23 @@ export function AdminDashboardScreen() {
 
   // Filtered lists
   const filteredTrips = trips.filter((t) => {
-    if (tripFilter === 'All') return true;
-    return t.status.toLowerCase() === tripFilter.toLowerCase();
+    if (tripFilter !== 'All' && t.status.toLowerCase() !== tripFilter.toLowerCase()) {
+      return false;
+    }
+    if (tripSearch.trim()) {
+      const q = tripSearch.toLowerCase().trim();
+      return (
+        t.customerName.toLowerCase().includes(q) ||
+        t.customerPhone.includes(q) ||
+        t.bookingRef.toLowerCase().includes(q) ||
+        t.pickupLocation.toLowerCase().includes(q) ||
+        t.dropoffLocation.toLowerCase().includes(q) ||
+        t.vehicleCategory.toLowerCase().includes(q) ||
+        (t.assignedVehiclePlate && t.assignedVehiclePlate.toLowerCase().includes(q)) ||
+        (t.assignedDriverName && t.assignedDriverName.toLowerCase().includes(q))
+      );
+    }
+    return true;
   });
 
   const filteredDrivers = drivers.filter((d) => {
@@ -663,6 +682,21 @@ export function AdminDashboardScreen() {
             <View style={styles.rlsDot} />
             <Text style={styles.rlsText}>RLS ACTIVE</Text>
           </View>
+          <Pressable
+            onPress={() => {
+              hapticFeedback.light();
+              setIsNotificationsModalOpen(true);
+            }}
+            style={({ pressed }) => [
+              styles.logoutBtn,
+              { backgroundColor: colors.accentSoft },
+              pressed && styles.pressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Open Admin Notifications Desk"
+          >
+            <Bell size={16} color={colors.accent} />
+          </Pressable>
           <Pressable
             onPress={handleSignOut}
             style={({ pressed }) => [styles.logoutBtn, pressed && styles.pressed]}
@@ -739,6 +773,24 @@ export function AdminDashboardScreen() {
             </View>
 
             <View style={styles.sectionContainer}>
+              {/* Trip Search Input */}
+              <View style={styles.searchBar}>
+                <Search size={18} color={colors.subtle} style={{ marginRight: spacing.sm }} />
+                <TextInput
+                  style={styles.searchInput}
+                  value={tripSearch}
+                  onChangeText={setTripSearch}
+                  placeholder="Search reservations by customer, phone, ref, route..."
+                  placeholderTextColor={colors.muted}
+                  accessibilityLabel="Search reservations"
+                />
+                {tripSearch ? (
+                  <Pressable onPress={() => setTripSearch('')} accessibilityLabel="Clear reservation search">
+                    <X size={18} color={colors.subtle} />
+                  </Pressable>
+                ) : null}
+              </View>
+
               {/* Filter Pills */}
               <View style={styles.filterPillsRow}>
               {(['Pending', 'Confirmed', 'Completed', 'Cancelled', 'All'] as const).map((filter) => (
@@ -2121,6 +2173,12 @@ export function AdminDashboardScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Admin Notifications Desk Modal */}
+      <AdminNotificationsModal
+        visible={isNotificationsModalOpen}
+        onClose={() => setIsNotificationsModalOpen(false)}
+      />
     </View>
   );
 }

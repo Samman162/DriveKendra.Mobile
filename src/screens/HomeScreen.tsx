@@ -15,6 +15,7 @@ import * as Linking from 'expo-linking';
 import {
   ArrowRight,
   ArrowUpDown,
+  Bell,
   Car,
   ChevronRight,
   Clock,
@@ -32,6 +33,7 @@ import {
 } from 'lucide-react-native';
 
 import { BrandLogo } from '../components/ui/BrandLogo';
+import { CustomerNotificationsModal } from '../components/ui/CustomerNotificationsModal';
 import { EmergencySosModal } from '../components/ui/EmergencySosModal';
 import { LocationPickerModal } from '../components/ui/LocationPickerModal';
 import { Screen } from '../components/ui/Screen';
@@ -174,6 +176,10 @@ export function HomeScreen() {
   // Emergency SOS modal
   const [sosModalVisible, setSosModalVisible] = useState(false);
 
+  // Notifications modal
+  const [notificationsModalVisible, setNotificationsModalVisible] = useState(false);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
   // Active offline reservation
   const [activeVoucher, setActiveVoucher] = useState<OfflineVoucher | null>(null);
 
@@ -269,6 +275,22 @@ export function HomeScreen() {
           >
             <ShieldAlert size={14} color={colors.error} />
             <Text style={styles.sosPillText}>SOS</Text>
+          </Pressable>
+
+          {/* Notifications Bell */}
+          <Pressable
+            onPress={() => {
+              hapticFeedback.light();
+              setNotificationsModalVisible(true);
+            }}
+            style={({ pressed }) => [styles.profileBtn, pressed && styles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+          >
+            <View style={styles.guestCircle}>
+              <Bell size={16} color={colors.text} />
+              {unreadNotifCount > 0 && <View style={styles.notifBadgeDot} />}
+            </View>
           </Pressable>
 
           {/* Theme Toggle */}
@@ -685,6 +707,15 @@ export function HomeScreen() {
         onClose={() => setSosModalVisible(false)}
         bookingRef={activeVoucher?.bookingRef}
       />
+
+      {/* Customer Notifications Modal */}
+      <CustomerNotificationsModal
+        visible={notificationsModalVisible}
+        onClose={() => setNotificationsModalVisible(false)}
+        userId={user?.id ? Number(user.id) : undefined}
+        phoneNumber={user?.phone}
+        onUnreadCountChange={setUnreadNotifCount}
+      />
     </Screen>
   );
 }
@@ -768,6 +799,15 @@ function createStyles(colors: ThemeColors) {
       borderColor: colors.border,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    notifBadgeDot: {
+      position: 'absolute',
+      top: 4,
+      right: 4,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.accent,
     },
     container: {
       paddingHorizontal: spacing.lg,

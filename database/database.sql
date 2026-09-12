@@ -240,6 +240,9 @@ CREATE INDEX IF NOT EXISTS idx_dka_vehicles_owner ON dka_vehicles(owner_id);
 CREATE INDEX IF NOT EXISTS idx_dka_vehicles_type ON dka_vehicles(vehicle_type_id);
 CREATE INDEX IF NOT EXISTS idx_dka_vehicles_active ON dka_vehicles(is_active);
 
+-- Allow company fleet vehicles to exist without an assigned owner in cr_vehicles
+ALTER TABLE IF EXISTS cr_vehicles ALTER COLUMN owner_id DROP NOT NULL;
+
 -- Bidirectional Synchronization Triggers between cr_vehicles and dka_vehicles
 CREATE OR REPLACE FUNCTION sync_cr_vehicles_to_dka_vehicles()
 RETURNS TRIGGER AS $$
@@ -418,7 +421,7 @@ CREATE TRIGGER trigger_dka_bookings_updated_at
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS dka_notifications (
     notification_id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES dka_users(user_id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES dka_users(user_id) ON DELETE CASCADE,
     booking_id INTEGER REFERENCES dka_bookings(booking_id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     message TEXT NOT NULL,
@@ -429,6 +432,22 @@ CREATE TABLE IF NOT EXISTS dka_notifications (
 
 CREATE INDEX IF NOT EXISTS idx_dka_notifications_user_id ON dka_notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_dka_notifications_created_at ON dka_notifications(created_at DESC);
+
+-- =============================================================================
+-- 6.1 PUSH NOTIFICATION TOKENS (dka_push_tokens)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS dka_push_tokens (
+    token_id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES dka_users(user_id) ON DELETE CASCADE,
+    push_token TEXT NOT NULL,
+    device_type VARCHAR(20) DEFAULT 'mobile',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, push_token)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dka_push_tokens_user ON dka_push_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_dka_push_tokens_token ON dka_push_tokens(push_token);
 
 -- =============================================================================
 -- 7. IDEMPOTENCY KEYS & NETWORK RETRIES (dka_idempotency_keys)
@@ -539,7 +558,8 @@ SELECT setval(pg_get_serial_sequence('dka_vehicles', 'vehicle_id'), COALESCE(MAX
 INSERT INTO dka_users (full_name, phone_number, email, password_hash, role, is_active, is_verified)
 VALUES
     ('Samman Chhetri', '+977 9851363783', 'samman@drivekendra.com', '$2b$10$demoHashedPasswordSamman1234567890', 'customer', TRUE, TRUE),
-    ('Drive Kendra Admin', '+977 9800000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE)
+    ('Drive Kendra Admin', '+977 9800000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE),
+    ('Drive Kendra Admin', '9800000000', 'admin@drivekendra.com', 'c5ef7f208c0f6ff31c8d09a2779bc78fe60b4f2b7bde9d4b82b9ab281b9386dc', 'admin', TRUE, TRUE)
 ON CONFLICT (phone_number) DO UPDATE SET
     role = 'admin',
     password_hash = EXCLUDED.password_hash;

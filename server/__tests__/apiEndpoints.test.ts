@@ -45,6 +45,54 @@ describe('Server API Endpoints Integration Test Suite', () => {
       expect(res.status).toBe(200);
       const data = (await res.json()) as any;
       expect(data.user.name).toBe('Samman Chhetri');
+      expect(data.user.role).toBe('customer');
+    });
+
+    it('logs in admin Drive Kendra Admin by 10-digit phone 9800000000 and returns role admin', async () => {
+      const res = await app.request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: '9800000000',
+          password: 'admin@123',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(data.user.role).toBe('admin');
+      expect(['Drive Kendra Admin', 'Admin User']).toContain(data.user.name);
+      expect(data.token).toBeDefined();
+    });
+
+    it('logs in admin Drive Kendra Admin by full international phone +977 9800000000 and returns role admin', async () => {
+      const res = await app.request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: '+977 9800000000',
+          password: 'admin@123',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(data.user.role).toBe('admin');
+    });
+
+    it('logs in admin Drive Kendra Admin by email admin@drivekendra.com and returns role admin', async () => {
+      const res = await app.request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: 'admin@drivekendra.com',
+          password: 'admin@123',
+        }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = (await res.json()) as any;
+      expect(data.user.role).toBe('admin');
     });
 
     it('rejects invalid or missing login credentials with 400', async () => {

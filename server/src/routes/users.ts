@@ -77,15 +77,123 @@ usersRoute.put('/profile', async (c) => {
  */
 usersRoute.post('/push-token', async (c) => {
   const body = await c.req.json().catch(() => ({}));
-  const { pushToken } = body;
+  const { pushToken, userId, deviceType } = body;
 
   if (!pushToken || typeof pushToken !== 'string' || pushToken.trim().length === 0) {
     throw new HttpError(400, 'Valid pushToken is required.');
+  }
+
+  const cleanToken = pushToken.trim();
+  const numericUserId = userId && !isNaN(Number(userId)) ? Number(userId) : null;
+  const cleanDeviceType = typeof deviceType === 'string' ? deviceType.trim() : 'mobile';
+
+  if (numericUserId) {
+    try {
+      await withPublicClient(async (client) => {
+        await client.query(
+          `INSERT INTO dka_push_tokens (user_id, push_token, device_type)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, push_token)
+           DO UPDATE SET updated_at = NOW(), device_type = EXCLUDED.device_type`,
+          [numericUserId, cleanToken, cleanDeviceType],
+        );
+      });
+    } catch (err: any) {
+      console.warn('[Users] Could not save push token to DB:', err?.message || err);
+    }
   }
 
   return c.json({
     success: true,
     message: 'Push token registered successfully',
   });
+});
+
+/**
+ * GET /api/users/notifications
+ * Retrieve notifications for a customer by userId or phoneNumber (strictly trip lifecycle events)
+ */
+usersRoute.get('/notifications', async (c) => {
+  const rawUserId = c.req.query('userId');
+  const rawPhone = c.req.query('phoneNumber');
+
+  const numericUserId = rawUserId && !isNaN(Number(rawUserId)) ? Number(rawUserId) : null;
+  const phoneNumber = rawPhone ? rawPhone.trim() : null;
+
+  if (!numericUserId && !phoneNumber) {
+    throw new HttpError(400, 'Either a valid numeric userId or phoneNumber query parameter is required.');
+  }
+
+  try {
+    const notifications = await withPublicClient(async (client) => {
+      let whereClause: string;
+      let params: any[];
+
+      if (numericUserId) {
+        whereClause = 'n.user_id = $1';
+        params = [numericUserId];
+      } else {
+        whereClause = `u.phone_number = $1 OR REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g') = $2`;
+        const rawDigits = phoneNumber!.replace(/\D/g, '');
+        params = [phoneNumber!, rawDigits];
+      }
+
+      const res = await client.query<{
+        notification_id: number;
+        user_id: number;
+        booking_id: number | null;
+        title: string;
+        message: string;
+        type: string;
+        is_read: boolean;
+        created_at: Date;
+      }>(
+        `SELECT n.notification_id, n.user_id, n.booking_id, n.title, n.message, n.type, n.is_read, n.created_at
+         FROM dka_notifications n
+         JOIN dka_users u ON n.user_id = u.user_id
+         WHERE (${whereClause}) 
+           AND (n.booking_id IS NOT NULL OR n.type LIKE 'trip_%' OR n.type LIKE 'booking_%' OR n.type IN ('weather_advisory', 'road_advisory'))
+         ORDER BY n.created_at DESC`,
+        params,
+      );
+
+      return res.rows.map((r) => ({
+        id: r.notification_id,
+        userId: r.user_id,
+        bookingId: r.booking_id,
+        title: r.title,
+        message: r.message,
+        type: r.type,
+        isRead: r.is_read,
+        createdAt: r.created_at.toISOString(),
+      }));
+    });
+
+    return c.json({ notifications });
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error;
+    console.warn('[Users] Database unavailable; returning empty notifications list:', error?.message || error);
+    return c.json({ notifications: [] });
+  }
+});
+
+/**
+ * PATCH /api/users/notifications/:id/read
+ * Mark notification as read
+ */
+usersRoute.patch('/notifications/:id/read', async (c) => {
+  const notifId = Number(c.req.param('id'));
+  if (isNaN(notifId)) {
+    throw new HttpError(400, 'Valid numeric notification ID is required.');
+  }
+
+  try {
+    await withPublicClient(async (client) => {
+      await client.query('UPDATE dka_notifications SET is_read = TRUE WHERE notification_id = $1', [notifId]);
+    });
+    return c.json({ success: true, message: 'Notification marked as read.' });
+  } catch {
+    return c.json({ success: true, message: 'Notification marked as read (fallback).' });
+  }
 });
 

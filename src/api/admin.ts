@@ -6,10 +6,12 @@ import type {
   AdminDriver,
   AdminDriverVehicle,
   AdminLoginResponse,
+  AdminNotification,
   AdminStats,
   AdminTrip,
   AdminVehicle,
   AdminVerifyPinResponse,
+  BroadcastNotificationDto,
   CreateDriverDto,
   CreateRoadAdvisoryDto,
   CreateVehicleDto,
@@ -136,10 +138,13 @@ export async function getCustomerTrips(userId: number): Promise<CustomerTripHist
 /**
  * Fetch trip requests (pending, confirmed, etc.)
  */
-export async function getAdminTrips(status?: string): Promise<AdminTrip[]> {
+export async function getAdminTrips(status?: string, search?: string): Promise<AdminTrip[]> {
   try {
+    const params: Record<string, string> = {};
+    if (status) params.status = status;
+    if (search) params.q = search;
     const res = await adminApiClient.get<{ trips: AdminTrip[] }>('/admin/trips', {
-      params: status ? { status } : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
     return res.data.trips || [];
   } catch (err) {
@@ -295,5 +300,34 @@ export async function updateAdminDriver(
   );
   return res.data.driver;
 }
+
+/**
+ * Fetch list of all recent customer & system notifications
+ */
+export async function getAdminNotifications(): Promise<AdminNotification[]> {
+  try {
+    const res = await adminApiClient.get<{ notifications: AdminNotification[] }>(
+      '/admin/notifications',
+    );
+    return res.data.notifications || [];
+  } catch (err) {
+    console.warn('[AdminApi] Failed to fetch notifications:', err);
+    return [];
+  }
+}
+
+/**
+ * Broadcast an announcement, route advisory, or direct message to traveler(s)
+ */
+export async function broadcastAdminNotification(
+  dto: BroadcastNotificationDto,
+): Promise<{ success: boolean; message: string }> {
+  const res = await adminApiClient.post<{ success: boolean; message: string }>(
+    '/admin/notifications/broadcast',
+    dto,
+  );
+  return res.data;
+}
+
 
 

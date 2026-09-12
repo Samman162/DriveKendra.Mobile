@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 
 import { withPublicClient } from '../db.js';
+import { recordAndPushTripNotification } from '../push.js';
 import {
   computeRequestHash,
   HttpError,
@@ -265,6 +266,48 @@ bookingsRoute.post('/', async (c) => {
           userId,
           status: 'Pending',
         };
+
+        // Step 2b: Dispatch real-time trip notifications & push alerts for customer and admins
+        try {
+          // 1. Notify Traveler
+          await recordAndPushTripNotification({
+            client,
+            userId,
+            bookingId,
+            title: 'Trip Request Received',
+            message: `Your trip request #${bookingRef} (${booking.pickup_location} ➔ ${booking.dropoff_location}) has been submitted and is awaiting driver dispatch.`,
+            type: 'trip_requested',
+            data: {
+              bookingRef,
+              pickup: booking.pickup_location,
+              dropoff: booking.dropoff_location,
+            },
+          });
+
+          // 2. Notify Admins
+          const adminUsersRes = await client.query<{ user_id: number }>(
+            `SELECT user_id FROM dka_users WHERE role = 'admin'`,
+          );
+          for (const adminRow of adminUsersRes.rows) {
+            await recordAndPushTripNotification({
+              client,
+              userId: adminRow.user_id,
+              bookingId,
+              title: 'New Trip Request Arrived',
+              message: `New booking #${bookingRef}: ${booking.pickup_location} ➔ ${booking.dropoff_location} (${booking.full_name}, ${booking.phone_number}).`,
+              type: 'trip_requested',
+              data: {
+                bookingRef,
+                pickup: booking.pickup_location,
+                dropoff: booking.dropoff_location,
+                customerName: booking.full_name,
+                phone: booking.phone_number,
+              },
+            });
+          }
+        } catch (notifErr) {
+          console.warn('[Bookings] Failed to record/push trip notifications:', notifErr);
+        }
 
         // Step 3: Save completed state to idempotency table
         if (idempotencyKey) {

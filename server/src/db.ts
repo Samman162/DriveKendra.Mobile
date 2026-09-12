@@ -15,12 +15,17 @@ function parseConnectionConfig(raw: string): PoolConfig {
     const sslMode = url.searchParams.get('sslmode');
     const host = url.hostname;
     const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    const rawPass = decodeURIComponent(url.password);
+    const password =
+      rawPass && rawPass !== 'postgres' && rawPass !== 'your_password'
+        ? rawPass
+        : process.env.POSTGRES_PASSWORD || rawPass || 'postgres';
     return {
       host,
       port: url.port ? Number(url.port) : 5432,
       database: decodeURIComponent(url.pathname.replace(/^\//, '')),
       user: decodeURIComponent(url.username),
-      password: decodeURIComponent(url.password),
+      password,
       ssl: isLocal || sslMode === 'disable' ? false : { rejectUnauthorized: false },
     };
   }
@@ -49,13 +54,14 @@ function parseConnectionConfig(raw: string): PoolConfig {
   };
 }
 
+const defaultPassword = process.env.POSTGRES_PASSWORD || 'postgres';
 const connectionString =
   firstNonEmpty(process.env.DATABASE_URL, process.env.ConnectionStrings__DefaultConnection) ||
-  'postgresql://postgres:postgres@localhost:5432/car_rental_db';
+  `postgresql://postgres:${defaultPassword}@localhost:5432/car_rental_db`;
 
 if (!process.env.DATABASE_URL && !process.env.ConnectionStrings__DefaultConnection) {
   console.warn(
-    '[DB] DATABASE_URL is not configured in server/.env. Defaulting to local postgresql://postgres:postgres@localhost:5432/car_rental_db',
+    `[DB] DATABASE_URL is not configured in server/.env. Defaulting to local postgresql://postgres:${defaultPassword}@localhost:5432/car_rental_db`,
   );
 }
 

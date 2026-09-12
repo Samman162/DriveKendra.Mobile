@@ -48,3 +48,15 @@ export interface ApiMessageResponse {
   bookingRef?: string;
   status?: string;
 }
+
+export interface CustomerNotification {
+  id: number;
+  userId?: number | null;
+  bookingId?: number | null;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
