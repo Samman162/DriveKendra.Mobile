@@ -135,6 +135,15 @@ jest.mock('../src/api/admin', () => ({
       status: 'active',
       citizenshipDocId: 'DOC-CTZ-0891',
       licenseDocId: 'LIC-EXP-9921',
+      vehicle: {
+        id: 1,
+        vehicleId: 1,
+        ownerId: 1,
+        makeModel: 'Mahindra Scorpio S11 4x4',
+        licensePlate: 'BA 2 PA 4521',
+        category: 'SUV',
+        seatingCapacity: 7,
+      },
       createdAt: '2026-07-01T00:00:00.000Z',
     },
     {
@@ -430,6 +439,62 @@ describe('Admin Portal Subsystem Flow & Components', () => {
       expect(profileTextContents).toContain('SYSTEM ADMINISTRATOR');
       expect(profileTextContents).toContain('PostgreSQL Row Level Security (RLS)');
       expect(profileTextContents).toContain('Display Theme');
+
+      renderer.act(() => {
+        tree?.unmount();
+      });
+    });
+
+    it('allows selecting driver only and shows their registered vehicle details during trip dispatch', async () => {
+      let tree: any = null;
+      await renderer.act(async () => {
+        tree = renderer.create(
+          <ThemeProvider>
+            <AdminAuthProvider>
+              <AdminDashboardScreen />
+            </AdminAuthProvider>
+          </ThemeProvider>,
+        );
+      });
+
+      const root = tree.root;
+      // Inspect pending trip
+      const inspectBtn = root.findByProps({ accessibilityLabel: 'Inspect and dispatch', accessibilityRole: 'button' });
+      await renderer.act(async () => {
+        inspectBtn.props.onPress();
+      });
+
+      // Find driver selector chip
+      const driverChip = root.findByProps({ accessibilityLabel: 'Select driver Pasang Dorje Sherpa', accessibilityRole: 'button' });
+      expect(driverChip).toBeTruthy();
+
+      // Select driver
+      await renderer.act(async () => {
+        driverChip.props.onPress();
+      });
+
+      // Verify driver's vehicle details appear
+      const textNodes = root.findAllByType('Text' as any);
+      const textContents = textNodes.map((t: any) => t.props.children).flat().join(' ');
+      expect(textContents).toContain('VEHICLE DETAILS');
+      expect(textContents).toContain('Mahindra Scorpio S11 4x4');
+      expect(textContents).toContain('BA 2 PA 4521');
+
+      // Confirm dispatch
+      const confirmDispatchBtn = root.findByProps({ accessibilityLabel: 'Confirm and dispatch to user', accessibilityRole: 'button' });
+      await renderer.act(async () => {
+        confirmDispatchBtn.props.onPress();
+      });
+
+      const { approveAdminTrip } = require('../src/api/admin');
+      expect(approveAdminTrip).toHaveBeenCalledWith(
+        101,
+        expect.objectContaining({
+          driverId: 1,
+          driverName: 'Pasang Dorje Sherpa',
+          vehicleId: 1,
+        }),
+      );
 
       renderer.act(() => {
         tree?.unmount();

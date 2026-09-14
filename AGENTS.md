@@ -52,8 +52,9 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
    - Use `offlineVoucherStorage.ts` when persisting trip vouchers for off-grid access.
    - Use `offlineQueue.ts` for handling network disruptions during mutating operations.
    - Use `EmergencyTripCard.tsx` and `EmergencySosModal.tsx` for GPS emergency SOS dispatch to the 24/7 hotline (`+977 985-1363783`) and Tourist Police (`1144`).
-7. **Strict Admin Stack Isolation & Drivers Directory**:
+7. **Strict Admin Stack Isolation & Dispatch Desk Workflow**:
    - Admin sessions (`role === 'admin'`) must render exclusively inside `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Users Directory, and Profile tabs). Admins must never see customer tabs or screens.
+   - In the Dispatch Desk, selecting a verified partner driver automatically pairs and verifies their registered fleet vehicle, displays the vehicle specifications banner (plate, model, capacity), allows entering the final confirmed fare (`final_fare` in NPR), and atomically approves the expedition reservation.
    - Administrative endpoints in `server/src/routes/admin.ts` require 2FA authentication (credentials + 4-digit PIN) and set PostgreSQL RLS session `SET LOCAL app.is_admin = 'true'`.
 8. **Owner, Driver & Vehicle Bidirectional Synchronization**:
    - Maintain strict bidirectional synchronization between `cr_owners` and `dka_owners` via PostgreSQL triggers (`sync_cr_to_dka_owners` / `sync_dka_to_cr_owners`), and between `cr_vehicles` and `dka_vehicles` via triggers (`sync_cr_vehicles_to_dka_vehicles` / `sync_dka_vehicles_to_cr_vehicles`), protected with `pg_trigger_depth() > 1` recursion guard.

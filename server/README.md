@@ -380,8 +380,66 @@ Lists registered customers with reservation counts and lifetime expenditure. Sup
 #### `GET /api/admin/trips`
 Retrieves incoming bookings for dispatch review (supports `?status=Pending|Confirmed|Cancelled`).
 
+- **Response `200 OK`**:
+```json
+{
+  "trips": [
+    {
+      "bookingId": 42,
+      "bookingRef": "DK-2026-0042",
+      "customerName": "Samman Shakya",
+      "customerPhone": "+977 9851363783",
+      "pickupLocation": "Kathmandu Airport (TIA)",
+      "dropoffLocation": "Pokhara Lakeside",
+      "pickupDate": "2026-09-01T06:00:00.000Z",
+      "pickupTime": "07:00 AM",
+      "returnDate": "2026-09-03T18:00:00.000Z",
+      "passengerCount": 4,
+      "tripType": "Round Trip",
+      "vehicleCategory": "SUV / Scorpio 4x4",
+      "estimatedFare": "NPR 12,000",
+      "finalFare": "NPR 14,000",
+      "status": "Confirmed",
+      "assignedVehicleId": 3,
+      "assignedVehiclePlate": "BA 12 PA 9988",
+      "assignedVehicleModel": "Mahindra Scorpio S11 4x4",
+      "assignedDriverId": 1,
+      "assignedDriverName": "Bikram Shrestha",
+      "assignedDriverPhone": "+977 9841234567",
+      "createdAt": "2026-08-30T10:00:00.000Z"
+    }
+  ]
+}
+```
+
 #### `PATCH /api/admin/trips/:id/approve`
-Approves a reservation and atomically assigns a fleet vehicle (`{ "vehicleId": 1 }`), updating vehicle status to `assigned` and dispatching customer notification.
+Approves a reservation, assigns a verified partner driver and their registered vehicle, locks the final confirmed fare, updates vehicle operational status to `assigned`, and dispatches a real-time push notification to the traveler.
+
+- **Request Body**:
+```json
+{
+  "vehicleId": 3,
+  "driverId": 1,
+  "driverName": "Bikram Shrestha",
+  "driverPhone": "+977 9841234567",
+  "finalPrice": "NPR 14,000"
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "Trip approved and confirmed successfully.",
+  "booking": {
+    "bookingId": 42,
+    "status": "Confirmed",
+    "assignedVehicleId": 3,
+    "assignedDriverId": 1,
+    "assignedDriverName": "Bikram Shrestha",
+    "finalFare": "NPR 14,000"
+  }
+}
+```
 
 #### `PATCH /api/admin/trips/:id/reject`
 Cancels reservation with stated reason (`{ "reason": "Severe weather on highway." }`).
@@ -496,6 +554,28 @@ Updates driver availability, contact details, or operational status (`ACTIVE`, `
 
 #### `GET /api/admin/vehicles` & `POST /api/admin/vehicles`
 Fleet inventory endpoints for listing, filtering, and registering vehicles in `dka_vehicles` (synced bidirectionally with `cr_vehicles`).
+
+- **Response `200 OK` (`GET /api/admin/vehicles`)**:
+```json
+{
+  "vehicles": [
+    {
+      "id": 3,
+      "name": "Mahindra Scorpio S11 4x4",
+      "category": "SUV",
+      "plate": "BA 12 PA 9988",
+      "seats": 7,
+      "fuelType": "Diesel",
+      "imageUrl": "https://example.com/scorpio.jpg",
+      "status": "available",
+      "ownerId": 1,
+      "ownerName": "Bikram Shrestha",
+      "createdAt": "2026-08-30T10:00:00.000Z",
+      "updatedAt": "2026-08-30T10:00:00.000Z"
+    }
+  ]
+}
+```
 
 #### `PATCH /api/admin/vehicles/:id`
 Updates vehicle status (e.g. toggles `is_active` between active and inactive).

@@ -159,9 +159,10 @@ Utilizes `@react-native-community/netinfo` to provide instant feedback to the us
 ### 9. Admin Dispatch & Driver Directory Resilience (`src/api/admin.ts`)
 
 Mountain vehicle dispatchers operating from provincial terminals (e.g. Pokhara, Besisahar, Jomsom) need dependable access to driver contacts and verification data:
-- **Local Fallback Registry**: The client API module caches driver rosters (`cr_drivers` / `dka_owners`) in memory with fallback default data sets.
+- **Local Fallback Registry**: The client API module caches driver rosters (`cr_drivers` / `dka_owners`) and fleet inventory (`dka_vehicles`) in memory with fallback default data sets.
+- **Instant Driver-Vehicle Resolution**: In the Dispatch Desk, selecting a partner driver automatically resolves their attached vehicle locally (`vehicles.find(v => v.ownerId === drv.driverId)`) without requiring an extra round-trip API call, keeping dispatching fluid on unstable 3G networks.
 - **Fail-Safe Contact Dispatch**: Operators can tap-to-call or open WhatsApp links to Himalayan drivers even when the remote API server undergoes transient outages.
-- **Local State Synchronization**: Driver status changes (`ACTIVE`, `INACTIVE`) are applied optimistically so dispatch desk operations never stall.
+- **Local State Synchronization**: Driver status changes (`ACTIVE`, `INACTIVE`) and fare entries are applied optimistically so dispatch desk operations never stall.
 
 ---
 

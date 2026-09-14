@@ -85,9 +85,10 @@ npx eas-cli build --profile production --platform android
    - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
 7. **Strict Admin Stack Isolation & 2FA**:
    - Admin sessions (`role === 'admin'`) render exclusively in `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Users Directory, Profile). Admins never see customer tabs or screens.
+   - In Dispatch Desk, selecting a driver automatically attaches and verifies their linked vehicle, renders vehicle specifications, and prompts for final agreed fare (`final_fare` in NPR).
    - Admin operations in `server/src/routes/admin.ts` require 2FA authentication and enforce RLS `SET LOCAL app.is_admin = 'true'`.
 8. **Bidirectional Driver/Owner Database Sync**:
-   - PostgreSQL triggers maintain seamless bidirectional synchronization between `cr_owners` and `dka_owners` with recursion protection (`pg_trigger_depth() > 1`). Drivers are managed via `cr_drivers` view and `/api/admin/drivers` endpoints.
+   - PostgreSQL triggers maintain seamless bidirectional synchronization between `cr_owners` and `dka_owners` with recursion protection (`pg_trigger_depth() > 1`). Drivers are managed via `cr_drivers` view and `/api/admin/drivers` endpoints. Adding a driver also assigns and registers their vehicle (`dka_vehicles`).
 9. **Real-Time Push Notifications & Notification Center**:
    - Manage device push tokens via `src/services/notificationService.ts` and `POST /api/users/push-token`.
    - Dispatch real-time lifecycle alerts for booking submissions, driver/vehicle assignments, trip rejections, and completions via `server/src/push.ts`.

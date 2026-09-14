@@ -29,7 +29,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   User as UserIcon,
-  Users,
 } from 'lucide-react-native';
 
 import { BrandLogo } from '../components/ui/BrandLogo';
@@ -56,50 +55,6 @@ type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<RootTabParamList, 'Home'>,
   NativeStackNavigationProp<RootStackParamList>
 >;
-
-interface VehicleCategory {
-  id: number;
-  name: string;
-  categoryName: string;
-  tag: string;
-  capacity: string;
-  bestFor: string;
-}
-
-const VEHICLE_CATEGORIES: VehicleCategory[] = [
-  {
-    id: 2,
-    name: 'Scorpio 4x4',
-    categoryName: 'Jeep / 4WD',
-    tag: 'Mountain Ready',
-    capacity: '7 Seats',
-    bestFor: 'Muktinath & Off-road',
-  },
-  {
-    id: 1,
-    name: 'Sedan / Car',
-    categoryName: 'City & Highway',
-    tag: 'AC Comfort',
-    capacity: '4 Seats',
-    bestFor: 'City & Airport Drops',
-  },
-  {
-    id: 3,
-    name: 'HiAce Van',
-    categoryName: 'High-Roof AC',
-    tag: 'Group Travel',
-    capacity: '14 Seats',
-    bestFor: 'Pokhara & Chitwan Tours',
-  },
-  {
-    id: 4,
-    name: 'Tourist Bus',
-    categoryName: 'Deluxe Coaster',
-    tag: 'Charter Coach',
-    capacity: '35 Seats',
-    bestFor: 'Expeditions & Large Groups',
-  },
-];
 
 interface FeaturedRoute {
   id: string;
@@ -212,16 +167,6 @@ export function HomeScreen() {
   const handleSearch = () => {
     hapticFeedback.medium();
     navigation.navigate('Booking', {
-      pickupLocation,
-      dropoffLocation: dropoffLocation || undefined,
-      tripType,
-    });
-  };
-
-  const handleSelectVehicle = (vehicleId: number) => {
-    hapticFeedback.medium();
-    navigation.navigate('Booking', {
-      vehicleTypeId: vehicleId,
       pickupLocation,
       dropoffLocation: dropoffLocation || undefined,
       tripType,
@@ -540,58 +485,6 @@ export function HomeScreen() {
             <Text style={styles.searchBtnText}>Find Vehicles & Fares</Text>
             <ArrowRight size={17} color={colors.onAccent} />
           </Pressable>
-        </View>
-
-        {/* Fleet Selection Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Select Vehicle</Text>
-            <Pressable
-              onPress={() => {
-                hapticFeedback.light();
-                navigation.navigate('Booking');
-              }}
-              style={({ pressed }) => [styles.seeAllBtn, pressed && styles.pressed]}
-            >
-              <Text style={styles.seeAllText}>All Fleet</Text>
-              <ChevronRight size={14} color={colors.accent} />
-            </Pressable>
-          </View>
-
-          <View style={styles.fleetGrid}>
-            {VEHICLE_CATEGORIES.map((vehicle) => (
-              <Pressable
-                key={vehicle.id}
-                onPress={() => handleSelectVehicle(vehicle.id)}
-                style={({ pressed }) => [styles.vehicleCard, pressed && styles.pressed]}
-                accessibilityRole="button"
-                accessibilityLabel={`Book ${vehicle.name}`}
-              >
-                <View style={styles.vehicleCardHeader}>
-                  <View style={styles.vehicleTagPill}>
-                    <Text style={styles.vehicleTagText}>{vehicle.tag}</Text>
-                  </View>
-                  <View style={styles.capacityBadge}>
-                    <Users size={11} color={colors.subtle} />
-                    <Text style={styles.capacityText}>{vehicle.capacity}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.vehicleCardBody}>
-                  <Text style={styles.vehicleName}>{vehicle.name}</Text>
-                  <Text style={styles.vehicleCategoryName}>{vehicle.categoryName}</Text>
-                  <Text style={styles.vehicleBestFor} numberOfLines={1}>
-                    {vehicle.bestFor}
-                  </Text>
-                </View>
-
-                <View style={styles.vehicleCardFooter}>
-                  <Text style={styles.bookVehicleText}>Book</Text>
-                  <ChevronRight size={14} color={colors.accent} />
-                </View>
-              </Pressable>
-            ))}
-          </View>
         </View>
 
         {/* Featured Himalayan Routes */}
@@ -1082,91 +975,6 @@ function createStyles(colors: ThemeColors) {
       fontSize: 11,
       color: colors.muted,
       fontWeight: '600',
-    },
-    seeAllBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-    },
-    seeAllText: {
-      fontSize: 12,
-      fontWeight: '700',
-      color: colors.accent,
-    },
-    fleetGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: spacing.sm,
-    },
-    vehicleCard: {
-      width: '48.5%',
-      backgroundColor: colors.surface,
-      borderRadius: radius.md,
-      padding: spacing.sm,
-      borderWidth: 1,
-      borderColor: colors.border,
-      justifyContent: 'space-between',
-    },
-    vehicleCardHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: 6,
-    },
-    vehicleTagPill: {
-      paddingHorizontal: 6,
-      paddingVertical: 2,
-      borderRadius: radius.pill,
-      backgroundColor: colors.accentSoft,
-    },
-    vehicleTagText: {
-      fontSize: 9,
-      fontWeight: '800',
-      color: colors.accent,
-    },
-    capacityBadge: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 2,
-    },
-    capacityText: {
-      fontSize: 10,
-      fontWeight: '600',
-      color: colors.subtle,
-    },
-    vehicleCardBody: {
-      marginBottom: spacing.xs,
-    },
-    vehicleName: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: colors.text,
-      marginBottom: 1,
-    },
-    vehicleCategoryName: {
-      fontSize: 11,
-      color: colors.subtle,
-      fontWeight: '600',
-      marginBottom: 3,
-    },
-    vehicleBestFor: {
-      fontSize: 10,
-      color: colors.muted,
-    },
-    vehicleCardFooter: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: 2,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      paddingTop: 6,
-      marginTop: 4,
-    },
-    bookVehicleText: {
-      fontSize: 11,
-      fontWeight: '800',
-      color: colors.accent,
     },
     routesList: {
       gap: spacing.xs,

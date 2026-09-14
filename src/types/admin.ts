@@ -103,6 +103,8 @@ export interface AdminVehicle {
   fuelType: string;
   imageUrl: string;
   status: 'available' | 'assigned' | 'in_transit' | 'maintenance';
+  ownerId?: number;
+  ownerName?: string;
   createdAt: string;
   updatedAt: string;
 }

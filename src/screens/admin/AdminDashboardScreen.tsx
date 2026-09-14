@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -255,6 +255,100 @@ export function AdminDashboardScreen() {
   // ----------------------------------------------------
   // DISPATCH DESK ACTIONS & WHATSAPP FORMATTER
   // ----------------------------------------------------
+  const getDriverVehicle = useCallback(
+    (driver: AdminDriver | null | undefined): {
+      id: number;
+      model: string;
+      plate: string;
+      category?: string;
+      seats?: number;
+    } | null => {
+      if (!driver) return null;
+      if (driver.vehicle) {
+        return {
+          id: driver.vehicle.id || driver.vehicle.vehicleId,
+          model: driver.vehicle.makeModel,
+          plate: driver.vehicle.licensePlate,
+          category: driver.vehicle.category,
+          seats: driver.vehicle.seatingCapacity,
+        };
+      }
+      const matched = vehicles.find((v) => v.ownerId === driver.ownerId || v.ownerId === driver.id);
+      if (matched) {
+        return {
+          id: matched.id,
+          model: matched.model,
+          plate: matched.registrationPlate,
+          category: matched.category,
+          seats: matched.seats,
+        };
+      }
+      return null;
+    },
+    [vehicles],
+  );
+
+  const selectedDriver = useMemo(() => {
+    return drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId) || null;
+  }, [drivers, dispatchDriverId]);
+
+  const selectedDriverVehicle = useMemo(() => {
+    return getDriverVehicle(selectedDriver);
+  }, [getDriverVehicle, selectedDriver]);
+
+  const resolvedTargetVehicle = useMemo(() => {
+    if (dispatchVehicleId) {
+      const found = vehicles.find((v) => v.id === dispatchVehicleId);
+      if (found) return found;
+    }
+    if (selectedDriverVehicle) {
+      return {
+        id: selectedDriverVehicle.id,
+        vehicleTypeId: 2,
+        model: selectedDriverVehicle.model,
+        registrationPlate: selectedDriverVehicle.plate,
+        category: (selectedDriverVehicle.category as any) || 'SUV',
+        seats: selectedDriverVehicle.seats || 7,
+        fuelType: 'Diesel',
+        imageUrl: '',
+        status: 'available' as const,
+        createdAt: '',
+        updatedAt: '',
+      };
+    }
+    return null;
+  }, [dispatchVehicleId, vehicles, selectedDriverVehicle]);
+
+  const openTripInspection = (trip: AdminTrip) => {
+    hapticFeedback.selection();
+    setInspectedTrip(trip);
+    setDispatchDriverId(trip.assignedDriverId || null);
+    if (trip.assignedVehicleId) {
+      setDispatchVehicleId(trip.assignedVehicleId);
+    } else if (trip.assignedDriverId) {
+      const drv = drivers.find((d) => (d.id || d.ownerId) === trip.assignedDriverId);
+      const owned = getDriverVehicle(drv);
+      setDispatchVehicleId(owned ? owned.id : null);
+    } else {
+      setDispatchVehicleId(null);
+    }
+    setDispatchPrice(trip.finalFare || trip.estimatedFare || '');
+  };
+
+  const handleSelectDriver = (drv: AdminDriver) => {
+    hapticFeedback.selection();
+    const drvId = drv.id || drv.ownerId;
+    const isSelected = dispatchDriverId === drvId;
+    if (isSelected) {
+      setDispatchDriverId(null);
+      setDispatchVehicleId(null);
+    } else {
+      setDispatchDriverId(drvId);
+      const owned = getDriverVehicle(drv);
+      setDispatchVehicleId(owned ? owned.id : null);
+    }
+  };
+
   const formatWhatsAppDispatchMessage = (
     trip: AdminTrip,
     vehicle?: AdminVehicle | null,
@@ -304,9 +398,7 @@ export function AdminDashboardScreen() {
 
   const handleCopyWhatsApp = async () => {
     if (!inspectedTrip) return;
-    const targetVehicle = vehicles.find((v) => v.id === dispatchVehicleId) || null;
-    const targetDriver = drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId) || null;
-    const text = formatWhatsAppDispatchMessage(inspectedTrip, targetVehicle, targetDriver, dispatchPrice);
+    const text = formatWhatsAppDispatchMessage(inspectedTrip, resolvedTargetVehicle, selectedDriver, dispatchPrice);
 
     try {
       await Clipboard.setStringAsync(text);
@@ -322,9 +414,7 @@ export function AdminDashboardScreen() {
 
   const handleOpenWhatsApp = () => {
     if (!inspectedTrip) return;
-    const targetVehicle = vehicles.find((v) => v.id === dispatchVehicleId) || null;
-    const targetDriver = drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId) || null;
-    const text = formatWhatsAppDispatchMessage(inspectedTrip, targetVehicle, targetDriver, dispatchPrice);
+    const text = formatWhatsAppDispatchMessage(inspectedTrip, resolvedTargetVehicle, selectedDriver, dispatchPrice);
     const encoded = encodeURIComponent(text);
     Linking.openURL(`https://wa.me/?text=${encoded}`).catch(() => {
       Alert.alert('Notice', 'Unable to open WhatsApp on this device.');
@@ -333,19 +423,27 @@ export function AdminDashboardScreen() {
 
   const handleConfirmDispatch = async () => {
     if (!inspectedTrip) return;
-    const targetDriver = drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId);
-    let resolvedVehicleId = dispatchVehicleId;
-    let targetVehicle = vehicles.find((v) => v.id === resolvedVehicleId);
+    const targetDriver = selectedDriver || drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId);
 
-    if (!targetVehicle && targetDriver?.vehicle?.id) {
-      resolvedVehicleId = targetDriver.vehicle.id;
-      targetVehicle = vehicles.find((v) => v.id === resolvedVehicleId) || {
-        id: targetDriver.vehicle.id,
+    if (!targetDriver) {
+      hapticFeedback.error();
+      Alert.alert('Driver Required', 'Please select an active driver to dispatch this reservation.');
+      return;
+    }
+
+    const driverVehicle = selectedDriverVehicle || getDriverVehicle(targetDriver);
+    let resolvedVehicleId = dispatchVehicleId || driverVehicle?.id || undefined;
+    let targetVehicle = resolvedTargetVehicle || (resolvedVehicleId ? vehicles.find((v) => v.id === resolvedVehicleId) : null);
+
+    if (!targetVehicle && driverVehicle) {
+      resolvedVehicleId = driverVehicle.id;
+      targetVehicle = {
+        id: driverVehicle.id,
         vehicleTypeId: 2,
-        model: targetDriver.vehicle.makeModel,
-        registrationPlate: targetDriver.vehicle.licensePlate,
-        category: (targetDriver.vehicle.category as any) || 'SUV',
-        seats: targetDriver.vehicle.seatingCapacity || 7,
+        model: driverVehicle.model,
+        registrationPlate: driverVehicle.plate,
+        category: (driverVehicle.category as any) || 'SUV',
+        seats: driverVehicle.seats || 7,
         fuelType: 'Diesel',
         imageUrl: '',
         status: 'available',
@@ -354,8 +452,12 @@ export function AdminDashboardScreen() {
       };
     }
 
-    if (!targetDriver && !resolvedVehicleId) {
-      Alert.alert('Assignment Required', 'Please assign an active driver or select a fleet vehicle to dispatch.');
+    if (!resolvedVehicleId && !driverVehicle) {
+      hapticFeedback.error();
+      Alert.alert(
+        'Vehicle Required',
+        `The selected driver (${targetDriver.fullName}) does not have an attached vehicle registered. Please attach a vehicle to this driver in the Drivers Directory first.`,
+      );
       return;
     }
 
@@ -363,10 +465,10 @@ export function AdminDashboardScreen() {
     try {
       const finalFareVal = dispatchPrice.trim() || inspectedTrip.finalFare || inspectedTrip.estimatedFare || 'NPR 12,000';
       await approveAdminTrip(inspectedTrip.id, {
-        vehicleId: resolvedVehicleId || undefined,
-        driverId: targetDriver ? (targetDriver.id || targetDriver.ownerId) : undefined,
-        driverName: targetDriver?.fullName,
-        driverPhone: targetDriver?.phoneNumber,
+        vehicleId: resolvedVehicleId,
+        driverId: targetDriver.id || targetDriver.ownerId,
+        driverName: targetDriver.fullName,
+        driverPhone: targetDriver.phoneNumber,
         finalPrice: finalFareVal,
       });
 
@@ -380,11 +482,11 @@ export function AdminDashboardScreen() {
                 ...t,
                 status: 'Confirmed',
                 assignedVehicleId: resolvedVehicleId || null,
-                assignedVehiclePlate: targetVehicle?.registrationPlate || (targetDriver?.vehicle?.licensePlate || null),
-                assignedVehicleModel: targetVehicle?.model || (targetDriver?.vehicle?.makeModel || null),
-                assignedDriverId: targetDriver ? (targetDriver.id || targetDriver.ownerId) : null,
-                assignedDriverName: targetDriver?.fullName || null,
-                assignedDriverPhone: targetDriver?.phoneNumber || null,
+                assignedVehiclePlate: targetVehicle?.registrationPlate || (driverVehicle?.plate || null),
+                assignedVehicleModel: targetVehicle?.model || (driverVehicle?.model || null),
+                assignedDriverId: targetDriver.id || targetDriver.ownerId,
+                assignedDriverName: targetDriver.fullName,
+                assignedDriverPhone: targetDriver.phoneNumber,
                 finalFare: finalFareVal,
               }
             : t,
@@ -410,10 +512,10 @@ export function AdminDashboardScreen() {
               return {
                 ...cv,
                 status: 'confirmed' as const,
-                vehiclePlate: targetVehicle?.registrationPlate || targetDriver?.vehicle?.licensePlate || 'Assigned Fleet',
-                vehicleName: targetVehicle ? `${targetVehicle.model} (AC)` : (targetDriver?.vehicle?.makeModel || cv.vehicleName),
-                driverName: targetDriver?.fullName,
-                driverPhone: targetDriver?.phoneNumber,
+                vehiclePlate: targetVehicle?.registrationPlate || driverVehicle?.plate || 'Assigned Fleet',
+                vehicleName: targetVehicle ? `${targetVehicle.model} (AC)` : (driverVehicle?.model || cv.vehicleName),
+                driverName: targetDriver.fullName,
+                driverPhone: targetDriver.phoneNumber,
                 fare: finalFareVal,
                 finalFare: finalFareVal,
               };
@@ -828,13 +930,7 @@ export function AdminDashboardScreen() {
               filteredTrips.map((trip) => (
                 <Pressable
                   key={trip.id}
-                  onPress={() => {
-                    hapticFeedback.selection();
-                    setInspectedTrip(trip);
-                    setDispatchVehicleId(trip.assignedVehicleId || null);
-                    setDispatchDriverId(trip.assignedDriverId || null);
-                    setDispatchPrice(trip.finalFare || trip.estimatedFare || '');
-                  }}
+                  onPress={() => openTripInspection(trip)}
                   style={({ pressed }) => [styles.tripCard, pressed && styles.pressed]}
                   accessibilityRole="button"
                   accessibilityLabel={`Inspect and dispatch ${trip.bookingRef}`}
@@ -976,13 +1072,7 @@ export function AdminDashboardScreen() {
                       </Pressable>
 
                       <Pressable
-                        onPress={() => {
-                          hapticFeedback.selection();
-                          setInspectedTrip(trip);
-                          setDispatchVehicleId(trip.assignedVehicleId || null);
-                          setDispatchDriverId(trip.assignedDriverId || null);
-                          setDispatchPrice(trip.finalFare || trip.estimatedFare || '');
-                        }}
+                        onPress={() => openTripInspection(trip)}
                         style={({ pressed }) => [styles.approveBtn, pressed && styles.pressed]}
                         accessibilityRole="button"
                         accessibilityLabel="Inspect and dispatch"
@@ -1657,8 +1747,8 @@ export function AdminDashboardScreen() {
                     {inspectedTrip
                       ? formatWhatsAppDispatchMessage(
                           inspectedTrip,
-                          vehicles.find((v) => v.id === dispatchVehicleId),
-                          drivers.find((d) => (d.id || d.ownerId) === dispatchDriverId),
+                          resolvedTargetVehicle,
+                          selectedDriver,
                           dispatchPrice,
                         )
                       : ''}
@@ -1691,64 +1781,45 @@ export function AdminDashboardScreen() {
                 <View style={styles.inspectSection}>
                   <Text style={styles.inspectSectionLabel}>DISPATCH CONTROLS & ASSIGNMENT</Text>
 
-                  {/* Step A: Select Vehicle */}
-                  <Text style={styles.dispatchStepLabel}>1. Select Available Fleet Vehicle *</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.sm }}>
-                    {vehicles
-                      .filter((v) => v.status === 'available' || v.id === dispatchVehicleId)
-                      .map((car) => {
-                        const isSelected = dispatchVehicleId === car.id;
-                        return (
-                          <Pressable
-                            key={car.id}
-                            onPress={() => {
-                              hapticFeedback.selection();
-                              setDispatchVehicleId(car.id);
-                            }}
-                            style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
-                          >
-                            <Car size={16} color={isSelected ? colors.accent : colors.subtle} />
-                            <View style={{ marginLeft: 6 }}>
-                              <Text style={[styles.selectorChipTitle, isSelected && styles.selectorChipTitleActive]}>
-                                {car.model}
-                              </Text>
-                              <Text style={styles.selectorChipSub}>
-                                {car.registrationPlate} • {car.category}
-                              </Text>
-                            </View>
-                            {isSelected && <Check size={14} color={colors.accent} style={{ marginLeft: 6 }} />}
-                          </Pressable>
-                        );
-                      })}
-                  </ScrollView>
-
-                  {/* Step B: Select Driver */}
-                  <Text style={styles.dispatchStepLabel}>2. Attach Active Driver</Text>
+                  {/* Step 1: Select Driver (Driver's registered vehicle is shown) */}
+                  <View style={styles.dispatchStepHeaderRow}>
+                    <Text style={styles.dispatchStepLabel}>1. Attach Active Driver *</Text>
+                    <Text style={styles.dispatchStepHint}>Driver's vehicle details shown below</Text>
+                  </View>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.sm }}>
                     {drivers
                       .filter((d) => d.status === 'active' || (d.id || d.ownerId) === dispatchDriverId)
                       .map((drv) => {
                         const drvId = drv.id || drv.ownerId;
                         const isSelected = dispatchDriverId === drvId;
+                        const drvVeh = getDriverVehicle(drv);
                         return (
                           <Pressable
                             key={drvId}
-                            onPress={() => {
-                              hapticFeedback.selection();
-                              const nextId = isSelected ? null : drvId;
-                              setDispatchDriverId(nextId);
-                              if (nextId && drv.vehicle?.id && !dispatchVehicleId) {
-                                setDispatchVehicleId(drv.vehicle.id);
-                              }
-                            }}
+                            onPress={() => handleSelectDriver(drv)}
                             style={[styles.selectorChip, isSelected && styles.selectorChipActive]}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Select driver ${drv.fullName}`}
                           >
                             <User size={16} color={isSelected ? colors.accent : colors.subtle} />
-                            <View style={{ marginLeft: 6 }}>
+                            <View style={{ marginLeft: 8 }}>
                               <Text style={[styles.selectorChipTitle, isSelected && styles.selectorChipTitleActive]}>
                                 {drv.fullName}
                               </Text>
                               <Text style={styles.selectorChipSub}>{drv.phoneNumber}</Text>
+                              {drvVeh ? (
+                                <View style={styles.chipVehicleRow}>
+                                  <Car size={11} color={isSelected ? colors.accent : colors.muted} />
+                                  <Text
+                                    style={[styles.chipVehicleText, isSelected && styles.chipVehicleTextActive]}
+                                    numberOfLines={1}
+                                  >
+                                    {drvVeh.model} ({drvVeh.plate})
+                                  </Text>
+                                </View>
+                              ) : (
+                                <Text style={styles.chipNoVehicleText}>No vehicle linked</Text>
+                              )}
                             </View>
                             {isSelected && <Check size={14} color={colors.accent} style={{ marginLeft: 6 }} />}
                           </Pressable>
@@ -1756,8 +1827,45 @@ export function AdminDashboardScreen() {
                       })}
                   </ScrollView>
 
-                  {/* Step C: Agreed Price */}
-                  <Text style={styles.dispatchStepLabel}>3. Final Confirmed Fare (NPR)</Text>
+                  {/* Driver's Vehicle Detail Banner */}
+                  {selectedDriver && (
+                    <View style={styles.autoVehicleBanner}>
+                      <View style={styles.autoVehicleIconWrap}>
+                        <Car size={16} color={colors.accent} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.autoVehicleTitle}>VEHICLE DETAILS</Text>
+                          <View style={styles.driverOwnerBadge}>
+                            <Text style={styles.driverOwnerBadgeText}>Driver's Vehicle</Text>
+                          </View>
+                        </View>
+                        {selectedDriverVehicle ? (
+                          <>
+                            <Text style={styles.autoVehicleModel}>
+                              {selectedDriverVehicle.model}
+                            </Text>
+                            <Text style={styles.autoVehicleSub}>
+                              Plate: {selectedDriverVehicle.plate} • {selectedDriverVehicle.category || 'Fleet'} ({selectedDriverVehicle.seats || 4} Seats)
+                            </Text>
+                          </>
+                        ) : (
+                            <Text style={styles.autoVehicleWarning}>
+                              ⚠️ This driver has no vehicle registered yet.
+                            </Text>
+                        )}
+                      </View>
+                      {selectedDriverVehicle && (
+                        <View style={styles.linkedPill}>
+                          <Check size={12} color={colors.success} />
+                          <Text style={styles.linkedPillText}>Attached</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Step 2: Agreed Price */}
+                  <Text style={[styles.dispatchStepLabel, { marginTop: spacing.sm }]}>2. Final Confirmed Fare (NPR)</Text>
                   <TextInput
                     style={styles.priceInput}
                     value={dispatchPrice}
@@ -1771,6 +1879,7 @@ export function AdminDashboardScreen() {
                     disabled={isSubmittingDispatch}
                     onPress={handleConfirmDispatch}
                     style={({ pressed }) => [styles.confirmDispatchBtn, pressed && styles.pressed]}
+                    accessibilityRole="button"
                     accessibilityLabel="Confirm and dispatch to user"
                   >
                     {isSubmittingDispatch ? (
@@ -3797,6 +3906,18 @@ function createStyles(colors: ThemeColors) {
       marginTop: spacing.xs,
       marginBottom: 6,
     },
+    dispatchStepHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.xs,
+      marginBottom: 6,
+    },
+    dispatchStepHint: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.accent,
+    },
     selectorChip: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -3823,6 +3944,96 @@ function createStyles(colors: ThemeColors) {
     selectorChipSub: {
       fontSize: 11,
       color: colors.subtle,
+    },
+    chipVehicleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginTop: 2,
+    },
+    chipVehicleText: {
+      fontSize: 10,
+      color: colors.subtle,
+      fontWeight: '500',
+    },
+    chipVehicleTextActive: {
+      color: colors.accent,
+      fontWeight: '600',
+    },
+    chipNoVehicleText: {
+      fontSize: 10,
+      color: colors.error,
+      marginTop: 2,
+      fontStyle: 'italic',
+    },
+    autoVehicleBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: colors.elevated,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.accentSoft,
+      padding: spacing.md,
+      marginVertical: spacing.xs,
+      gap: spacing.sm,
+    },
+    autoVehicleIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: colors.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 2,
+    },
+    autoVehicleTitle: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.accent,
+      letterSpacing: 0.8,
+    },
+    driverOwnerBadge: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: radius.pill,
+    },
+    driverOwnerBadgeText: {
+      fontSize: 9,
+      fontWeight: '700',
+      color: colors.subtle,
+    },
+    autoVehicleModel: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: colors.text,
+      marginTop: 2,
+    },
+    autoVehicleSub: {
+      fontSize: 11,
+      color: colors.subtle,
+      marginTop: 2,
+    },
+    autoVehicleWarning: {
+      fontSize: 11,
+      color: colors.error,
+      marginTop: 2,
+    },
+    linkedPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.successSoft,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: radius.pill,
+    },
+    linkedPillText: {
+      fontSize: 10,
+      fontWeight: '800',
+      color: colors.success,
     },
     priceInput: {
       backgroundColor: colors.elevated,

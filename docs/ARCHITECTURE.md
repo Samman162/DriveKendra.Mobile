@@ -149,7 +149,7 @@ The server entry point (`server/src/index.ts`) mounts distinct feature routes on
 - `/api/auth` ➔ Authentication and OTP recovery flow (`login`, `register`, `forgot-password`, `reset-password`)
 - `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params; returns `{ bookings: [...] }`) and POST idempotent booking transactions (with `X-Idempotency-Key` and push notification triggers)
 - `/api/users` ➔ User profile updates (`PUT /profile`), notification retrieval (`GET /notifications`), mark read (`PATCH /notifications/:id/read`), and push token registration (`POST /push-token`)
-- `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & vehicle assignment (`GET /trips`, `PATCH /trips/:id/approve`, `PATCH /trips/:id/reject`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `PATCH /vehicles/:id`), customer directory (`GET /users`), and notification dispatch (`GET /notifications`, `POST /notifications/broadcast`)
+- `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & atomic vehicle/driver assignment (`GET /trips`, `PATCH /trips/:id/approve` with driver auto-pairing and confirmed fare, `PATCH /trips/:id/reject`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `PATCH /vehicles/:id`), customer directory (`GET /users`), and notification dispatch (`GET /notifications`, `POST /notifications/broadcast`)
 
 ### Idempotency & Concurrency Handling
 When the mobile client submits a booking, it generates a unique `X-Idempotency-Key` header. The server verifies this key against the `dka_idempotency_keys` table:
@@ -169,7 +169,7 @@ All queries run inside scoped client helpers in `server/src/db.ts`:
 - **Public Client (`withPublicClient`)**: Automatically sets `SET LOCAL app.is_admin = 'false'`, isolating public endpoints from administrative privileges.
 - **Admin Client & Middleware (`requireAdminAuth`)**: Verifies the signed admin JWT (`role: 'admin'`) and sets `SET LOCAL app.is_admin = 'true'`, enforcing Row-Level Security (RLS) safety.
 - **Connection Pooling**: Built on node-postgres pool with configurable limits.
-- **Atomic Transactions**: Multi-table operations wrap in `BEGIN` ... `COMMIT` and guarantee a clean `ROLLBACK` on unhandled errors.
+- **Atomic Transactions**: Multi-table operations wrap in `BEGIN` ... `COMMIT` and guarantee a clean `ROLLBACK` on unhandled errors (e.g. trip approval atomically updating `dka_bookings` with `assigned_vehicle_id`, `assigned_driver_id`, and `final_fare`, marking vehicle status as `assigned` in `dka_vehicles`, and dispatching customer notification into `dka_notifications`).
 - **Bidirectional Partner & Vehicle Synchronization**: PostgreSQL triggers `sync_cr_to_dka_owners()` / `sync_dka_to_cr_owners()` synchronize driver records between `cr_owners` and `dka_owners`, exposing the unified `cr_drivers` view. Similarly, `sync_cr_vehicles_to_dka_vehicles()` and `sync_dka_vehicles_to_cr_vehicles()` synchronize vehicle records between `cr_vehicles` and `dka_vehicles` with `pg_trigger_depth() > 1` recursion protection.
 
 ---

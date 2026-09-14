@@ -46,7 +46,6 @@ describe('HomeScreen Clean Professional UI & Interactivity', () => {
 
     expect(textContents).toContain('Drive Kendra');
     expect(textContents).toContain('Plan Your Trip');
-    expect(textContents).toContain('Select Vehicle');
     expect(textContents).toContain('Popular Routes');
     expect(textContents).toContain('24/7 Roadside Assistance');
 
@@ -113,40 +112,6 @@ describe('HomeScreen Clean Professional UI & Interactivity', () => {
     });
   });
 
-  it('navigates to Booking with vehicleTypeId when a fleet card is selected', async () => {
-    let tree: any = null;
-    await renderer.act(async () => {
-      tree = renderer.create(
-        <ThemeProvider>
-          <AuthProvider>
-            <HomeScreen />
-          </AuthProvider>
-        </ThemeProvider>
-      );
-    });
-
-    const root = tree.root;
-    const scorpioCard = root.findByProps({
-      accessibilityLabel: 'Book Scorpio 4x4',
-    });
-    expect(scorpioCard).toBeTruthy();
-
-    await renderer.act(async () => {
-      scorpioCard.props.onPress();
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith(
-      'Booking',
-      expect.objectContaining({
-        vehicleTypeId: 2,
-        pickupLocation: 'Kathmandu Valley, Nepal',
-      })
-    );
-
-    renderer.act(() => {
-      tree?.unmount();
-    });
-  });
 
   it('pre-fills route and navigates to Booking when a curated expedition is selected', async () => {
     let tree: any = null;

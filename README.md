@@ -132,9 +132,11 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 
 #### 2. 🏠 Home Screen (`src/screens/HomeScreen.tsx`)
 - **Personalized Header**: Top bar featuring user avatar, profile navigation, unread notification counter badge, and theme mode toggle (`light` / `dark`).
+- **Interactive Booking Bar**: Fast-action pickup and dropoff input bar with one-way / round-trip toggle pre-populating into the booking engine.
 - **Notification Hub (`CustomerNotificationsModal.tsx`)**: Real-time drawer displaying trip updates, driver assignment confirmations, and road advisories with mark-as-read capability.
-- **Welcome Greeting**: Greets travelers by name or guest profile status.
-- **Service Hub**: Quick action to start a vehicle booking reservation (`BookingScreen`).
+- **Live Road Advisories**: High-altitude pass and highway condition cards with real-time status (`open`, `caution`, `closed`) and clearance advisories.
+- **Featured Himalayan Expeditions**: Curated routes (Muktinath 4WD, Pokhara Highway, Everest Gateway) with instant one-tap booking prefill.
+- **Mountain Emergency Assistance**: Rapid-access SOS card with offline satellite GPS extraction and direct 24/7 hotline dispatch.
 
 #### 3. 📝 Booking Engine (`src/screens/BookingScreen.tsx`)
 - Comprehensive trip reservation form:
@@ -198,7 +200,7 @@ The application features an isolated, strictly partitioned administrative interf
 #### 10. 🎛️ Control Room & Drivers Directory (`src/screens/admin/AdminDashboardScreen.tsx`)
 - **Real-Time KPIs**: Live counters for Pending Requests, Active Fleet, Total Registered Users, Total Drivers, Total Trips, and Gross Revenue (`NPR`).
 - **4-Tab Control Desk**:
-  - **Dispatch Desk**: Review incoming traveler reservations with pickup/dropoff routes, schedule, and passenger counts. Approve and atomically assign a specific fleet vehicle, or reject with a mandatory cancellation reason.
+  - **Dispatch Desk**: Review incoming traveler reservations with pickup/dropoff routes, schedule, and passenger counts. Selecting a verified partner driver automatically pairs and verifies their registered fleet vehicle, renders a vehicle specification banner (plate, model, category, seating capacity), enables setting the final confirmed fare (`final_fare` in NPR), or rejecting with a mandatory cancellation reason.
   - **Drivers Directory**: Full partner driver registry with instant search, status filters (`ALL`, `ACTIVE`, `PENDING`, `INACTIVE`), driver credentials & vehicle type badges, assigned vehicle display, contact action triggers (tap-to-call, tap-to-WhatsApp), availability/status toggles, and unified modal form to register new drivers directly into synchronized `dka_owners` / `cr_owners` while simultaneously registering their assigned vehicle into `dka_vehicles` / `cr_vehicles`.
   - **Customer Directory**: Search and view customer profiles with historical reservation counts and lifetime expenditure.
   - **Admin Profile**: Operator identity, 2FA credentials verification state, and secure sign-out.
@@ -419,13 +421,13 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `POST` | `/api/admin/login` | Step-1 admin authentication | `{ phone, password }` | `{ pinRequired: true, challengeToken }` |
 | `POST` | `/api/admin/verify-pin` | Step-2 2FA 4-digit PIN verification | `{ challengeToken, pin }` | `{ token: "jwt_admin_*", admin }` |
 | `GET` | `/api/admin/stats` | Control room metrics (trips, drivers, revenue) | `Authorization: Bearer <jwt_admin>` | `{ pendingRequests, activeFleet, totalDrivers, ... }` |
-| `GET` | `/api/admin/trips` | Dispatch incoming bookings list | `?status=Pending\|Confirmed\|Cancelled` | `{ trips: [...] }` |
-| `PATCH`| `/api/admin/trips/:id/approve` | Approve reservation & assign fleet vehicle | `{ vehicleId }` | `{ success: true, booking }` |
+| `GET` | `/api/admin/trips` | Dispatch incoming bookings list | `?status=Pending\|Confirmed\|Cancelled` | `{ trips: [...] }` *(with assigned driver, vehicle & final fare)* |
+| `PATCH`| `/api/admin/trips/:id/approve` | Approve reservation, assign driver/vehicle & confirm fare | `{ vehicleId, driverId, driverName, driverPhone, finalPrice }` | `{ success: true, booking, message }` |
 | `PATCH`| `/api/admin/trips/:id/reject` | Reject reservation with reason | `{ reason }` | `{ success: true }` |
-| `GET` | `/api/admin/drivers` | Partner drivers list (`cr_drivers` / `dka_owners`) | `?status=ALL\|ACTIVE\|...&q=` | `{ drivers: [...] }` |
+| `GET` | `/api/admin/drivers` | Partner drivers list (`cr_drivers` / `dka_owners`) | `?status=ALL\|ACTIVE\|...&q=` | `{ drivers: [...] }` *(with linked vehicle)* |
 | `POST` | `/api/admin/drivers` | Register new driver (bidirectional DB sync) | `DriverPayload` | `{ success: true, driver: {...} }` |
 | `PATCH`| `/api/admin/drivers/:id` | Update driver availability or status | `{ status, is_available }` | `{ success: true, driver: {...} }` |
-| `GET` | `/api/admin/vehicles` | Fleet inventory list | `Authorization: Bearer <jwt_admin>` | `{ vehicles: [...] }` |
+| `GET` | `/api/admin/vehicles` | Fleet inventory list | `Authorization: Bearer <jwt_admin>` | `{ vehicles: [...] }` *(with owner linkage)* |
 | `PATCH`| `/api/admin/vehicles/:id` | Update vehicle status (e.g. maintenance) | `{ status }` | `{ success: true, vehicle }` |
 | `GET` | `/api/admin/users` | Customer directory & spend history | `?q=` | `{ users: [...] }` |
 | `GET` | `/api/admin/notifications` | Control room notification audit log | `Authorization: Bearer <jwt_admin>` | `{ "notifications": [...] }` |
