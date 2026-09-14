@@ -99,7 +99,7 @@ RootStackNavigator
 └── AdminPinGate (AdminNavigator - Isolated Admin Stack)
     ├── AdminLogin (AdminLoginScreen - Step-1 Operator Credentials)
     ├── AdminPin (AdminPinScreen - Step-2 4-Digit Security PIN Gate)
-    └── AdminDashboard (AdminDashboardScreen - Dispatch Desk, Drivers Directory, Users Directory, Profile)
+    └── AdminDashboard (AdminDashboardScreen - Dispatch Desk, Drivers Directory, Vehicle Fleet, Users Directory, Profile)
 ```
 
 ### Interactive Mapping & Geocoding Subsystem
@@ -146,10 +146,10 @@ This pattern ensures instantaneous theme switching, avoids memory leaks, and ena
 ### Route Modularity & Middleware
 The server entry point (`server/src/index.ts`) mounts distinct feature routes onto a unified Hono application:
 - `/health` ➔ Database connectivity & health check (returns `{ status, database, timestamp }`)
-- `/api/auth` ➔ Authentication and OTP recovery flow (`login`, `register`, `forgot-password`, `reset-password`)
+- `/api/auth` ➔ Authentication, token refresh, and OTP recovery flow (`login`, `register`, `refresh`, `forgot-password`, `reset-password`)
 - `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params; returns `{ bookings: [...] }`) and POST idempotent booking transactions (with `X-Idempotency-Key` and push notification triggers)
 - `/api/users` ➔ User profile updates (`PUT /profile`), notification retrieval (`GET /notifications`), mark read (`PATCH /notifications/:id/read`), and push token registration (`POST /push-token`)
-- `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & atomic vehicle/driver assignment (`GET /trips`, `PATCH /trips/:id/approve` with driver auto-pairing and confirmed fare, `PATCH /trips/:id/reject`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `PATCH /vehicles/:id`), customer directory (`GET /users`), and notification dispatch (`GET /notifications`, `POST /notifications/broadcast`)
+- `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & atomic vehicle/driver assignment (`GET /trips`, `PATCH /trips/:id/approve` with driver auto-pairing and confirmed fare, `PATCH /trips/:id/reject`, `PATCH /trips/:id/complete`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `POST /vehicles`, `PATCH /vehicles/:id`), customer directory & trip history (`GET /users`, `GET /users/:id/trips`), road advisories management (`GET /advisories`, `POST /advisories`, `DELETE /advisories/:id`), and notification dispatch (`GET /notifications`, `POST /notifications/broadcast`)
 
 ### Idempotency & Concurrency Handling
 When the mobile client submits a booking, it generates a unique `X-Idempotency-Key` header. The server verifies this key against the `dka_idempotency_keys` table:

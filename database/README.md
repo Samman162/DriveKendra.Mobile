@@ -126,19 +126,19 @@ Fleet vehicle inventory holding the exact 1:1 schema structure of `public.cr_veh
 | `vehicle_id` | `SERIAL` | `PRIMARY KEY` | Unique vehicle identifier |
 | `owner_id` | `INTEGER` | `REFERENCES dka_owners(owner_id) ON DELETE SET NULL` | Linked partner driver / owner (`dka_owners` / `cr_owners`) |
 | `vehicle_type_id` | `INTEGER` | `REFERENCES dka_vehicle_types(vehicle_type_id) ON DELETE SET NULL` | Linked category classification |
-| `make_model` | `VARCHAR(100)` | `NOT NULL` | e.g. Mahindra Scorpio S11 4x4, Hyundai Creta |
+| `make_model` | `VARCHAR(120)` | `NOT NULL` | e.g. Mahindra Scorpio S11 4x4, Hyundai Creta |
 | `license_plate` | `VARCHAR(50)` | `UNIQUE NOT NULL` | Vehicle license plate (e.g. `BA 12 PA 9988`) |
 | `manufacture_year`| `INTEGER` | | Year of vehicle manufacturing |
 | `seating_capacity`| `INTEGER` | `NOT NULL DEFAULT 4` | Maximum passenger seating capacity |
 | `color` | `VARCHAR(50)` | | Vehicle exterior color |
 | `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Operational / active status |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record creation timestamp |
-| `bluebook_doc_id` | `VARCHAR(255)`| | Bluebook registration document identifier |
+| `bluebook_doc_id` | `VARCHAR(100)`| | Bluebook registration document identifier |
 
 ---
 
 ### 4. `dka_bookings`
-Primary trip and vehicle booking records with vehicle assignment tracking.
+Primary trip and vehicle booking records with vehicle and partner driver assignment tracking.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
@@ -159,6 +159,10 @@ Primary trip and vehicle booking records with vehicle assignment tracking.
 | `booking_status` | `VARCHAR(50)` | `NOT NULL DEFAULT 'Pending'` | `Pending`, `Confirmed`, `Completed`, `Cancelled` |
 | `assigned_vehicle_plate` | `VARCHAR(50)` | | Vehicle number plate |
 | `assigned_vehicle_model` | `VARCHAR(100)` | | Vehicle model / trim details |
+| `assigned_driver_id` | `INTEGER` | `REFERENCES cr_owners(owner_id) ON DELETE SET NULL` | Assigned expedition driver |
+| `assigned_driver_name` | `VARCHAR(120)` | | Assigned driver legal name |
+| `assigned_driver_phone` | `VARCHAR(30)` | | Assigned driver contact phone |
+| `final_fare` | `VARCHAR(50)` | | Final agreed/confirmed trip fare (NPR) |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp |
 | `updated_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Timestamp (Auto-updated via trigger) |
 
@@ -364,7 +368,7 @@ FROM dka_owners;
 All database modifications follow the strict incremental patch workflow documented in [AGENTS.md](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/AGENTS.md):
 
 > [!NOTE]
-> All patches from `001` through `009` have been fully consolidated and incorporated into canonical [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql). Per Rule 3 (Patch Consolidation & Cleanup), applied patches are consolidated and deleted from `database/patches/`.
+> All patches from `001` through `009` have been fully consolidated and incorporated into canonical [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql). Per Rule 3 (Patch Consolidation & Cleanup), applied patches are consolidated and deleted from `database/patches/`. Any new incremental migration patches start sequentially at `010` (e.g., `database/patches/010_your_feature_name.sql`).
 
 | Patch | Scope & Impact | Canonical Schema Location | Consolidation Status |
 |---|---|---|---|
@@ -391,6 +395,12 @@ All database modifications follow the strict incremental patch workflow document
 - `idx_dka_bookings_pickup_date` ON `dka_bookings(pickup_date)`
 - `idx_dka_bookings_created_at` ON `dka_bookings(created_at DESC)`
 - `idx_dka_bookings_user_status` ON `dka_bookings(user_id, booking_status)`
+- `idx_dka_bookings_assigned_vehicle` ON `dka_bookings(assigned_vehicle_id)`
+- `idx_dka_bookings_assigned_driver` ON `dka_bookings(assigned_driver_id)`
+- `idx_dka_vehicles_plate` ON `dka_vehicles(license_plate)`
+- `idx_dka_vehicles_owner` ON `dka_vehicles(owner_id)`
+- `idx_dka_vehicles_type` ON `dka_vehicles(vehicle_type_id)`
+- `idx_dka_vehicles_active` ON `dka_vehicles(is_active)`
 - `idx_dka_idempotency_keys_user_id` ON `dka_idempotency_keys(user_id)`
 - `idx_dka_idempotency_keys_expires_at` ON `dka_idempotency_keys(expires_at)`
 - `idx_dka_idempotency_keys_hash` ON `dka_idempotency_keys(request_hash)`
@@ -404,6 +414,8 @@ All database modifications follow the strict incremental patch workflow document
 - `idx_cr_owners_status` ON `cr_owners(status)`
 - `idx_dka_owners_phone` ON `dka_owners(phone)`
 - `idx_dka_owners_status` ON `dka_owners(status)`
+- `idx_dka_owners_available` ON `dka_owners(is_available)`
+- `idx_dka_owners_vehicle_type` ON `dka_owners(vehicle_type)`
 
 ---
 

@@ -21,7 +21,7 @@ Traveling through Nepal often involves mountainous routes with zero cellular cov
   - [6. Local Search & Onboarding Cache (`recentSearchesStorage.ts`, `onboardingStorage.ts`)](#6-local-search--onboarding-cache-recentsearchesstoragets-onboardingstoragets)
   - [7. Dynamic Offline Action Queue (`offlineQueue.ts`)](#7-dynamic-offline-action-queue-offlinequeuets)
   - [8. Network Status Listener (`useNetworkStatus.ts`)](#8-network-status-listener-usenetworkstatusts)
-  - [9. Admin Dispatch & Driver Directory Resilience (`src/api/admin.ts`)](#9-admin-dispatch--driver-directory-resilience-srcapiadmints)
+  - [9. Admin Dispatch, Fleet & Driver Directory Resilience (`src/api/admin.ts`)](#9-admin-dispatch-fleet--driver-directory-resilience-srcapiadmints)
   - [10. Offline Notification & Push Token Resilience (`src/services/notificationService.ts`)](#10-offline-notification--push-token-resilience-srcservicesnotificationservicets)
 - [Data Flow During Offline Operations](#-data-flow-during-offline-operations)
 - [Testing Offline Scenarios](#-testing-offline-scenarios)
@@ -59,7 +59,7 @@ Drive Kendra Mobile eliminates these points of failure through localized caching
 │  onboardingStorage.ts  │ Persistent first-launch state caching         │
 │  useNetworkStatus.ts   │ Real-time connectivity state banner           │
 │  notificationService   │ Resilient push token registration & fallback  │
-│  src/api/admin.ts      │ Resilient driver directory with fallback cache│
+│  src/api/admin.ts      │ Resilient driver & fleet cache with fallbacks │
 └────────────────────────┴───────────────────────────────────────────────┘
 ```
 
@@ -156,10 +156,10 @@ Utilizes `@react-native-community/netinfo` to provide instant feedback to the us
 
 ---
 
-### 9. Admin Dispatch & Driver Directory Resilience (`src/api/admin.ts`)
+### 9. Admin Dispatch, Fleet & Driver Directory Resilience (`src/api/admin.ts`)
 
 Mountain vehicle dispatchers operating from provincial terminals (e.g. Pokhara, Besisahar, Jomsom) need dependable access to driver contacts and verification data:
-- **Local Fallback Registry**: The client API module caches driver rosters (`cr_drivers` / `dka_owners`) and fleet inventory (`dka_vehicles`) in memory with fallback default data sets.
+- **Local Fallback Registry**: The client API module caches driver rosters (`cr_drivers` / `dka_owners`), road condition advisories, and fleet inventory (`dka_vehicles`) in memory with fallback default data sets.
 - **Instant Driver-Vehicle Resolution**: In the Dispatch Desk, selecting a partner driver automatically resolves their attached vehicle locally (`vehicles.find(v => v.ownerId === drv.driverId)`) without requiring an extra round-trip API call, keeping dispatching fluid on unstable 3G networks.
 - **Fail-Safe Contact Dispatch**: Operators can tap-to-call or open WhatsApp links to Himalayan drivers even when the remote API server undergoes transient outages.
 - **Local State Synchronization**: Driver status changes (`ACTIVE`, `INACTIVE`) and fare entries are applied optimistically so dispatch desk operations never stall.

@@ -71,7 +71,7 @@ npx eas-cli build --profile production --platform android
 1. **Expo SDK 57**: Read the versioned docs at [https://docs.expo.dev/versions/v57.0.0/](https://docs.expo.dev/versions/v57.0.0/) before adding or configuring native modules.
 2. **Database Management**:
    - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
-   - Add incremental changes as numbered patches in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/).
+   - Add incremental changes as numbered patches in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (patches `001`-`009` are consolidated; new patches start at `010_your_feature.sql`).
    - **NEVER** run SQL queries directly on live databases.
 3. **Interactive OpenStreetMap (OSM) Map Picking**:
    - Use `FullScreenMapPicker.tsx` (Leaflet OSM via `react-native-webview` on mobile and `iframe` on web).
@@ -84,7 +84,7 @@ npx eas-cli build --profile production --platform android
 6. **Form Validation & Anti-Spam**:
    - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
 7. **Strict Admin Stack Isolation & 2FA**:
-   - Admin sessions (`role === 'admin'`) render exclusively in `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Users Directory, Profile). Admins never see customer tabs or screens.
+   - Admin sessions (`role === 'admin'`) render exclusively in `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Vehicle Fleet, Users Directory, Profile). Admins never see customer tabs or screens.
    - In Dispatch Desk, selecting a driver automatically attaches and verifies their linked vehicle, renders vehicle specifications, and prompts for final agreed fare (`final_fare` in NPR).
    - Admin operations in `server/src/routes/admin.ts` require 2FA authentication and enforce RLS `SET LOCAL app.is_admin = 'true'`.
 8. **Bidirectional Driver/Owner Database Sync**:

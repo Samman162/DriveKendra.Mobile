@@ -192,7 +192,7 @@ psql -U postgres -h <DB_HOST> -d car_rental_db -f database/database.sql
 ```
 
 ### Applying Sequential Patches
-When pending patches exist in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/), run patch files in ascending numeric order:
+When pending patches exist in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (numbered sequentially starting at `010_...` following the consolidation of patches `001`-`009`), run patch files in ascending numeric order:
 ```bash
 psql -U postgres -h <DB_HOST> -d car_rental_db -f database/patches/<patch_name>.sql
 ```

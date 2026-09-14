@@ -67,7 +67,7 @@ npm run dev
   - Reusable UI primitives and modals belong in `src/components/ui/` (including `CustomerNotificationsModal.tsx` for traveler alerts).
   - Feature-specific screens belong in `src/screens/`:
     - 7 Customer Screens: `HomeScreen`, `BookingScreen`, `MyTripsScreen`, `ProfileScreen`, `AuthScreen`, `OnboardingScreen`, `ContactScreen`.
-    - 3 Admin Portal Screens (`src/screens/admin/`): `AdminLoginScreen`, `AdminPinScreen`, `AdminDashboardScreen` (featuring Dispatch Desk with automated driver-vehicle pairing and agreed fare confirmation, Drivers Directory, Users Directory, Profile, and `AdminNotificationsModal.tsx`) rendered exclusively inside `AdminNavigator`.
+    - 3 Admin Portal Screens (`src/screens/admin/`): `AdminLoginScreen`, `AdminPinScreen`, `AdminDashboardScreen` (featuring Dispatch Desk with automated driver-vehicle pairing and agreed fare confirmation, Drivers Directory, Vehicle Fleet, Users Directory, Profile, and `AdminNotificationsModal.tsx`) rendered exclusively inside `AdminNavigator`.
   - Services belong in `src/services/` (e.g. `notificationService.ts` for Expo Push Notifications and permissions).
   - API communication logic belongs in `src/api/` (Client) and `server/src/routes/` (Backend: `auth.ts`, `bookings.ts`, `users.ts`, `admin.ts`, plus `push.ts` dispatcher).
   - Offline resilience & geocoding utilities belong in `src/utils/` and `src/constants/`.

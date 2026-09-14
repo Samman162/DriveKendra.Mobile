@@ -205,6 +205,24 @@ Completes password reset using verified OTP.
 }
 ```
 
+#### `POST /api/auth/refresh`
+Refreshes an expired user access token using a valid refresh token.
+
+- **Request Body**:
+```json
+{
+  "refreshToken": "jwt_ref_1726320000000_abcdef"
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "token": "jwt_acc_1726320001000_ghijkl",
+  "refreshToken": "jwt_ref_1726320001000_mnopqr",
+  "message": "Token refreshed successfully"
+}
+```
+
 ---
 
 ### 3. Bookings & Idempotency
@@ -377,6 +395,36 @@ Returns aggregated control room metrics: `{ "pendingRequests": 2, "activeFleet":
 #### `GET /api/admin/users`
 Lists registered customers with reservation counts and lifetime expenditure. Supports `?q=` search.
 
+#### `GET /api/admin/users/:id/trips`
+Retrieves historical expedition bookings for a specific customer.
+
+- **Response `200 OK`**:
+```json
+{
+  "trips": [
+    {
+      "bookingId": 42,
+      "pickupLocation": "Kathmandu Airport (TIA)",
+      "dropoffLocation": "Pokhara Lakeside",
+      "pickupDate": "2026-09-01T06:00:00.000Z",
+      "pickupTime": "07:00 AM",
+      "returnDate": "2026-09-03T18:00:00.000Z",
+      "passengerCount": 4,
+      "tripType": "Round Trip",
+      "estimatedFare": "NPR 12,000",
+      "finalFare": "NPR 14,000",
+      "status": "Confirmed",
+      "assignedVehiclePlate": "BA 12 PA 9988",
+      "assignedVehicleModel": "Mahindra Scorpio S11 4x4",
+      "assignedDriverName": "Bikram Shrestha",
+      "assignedDriverPhone": "+977 9841234567",
+      "additionalDetails": "Require Scorpio 4WD.",
+      "createdAt": "2026-08-30T10:00:00.000Z"
+    }
+  ]
+}
+```
+
 #### `GET /api/admin/trips`
 Retrieves incoming bookings for dispatch review (supports `?status=Pending|Confirmed|Cancelled`).
 
@@ -443,6 +491,21 @@ Approves a reservation, assigns a verified partner driver and their registered v
 
 #### `PATCH /api/admin/trips/:id/reject`
 Cancels reservation with stated reason (`{ "reason": "Severe weather on highway." }`).
+
+#### `PATCH /api/admin/trips/:id/complete`
+Marks an active expedition as completed, releases the assigned vehicle back to available status (`is_active = TRUE`), and dispatches a trip completion alert with PDF receipt generation prompt to the traveler.
+
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "Trip marked as completed.",
+  "booking": {
+    "bookingId": 42,
+    "status": "Completed"
+  }
+}
+```
 
 #### `GET /api/admin/drivers`
 Retrieves partner drivers list from `cr_drivers` / `dka_owners`. Supports status filtering (`?status=ALL|ACTIVE|PENDING|INACTIVE`) and keyword search (`?q=`).
@@ -552,10 +615,10 @@ Updates driver availability, contact details, or operational status (`ACTIVE`, `
 }
 ```
 
-#### `GET /api/admin/vehicles` & `POST /api/admin/vehicles`
-Fleet inventory endpoints for listing, filtering, and registering vehicles in `dka_vehicles` (synced bidirectionally with `cr_vehicles`).
+#### `GET /api/admin/vehicles`
+Fleet inventory list of all registered vehicles in `dka_vehicles` with linked partner drivers.
 
-- **Response `200 OK` (`GET /api/admin/vehicles`)**:
+- **Response `200 OK`**:
 ```json
 {
   "vehicles": [
@@ -577,8 +640,102 @@ Fleet inventory endpoints for listing, filtering, and registering vehicles in `d
 }
 ```
 
+#### `POST /api/admin/vehicles`
+Adds a new company-owned or expedition fleet vehicle directly into `dka_vehicles` (synced to `cr_vehicles`).
+
+- **Request Body**:
+```json
+{
+  "model": "Mahindra Scorpio S11 4x4",
+  "registrationPlate": "BA 16 PA 5544",
+  "category": "SUV",
+  "seats": 7,
+  "fuelType": "Diesel",
+  "imageUrl": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf",
+  "status": "available"
+}
+```
+- **Response `201 Created`**:
+```json
+{
+  "success": true,
+  "message": "Vehicle added to fleet successfully.",
+  "vehicle": {
+    "id": 6,
+    "vehicleTypeId": 2,
+    "model": "Mahindra Scorpio S11 4x4",
+    "registrationPlate": "BA 16 PA 5544",
+    "category": "SUV",
+    "seats": 7,
+    "fuelType": "Diesel",
+    "imageUrl": "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf",
+    "status": "available",
+    "createdAt": "2026-09-05T14:00:00.000Z",
+    "updatedAt": "2026-09-05T14:00:00.000Z"
+  }
+}
+```
+
 #### `PATCH /api/admin/vehicles/:id`
 Updates vehicle status (e.g. toggles `is_active` between active and inactive).
+
+#### `GET /api/admin/advisories`
+Fetches real-time highway conditions, mountain pass alerts, and weather advisories from `dka_road_advisories`.
+
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "advisories": [
+    {
+      "id": 1,
+      "routeName": "BP Highway (Sindhuli Corridor)",
+      "status": "caution",
+      "conditionSummary": "Single lane alternating traffic near Golanjor due to slope reinforcement.",
+      "severity": "moderate",
+      "createdAt": "2026-09-01T08:00:00.000Z"
+    }
+  ]
+}
+```
+
+#### `POST /api/admin/advisories`
+Creates a new road condition advisory.
+
+- **Request Body**:
+```json
+{
+  "routeName": "Prithvi Highway (Kathmandu - Pokhara)",
+  "status": "open",
+  "conditionSummary": "Both lanes open. Smooth traffic flow.",
+  "severity": "info"
+}
+```
+- **Response `201 Created`**:
+```json
+{
+  "success": true,
+  "advisory": {
+    "id": 2,
+    "routeName": "Prithvi Highway (Kathmandu - Pokhara)",
+    "status": "open",
+    "conditionSummary": "Both lanes open. Smooth traffic flow.",
+    "severity": "info",
+    "createdAt": "2026-09-05T14:30:00.000Z"
+  }
+}
+```
+
+#### `DELETE /api/admin/advisories/:id`
+Deletes/dismisses an obsolete road advisory.
+
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "Advisory dismissed successfully."
+}
+```
 
 #### `GET /api/admin/notifications`
 Lists all recent customer notifications with linked user and booking details. Requires `role: 'admin'`.

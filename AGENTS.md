@@ -5,7 +5,7 @@ Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before 
 # Database Management Rules
 
 1. **Base Schema**: Always maintain and update the complete base database schema, tables, indexes, and functions in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) as the single canonical source of truth (written cleanly with full DDL definitions, not appended migration commands).
-2. **Patches Folder**: For pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g., `001_initial_schema.sql`, `002_add_field.sql`).
+2. **Patches Folder**: For pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (patches `001`-`009` are consolidated into `database.sql`; new patches start at `010_your_feature.sql`).
 3. **Patch Consolidation & Cleanup**: Once patches are applied by the administrator/developer to the target database and confirmed in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql), delete the applied patch files from `database/patches/`.
 4. **Execution Constraint**: **NEVER** run SQL queries directly on any live database yourself. Only produce the SQL files in `database/database.sql` and `database/patches/` for manual or administrator application.
 
@@ -34,7 +34,7 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
    - Always verify APIs against Expo SDK 57 documentation.
    - Do not import deprecated or uninstalled Expo packages.
 2. **Database Changes**:
-   - When introducing new database columns or tables, modify [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) AND create a new sequential file in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `002_your_feature.sql`).
+   - When introducing new database columns or tables, modify [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) AND create a new sequential file in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `010_your_feature.sql`).
    - Never execute queries on live databases.
 3. **Theming & Design Tokens**:
    - Never use hardcoded hex colors or inline static color strings in screen styles.
@@ -53,7 +53,7 @@ Drive Kendra Mobile is a production-grade cross-platform mobile application for 
    - Use `offlineQueue.ts` for handling network disruptions during mutating operations.
    - Use `EmergencyTripCard.tsx` and `EmergencySosModal.tsx` for GPS emergency SOS dispatch to the 24/7 hotline (`+977 985-1363783`) and Tourist Police (`1144`).
 7. **Strict Admin Stack Isolation & Dispatch Desk Workflow**:
-   - Admin sessions (`role === 'admin'`) must render exclusively inside `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Users Directory, and Profile tabs). Admins must never see customer tabs or screens.
+   - Admin sessions (`role === 'admin'`) must render exclusively inside `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Vehicle Fleet, Users Directory, and Profile tabs). Admins must never see customer tabs or screens.
    - In the Dispatch Desk, selecting a verified partner driver automatically pairs and verifies their registered fleet vehicle, displays the vehicle specifications banner (plate, model, capacity), allows entering the final confirmed fare (`final_fare` in NPR), and atomically approves the expedition reservation.
    - Administrative endpoints in `server/src/routes/admin.ts` require 2FA authentication (credentials + 4-digit PIN) and set PostgreSQL RLS session `SET LOCAL app.is_admin = 'true'`.
 8. **Owner, Driver & Vehicle Bidirectional Synchronization**:

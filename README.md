@@ -199,12 +199,12 @@ The application features an isolated, strictly partitioned administrative interf
 
 #### 10. 🎛️ Control Room & Drivers Directory (`src/screens/admin/AdminDashboardScreen.tsx`)
 - **Real-Time KPIs**: Live counters for Pending Requests, Active Fleet, Total Registered Users, Total Drivers, Total Trips, and Gross Revenue (`NPR`).
-- **4-Tab Control Desk**:
-  - **Dispatch Desk**: Review incoming traveler reservations with pickup/dropoff routes, schedule, and passenger counts. Selecting a verified partner driver automatically pairs and verifies their registered fleet vehicle, renders a vehicle specification banner (plate, model, category, seating capacity), enables setting the final confirmed fare (`final_fare` in NPR), or rejecting with a mandatory cancellation reason.
-  - **Drivers Directory**: Full partner driver registry with instant search, status filters (`ALL`, `ACTIVE`, `PENDING`, `INACTIVE`), driver credentials & vehicle type badges, assigned vehicle display, contact action triggers (tap-to-call, tap-to-WhatsApp), availability/status toggles, and unified modal form to register new drivers directly into synchronized `dka_owners` / `cr_owners` while simultaneously registering their assigned vehicle into `dka_vehicles` / `cr_vehicles`.
-  - **Customer Directory**: Search and view customer profiles with historical reservation counts and lifetime expenditure.
+- **Control Desk Operations**:
+  - **Dispatch Desk**: Review incoming traveler reservations with pickup/dropoff routes, schedule, and passenger counts. Selecting a verified partner driver automatically pairs and verifies their registered fleet vehicle, renders a vehicle specification banner (plate, model, category, seating capacity), enables setting the final confirmed fare (`final_fare` in NPR), completing expeditions, or rejecting with a mandatory cancellation reason.
+  - **Drivers Directory & Fleet**: Full partner driver registry with instant search, status filters (`ALL`, `ACTIVE`, `PENDING`, `INACTIVE`), driver credentials & vehicle type badges, assigned vehicle display, contact action triggers (tap-to-call, tap-to-WhatsApp), availability/status toggles, and unified modal forms to register new drivers and manage the vehicle fleet (`dka_vehicles`).
+  - **Customer Directory**: Search and view customer profiles with historical reservation counts, lifetime expenditure, and full expedition history review (`GET /api/admin/users/:id/trips`).
   - **Admin Profile**: Operator identity, 2FA credentials verification state, and secure sign-out.
-- **Broadcast & Notification Desk (`AdminNotificationsModal.tsx`)**: Dispatch instant push notifications and review real-time activity feed.
+- **Broadcast & Notification Desk (`AdminNotificationsModal.tsx`)**: Dispatch instant push notifications, manage road condition advisories (`dka_road_advisories`), and review real-time activity feeds.
 - **Strict Navigation Partition**: Admins operate in full isolation inside `AdminNavigator`, completely partitioned from customer screens.
 
 ---
@@ -416,6 +416,7 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `PATCH`| `/api/users/notifications/:id/read` | Mark notification as read | — | `{ "success": true }` |
 | `POST` | `/api/auth/login` | User login (email or phone) | `{ identifier, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/register`| User registration | `{ name, email, phone, password }` | `{ user, token, message }` |
+| `POST` | `/api/auth/refresh` | Refresh expired access token | `{ refreshToken }` | `{ token, refreshToken, message }` |
 | `POST` | `/api/auth/forgot-password` | Send 6-digit OTP code | `{ identifier }` | `{ message, code }` |
 | `POST` | `/api/auth/reset-password` | Reset password via OTP | `{ identifier, code, newPassword }` | `{ message }` |
 | `POST` | `/api/admin/login` | Step-1 admin authentication | `{ phone, password }` | `{ pinRequired: true, challengeToken }` |
@@ -424,12 +425,18 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `GET` | `/api/admin/trips` | Dispatch incoming bookings list | `?status=Pending\|Confirmed\|Cancelled` | `{ trips: [...] }` *(with assigned driver, vehicle & final fare)* |
 | `PATCH`| `/api/admin/trips/:id/approve` | Approve reservation, assign driver/vehicle & confirm fare | `{ vehicleId, driverId, driverName, driverPhone, finalPrice }` | `{ success: true, booking, message }` |
 | `PATCH`| `/api/admin/trips/:id/reject` | Reject reservation with reason | `{ reason }` | `{ success: true }` |
+| `PATCH`| `/api/admin/trips/:id/complete`| Mark expedition completed & release vehicle | — | `{ success: true, message, booking }` |
 | `GET` | `/api/admin/drivers` | Partner drivers list (`cr_drivers` / `dka_owners`) | `?status=ALL\|ACTIVE\|...&q=` | `{ drivers: [...] }` *(with linked vehicle)* |
 | `POST` | `/api/admin/drivers` | Register new driver (bidirectional DB sync) | `DriverPayload` | `{ success: true, driver: {...} }` |
 | `PATCH`| `/api/admin/drivers/:id` | Update driver availability or status | `{ status, is_available }` | `{ success: true, driver: {...} }` |
 | `GET` | `/api/admin/vehicles` | Fleet inventory list | `Authorization: Bearer <jwt_admin>` | `{ vehicles: [...] }` *(with owner linkage)* |
+| `POST` | `/api/admin/vehicles` | Add new vehicle to fleet inventory | `VehiclePayload` | `{ success: true, vehicle }` |
 | `PATCH`| `/api/admin/vehicles/:id` | Update vehicle status (e.g. maintenance) | `{ status }` | `{ success: true, vehicle }` |
 | `GET` | `/api/admin/users` | Customer directory & spend history | `?q=` | `{ users: [...] }` |
+| `GET` | `/api/admin/users/:id/trips` | Customer historical trip reservations | `Authorization: Bearer <jwt_admin>` | `{ trips: [...] }` |
+| `GET` | `/api/admin/advisories` | List road condition alerts & highway status | `Authorization: Bearer <jwt_admin>` | `{ success: true, advisories: [...] }` |
+| `POST` | `/api/admin/advisories` | Publish new highway advisory | `{ routeName, status, conditionSummary, severity }` | `{ success: true, advisory }` |
+| `DELETE`| `/api/admin/advisories/:id` | Dismiss/delete road advisory | — | `{ success: true, message }` |
 | `GET` | `/api/admin/notifications` | Control room notification audit log | `Authorization: Bearer <jwt_admin>` | `{ "notifications": [...] }` |
 | `POST` | `/api/admin/notifications/broadcast` | Dispatch alert with instant push notification | `{ userId, bookingId, title, message }` | `{ "success": true }` |
 
