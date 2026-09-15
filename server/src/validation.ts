@@ -90,6 +90,8 @@ export function isValidPhone(value: string): boolean {
   if (rawDigits.length < 7 || rawDigits.length > 15) {
     return false;
   }
+  // Accepts standard E.164 international phone numbers (7 to 15 digits) with or without '+'
+  // as well as local Nepal mobile & landline numbers (01...)
   return /^\+?[1-9]\d{6,14}$/.test(normalized) || NEPAL_PHONE_DIGITS.test(rawDigits);
 }
 

@@ -605,4 +605,10 @@ describe('Admin Portal Subsystem API Test Suite', () => {
       expect(data.totalDrivers).toBeGreaterThan(0);
     });
   });
+
+  afterAll(async () => {
+    const { pool } = await import('../src/db.js');
+    await pool.end();
+  });
 });
+

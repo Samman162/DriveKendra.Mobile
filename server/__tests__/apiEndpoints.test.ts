@@ -276,4 +276,10 @@ describe('Server API Endpoints Integration Test Suite', () => {
       expect(res.status).toBe(400);
     });
   });
+
+  afterAll(async () => {
+    const { pool } = await import('../src/db.js');
+    await pool.end();
+  });
 });
+

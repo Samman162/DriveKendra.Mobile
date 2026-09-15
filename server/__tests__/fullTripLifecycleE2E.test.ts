@@ -57,7 +57,10 @@ describe('Full Trip Lifecycle End-to-End Test (Customer & Admin POV)', () => {
 
   afterAll(async () => {
     await cleanupTestData();
+    const { pool } = await import('../src/db.js');
+    await pool.end();
   });
+
 
   it('Step 1 [Customer POV]: Create a new trip request via user API', async () => {
     const res = await app.request('/api/bookings', {

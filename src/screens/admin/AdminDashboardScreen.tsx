@@ -932,7 +932,6 @@ export function AdminDashboardScreen() {
                   key={trip.id}
                   onPress={() => openTripInspection(trip)}
                   style={({ pressed }) => [styles.tripCard, pressed && styles.pressed]}
-                  accessibilityRole="button"
                   accessibilityLabel={`Inspect and dispatch ${trip.bookingRef}`}
                 >
                   {/* Card Header */}
