@@ -73,6 +73,11 @@ export const pool = new Pool({
   application_name: 'DriveKendraMobileApi',
 });
 
+// Guard against unhandled client errors on idle connections terminating the process
+pool.on('error', (err) => {
+  console.error('[DB Pool] Unexpected error on idle PostgreSQL client:', err.message || err);
+});
+
 export async function withPublicClient<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {

@@ -178,10 +178,11 @@ export function AdminDashboardScreen() {
   const [selectedCustomer, setSelectedCustomer] = useState<AdminCustomer | null>(null);
   const [customerTrips, setCustomerTrips] = useState<CustomerTripHistory[]>([]);
   const [loadingCustomerTrips, setLoadingCustomerTrips] = useState<boolean>(false);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   const loadAllData = useCallback(async () => {
     try {
-      const [statsRes, tripsRes, fleetRes, usersRes, driversRes] = await Promise.all([
+      const [statsRes, tripsRes, fleetRes, usersRes, driversRes] = await Promise.allSettled([
         getAdminStats(),
         getAdminTrips(),
         getAdminVehicles(),
@@ -189,13 +190,46 @@ export function AdminDashboardScreen() {
         getAdminDrivers(),
       ]);
 
-      if (statsRes) setStats(statsRes);
-      if (Array.isArray(tripsRes)) setTrips(tripsRes);
-      if (Array.isArray(fleetRes)) setVehicles(fleetRes);
-      if (Array.isArray(usersRes)) setUsers(usersRes);
-      if (Array.isArray(driversRes)) setDrivers(driversRes);
+      let partialFailure = false;
+
+      if (statsRes.status === 'fulfilled' && statsRes.value) {
+        setStats(statsRes.value);
+      } else {
+        partialFailure = true;
+      }
+
+      if (tripsRes.status === 'fulfilled' && Array.isArray(tripsRes.value)) {
+        setTrips(tripsRes.value);
+      } else {
+        partialFailure = true;
+      }
+
+      if (fleetRes.status === 'fulfilled' && Array.isArray(fleetRes.value)) {
+        setVehicles(fleetRes.value);
+      } else {
+        partialFailure = true;
+      }
+
+      if (usersRes.status === 'fulfilled' && Array.isArray(usersRes.value)) {
+        setUsers(usersRes.value);
+      } else {
+        partialFailure = true;
+      }
+
+      if (driversRes.status === 'fulfilled' && Array.isArray(driversRes.value)) {
+        setDrivers(driversRes.value);
+      } else {
+        partialFailure = true;
+      }
+
+      setDashboardError(
+        partialFailure
+          ? 'Some live operations data could not be refreshed. Tap retry or pull down.'
+          : null,
+      );
     } catch (err) {
       console.warn('[AdminDashboard] Error refreshing dashboard data:', err);
+      setDashboardError('Failed to connect to dispatch server. Please check your network.');
     }
   }, []);
 
@@ -822,6 +856,25 @@ export function AdminDashboardScreen() {
           />
         }
       >
+        {/* Error Recovery Banner */}
+        {dashboardError && (
+          <View style={styles.dashboardErrorCard}>
+            <View style={styles.dashboardErrorLeft}>
+              <AlertTriangle size={16} color={colors.error} />
+              <Text style={styles.dashboardErrorText}>{dashboardError}</Text>
+            </View>
+            <Pressable
+              onPress={handleRefresh}
+              style={({ pressed }) => [styles.dashboardRetryBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Retry refreshing dashboard records"
+            >
+              <RefreshCw size={12} color={colors.accent} />
+              <Text style={styles.dashboardRetryBtnText}>Retry</Text>
+            </Pressable>
+          </View>
+        )}
+
         {/* ================= TAB 1: DISPATCH DESK ================= */}
         {activeTab === 'trips' && (
           <View>
@@ -4059,6 +4112,47 @@ function createStyles(colors: ThemeColors) {
       fontSize: 14,
       fontWeight: '800',
       color: colors.onAccent,
+    },
+    dashboardErrorCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.errorSoft,
+      borderColor: colors.error,
+      borderWidth: 1,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      marginBottom: spacing.md,
+    },
+    dashboardErrorLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs + 2,
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    dashboardErrorText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.error,
+      flex: 1,
+    },
+    dashboardRetryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.surface,
+      borderColor: colors.accent,
+      borderWidth: 1,
+      borderRadius: radius.pill,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    dashboardRetryBtnText: {
+      fontSize: 11,
+      fontWeight: '800',
+      color: colors.accent,
     },
   });
 }

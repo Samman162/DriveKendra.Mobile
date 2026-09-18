@@ -83,6 +83,61 @@ export function normalizePhone(value: string): string {
   return hasPlus ? `+${digits}` : digits;
 }
 
+/**
+ * Standardize any phone number into canonical E.164 format (+<country_code><digits>)
+ * Supports any country worldwide while defaulting un-prefixed Nepal mobile/landline to +977.
+ */
+export function toCanonicalPhone(value: string): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, '');
+  if (trimmed.startsWith('+')) {
+    return `+${digits}`;
+  }
+  if (trimmed.startsWith('00') && digits.length > 2) {
+    return `+${digits.slice(2)}`;
+  }
+  // Nepal local mobile (97/98) -> canonical E.164 +977
+  if (/^(?:9[78]\d{8})$/.test(digits)) {
+    return `+977${digits}`;
+  }
+  // Nepal local landline (01...) -> +9771...
+  if (/^0[1-9]\d{7}$/.test(digits)) {
+    return `+977${digits.slice(1)}`;
+  }
+  // Already starts with 977 country code
+  if (digits.startsWith('977') && digits.length >= 11) {
+    return `+${digits}`;
+  }
+  return digits.length >= 7 ? `+${digits}` : digits;
+}
+
+/**
+ * Generate all possible stored representations of a phone number for indexed lookup.
+ * Enables O(1) B-tree index scan without requiring table-scanning REGEXP_REPLACE.
+ */
+export function toPhoneLookupVariants(value: string): string[] {
+  if (!value) return [];
+  const raw = value.trim();
+  const clean = normalizePhone(raw);
+  const canonical = toCanonicalPhone(raw);
+  const digits = raw.replace(/\D/g, '');
+  const last10 = digits.length >= 10 ? digits.slice(-10) : digits;
+
+  const set = new Set<string>();
+  if (raw) set.add(raw);
+  if (clean) set.add(clean);
+  if (canonical) set.add(canonical);
+  if (digits) set.add(digits);
+  if (last10 && last10.length === 10) {
+    set.add(last10);
+    set.add(`+977${last10}`);
+    set.add(`977${last10}`);
+    set.add(`+977 ${last10}`);
+  }
+  return Array.from(set).filter((s) => s.length > 0);
+}
+
 export function isValidPhone(value: string): boolean {
   if (!value) return false;
   const normalized = normalizePhone(value);
@@ -95,7 +150,7 @@ export function isValidPhone(value: string): boolean {
   return /^\+?[1-9]\d{6,14}$/.test(normalized) || NEPAL_PHONE_DIGITS.test(rawDigits);
 }
 
-// International & Nepal Phone Number Zod Validator
+// International & Nepal Phone Number Zod Validator (accepts any country)
 export const phoneSchema = z
   .string()
   .min(1, 'Phone number is required.')
@@ -188,6 +243,7 @@ export type BookingInput = {
   trip_type: 'One Way' | 'Round Trip';
   vehicle_type_id: number;
   estimated_fare?: string | null;
+  final_fare_npr?: number | null;
   additional_details: string | null;
 };
 
@@ -202,6 +258,8 @@ export function parseBooking(body: unknown): BookingInput {
   const isRound = valid.trip_type.toLowerCase().includes('round') || valid.trip_type.toLowerCase().includes('return');
   const pickupDate = parseDateOnly(valid.pickup_date)!;
   const returnDate = isRound && valid.return_date ? parseDateOnly(valid.return_date) : null;
+  const fareDigits = valid.estimated_fare ? valid.estimated_fare.replace(/\D/g, '') : '';
+  const finalFareNpr = fareDigits.length > 0 && !isNaN(Number(fareDigits)) ? Number(fareDigits) : null;
 
   return {
     user_id: valid.user_id,
@@ -217,6 +275,7 @@ export function parseBooking(body: unknown): BookingInput {
     trip_type: isRound ? 'Round Trip' : 'One Way',
     vehicle_type_id: valid.vehicle_type_id,
     estimated_fare: valid.estimated_fare?.trim() || null,
+    final_fare_npr: finalFareNpr,
     additional_details: valid.additional_details?.trim() || null,
   };
 }

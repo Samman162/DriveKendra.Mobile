@@ -242,6 +242,7 @@ export function BookingScreen({
   };
 
   const onSubmit = async () => {
+    if (submitting) return;
     setFormError('');
     if (!validate() || !form.pickup_date || !form.vehicle_type_id) {
       hapticFeedback.error();
@@ -750,9 +751,11 @@ export function BookingScreen({
           <View style={styles.btnWrap}>
             <Pressable
               onPress={onSubmit}
+              disabled={submitting}
               style={({ pressed }) => [
                 styles.getOfferBtn,
-                pressed && styles.getOfferBtnPressed,
+                submitting && styles.getOfferBtnDisabled,
+                pressed && !submitting && styles.getOfferBtnPressed,
               ]}
               accessibilityRole="button"
               accessibilityLabel="Submit Booking"
@@ -1452,8 +1455,11 @@ function createStyles(colors: ThemeColors) {
       elevation: 4,
     },
     getOfferBtnPressed: {
-      opacity: 0.9,
-      transform: [{ scale: 0.98 }],
+      opacity: 0.88,
+      transform: [{ scale: 0.985 }],
+    },
+    getOfferBtnDisabled: {
+      opacity: 0.55,
     },
     btnInnerContent: {
       flexDirection: 'row',

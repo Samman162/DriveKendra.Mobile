@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -20,10 +21,13 @@ import {
   Check,
   ChevronRight,
   Compass,
+  Fingerprint,
   Headphones,
   LogOut,
   Mail,
   Phone,
+  Shield,
+  Trash2,
   User as UserIcon,
 } from 'lucide-react-native';
 
@@ -49,7 +53,18 @@ export function ProfileScreen() {
   const navigation = useNavigation<ProfileNav>();
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { user, isAuthenticated, signOut, updateUser } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    signOut,
+    updateUser,
+    biometricEnabled,
+    setBiometricEnabled,
+    isBiometricSupported,
+    biometricType,
+    deleteAccount,
+  } = useAuth();
+  const [isDeletingAccount, setIsDeletingAccount] = useState<boolean>(false);
 
   // Profile Form States
   const [name, setName] = useState<string>(user?.name || '');
@@ -173,6 +188,37 @@ export function ProfileScreen() {
     ]);
   };
 
+  const handleToggleBiometrics = async (val: boolean) => {
+    hapticFeedback.selection();
+    await setBiometricEnabled(val);
+  };
+
+  const handleDeleteAccount = () => {
+    hapticFeedback.heavy();
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your Drive Kendra account? This will revoke active sessions, clear saved push tokens, and anonymize your personal information. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Permanently',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setIsDeletingAccount(true);
+              await deleteAccount();
+              Alert.alert('Account Deleted', 'Your Drive Kendra account has been successfully deleted.');
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to delete account. Please contact support.');
+            } finally {
+              setIsDeletingAccount(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   // ----------------------------------------------------
   // GUEST STATE
   // ----------------------------------------------------
@@ -241,6 +287,11 @@ export function ProfileScreen() {
             </Pressable>
           </View>
 
+          {/* Version Footer */}
+          <View style={styles.versionFooter}>
+            <Text style={styles.versionText}>Drive Kendra v1.0.0 (Build 57)</Text>
+            <Text style={styles.versionSubtext}>Kathmandu, Nepal • 24/7 Dispatch Desk</Text>
+          </View>
         </View>
       </Screen>
     );
@@ -387,6 +438,36 @@ export function ProfileScreen() {
           <ThemeModeSelector style={{ marginTop: spacing.sm }} />
         </View>
 
+        {/* Security & Authentication Settings */}
+        {isBiometricSupported && (
+          <View style={styles.menuSection}>
+            <Text style={styles.sectionTitle}>Security & Sign-In</Text>
+            <Text style={styles.sectionSubtitle}>
+              Protect your reservations and session credentials on this device.
+            </Text>
+
+            <View style={styles.switchRow}>
+              <View style={[styles.menuIconWrap, { backgroundColor: colors.accentSoft }]}>
+                <Fingerprint size={18} color={colors.accent} />
+              </View>
+              <View style={styles.switchTextCol}>
+                <Text style={styles.switchLabel}>
+                  {biometricType ? `${biometricType} Sign-In` : 'Biometric Sign-In'}
+                </Text>
+                <Text style={styles.switchSub}>
+                  Quick authentication using device biometrics
+                </Text>
+              </View>
+              <Switch
+                value={biometricEnabled}
+                onValueChange={handleToggleBiometrics}
+                trackColor={{ false: colors.border, true: colors.accent }}
+                thumbColor={colors.white}
+              />
+            </View>
+          </View>
+        )}
+
         {/* Support Section */}
         <View style={styles.menuSection}>
           <Text style={styles.sectionTitle}>Support & Help</Text>
@@ -425,6 +506,32 @@ export function ProfileScreen() {
             <LogOut size={18} color={colors.error} style={{ marginRight: 8 }} />
             <Text style={styles.logoutText}>Sign Out of Drive Kendra</Text>
           </Pressable>
+        </View>
+
+        {/* Apple App Store Guideline 5.1.1(v) Account Deletion */}
+        <View style={styles.dangerWrap}>
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={isDeletingAccount}
+            style={({ pressed }) => [
+              styles.deleteBtn,
+              pressed && styles.deleteBtnPressed,
+              isDeletingAccount && { opacity: 0.5 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Delete Drive Kendra Account Permanently"
+          >
+            <Trash2 size={16} color={colors.muted} style={{ marginRight: 6 }} />
+            <Text style={styles.deleteText}>
+              {isDeletingAccount ? 'Deleting Account...' : 'Delete Account'}
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* App Version & Dispatch Info */}
+        <View style={styles.versionFooter}>
+          <Text style={styles.versionText}>Drive Kendra v1.0.0 (Build 57)</Text>
+          <Text style={styles.versionSubtext}>Kathmandu, Nepal • 24/7 Dispatch Desk</Text>
         </View>
       </View>
     </Screen>
@@ -759,6 +866,71 @@ function createStyles(colors: ThemeColors) {
     },
     guestActions: {
       width: '100%',
+    },
+
+    // Security & Biometrics
+    switchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: 4,
+    },
+    switchTextCol: {
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    switchLabel: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    switchSub: {
+      fontSize: 11,
+      color: colors.muted,
+      marginTop: 2,
+    },
+
+    // Danger Zone / Account Deletion
+    dangerWrap: {
+      alignItems: 'center',
+      marginTop: spacing.xs,
+      marginBottom: spacing.md,
+    },
+    deleteBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+    },
+    deleteBtnPressed: {
+      opacity: 0.6,
+    },
+    deleteText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.muted,
+      textDecorationLine: 'underline',
+    },
+
+    // App Version Footer
+    versionFooter: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.md,
+      marginTop: spacing.sm,
+    },
+    versionText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.subtle,
+      letterSpacing: 0.3,
+    },
+    versionSubtext: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.muted,
+      marginTop: 2,
     },
   });
 }

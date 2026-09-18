@@ -186,17 +186,55 @@ server {
 > Remember the fundamental database rule: **NEVER run SQL queries directly from automated agents or unvetted scripts**. Always review and execute migrations manually.
 
 ### Initial Database Provisioning
-Run the canonical base schema on your fresh database:
-```bash
-psql -U postgres -h <DB_HOST> -d car_rental_db -f database/database.sql
-```
+
+1. **Partner Fleet Schema (Optional / External Backend Integration)**:
+   If configuring a fresh environment that includes the partner fleet tables (`cr_owners` and `cr_vehicles`), provision [`database/cr_database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/cr_database.sql):
+   ```bash
+   psql -U postgres -h <DB_HOST> -d car_rental_db -f database/cr_database.sql
+   ```
+
+2. **Mobile App Canonical Base Schema**:
+   Run the canonical base schema on your fresh database:
+   ```bash
+   psql -U postgres -h <DB_HOST> -d car_rental_db -f database/database.sql
+   ```
 
 ### Applying Sequential Patches
-When pending patches exist in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (numbered sequentially starting at `010_...` following the consolidation of patches `001`-`009`), run patch files in ascending numeric order:
+
+Patches inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) are tracked automatically in the `dka_schema_migrations` ledger table.
+
+Run all pending patches safely and idempotently:
+```bash
+node server/scripts/applyPatches.js
+```
+Alternatively, apply manually via `psql` in ascending numeric order:
 ```bash
 psql -U postgres -h <DB_HOST> -d car_rental_db -f database/patches/<patch_name>.sql
 ```
-Once applied to all target environments and verified in `database.sql`, remove the applied patch file from `database/patches/`.
+
+### Production Backup, Restore & Point-in-Time Recovery (PITR)
+
+- **Target RPO (Recovery Point Objective)**: < 15 minutes.
+- **Target RTO (Recovery Time Objective)**: < 1 hour.
+
+1. **Daily Logical Backups (`pg_dump`)**:
+   Schedule an automated daily cron job to backup the schema and data to offsite encrypted object storage (e.g. AWS S3, Cloudflare R2):
+   ```bash
+   # Daily compressed backup at 02:00 UTC
+   0 2 * * * pg_dump -U postgres -h <DB_HOST> -Fc -d car_rental_db > /backups/drivekendra_$(date +\%Y\%m\%d_\%H\%M\%S).dump
+   ```
+2. **Physical WAL Archiving for PITR**:
+   In `postgresql.conf`, enable continuous WAL archiving to achieve near-zero data loss:
+   ```ini
+   wal_level = replica
+   archive_mode = on
+   archive_command = 'test ! -f /mnt/wal_archive/%f && cp %p /mnt/wal_archive/%f'
+   ```
+3. **Restoration Runbook**:
+   To restore from a logical dump:
+   ```bash
+   pg_restore -U postgres -h <DB_HOST> -d car_rental_db --clean --if-exists -v /backups/drivekendra_backup.dump
+   ```
 
 ---
 

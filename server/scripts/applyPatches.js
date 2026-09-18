@@ -25,20 +25,33 @@ async function run() {
   
   const client = await pool.connect();
   try {
+    // Ensure schema migrations tracking ledger exists
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS dka_schema_migrations (
+        patch_name VARCHAR(255) PRIMARY KEY,
+        applied_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+    `);
+
+    const appliedRes = await client.query('SELECT patch_name FROM dka_schema_migrations');
+    const appliedSet = new Set(appliedRes.rows.map((r) => r.patch_name));
+
     const files = fs
       .readdirSync(patchesDir)
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
-    console.log(`[Patches] Found ${files.length} patches to apply:`, files);
+    const pending = files.filter((f) => !appliedSet.has(f));
+    console.log(`[Patches] Found ${files.length} patches total, ${pending.length} pending:`, pending);
 
-    for (const file of files) {
+    for (const file of pending) {
       const filePath = path.join(patchesDir, file);
       const sql = fs.readFileSync(filePath, 'utf-8');
       console.log(`[Patches] Applying ${file}...`);
       await client.query('BEGIN');
       try {
         await client.query(sql);
+        await client.query('INSERT INTO dka_schema_migrations (patch_name) VALUES ($1)', [file]);
         await client.query('COMMIT');
         console.log(`[Patches] ✓ Successfully applied ${file}`);
       } catch (err) {
@@ -48,7 +61,7 @@ async function run() {
       }
     }
 
-    console.log('[Patches] All patches applied successfully!');
+    console.log('[Patches] All pending patches applied successfully!');
   } finally {
     client.release();
     await pool.end();

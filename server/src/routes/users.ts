@@ -197,3 +197,71 @@ usersRoute.patch('/notifications/:id/read', async (c) => {
   }
 });
 
+/**
+ * DELETE /api/users/account
+ * Apple App Store Guideline 5.1.1(v) compliant user account deletion.
+ * Cleans up notifications, push tokens, and anonymizes/deletes user profile data.
+ */
+usersRoute.delete('/account', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const rawId = body?.userId || c.req.query('userId');
+  const userId = Number(rawId);
+
+  if (!userId || isNaN(userId)) {
+    throw new HttpError(400, 'Valid numeric userId is required.');
+  }
+
+  try {
+    await withPublicClient(async (client) => {
+      // 1. Delete device push tokens and notifications
+      await client.query('DELETE FROM dka_push_tokens WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM dka_notifications WHERE user_id = $1', [userId]);
+
+      // 2. Check if user has bookings
+      const bookingCheck = await client.query<{ count: string }>(
+        'SELECT COUNT(*) as count FROM dka_bookings WHERE user_id = $1',
+        [userId],
+      );
+      const bookingCount = Number(bookingCheck.rows[0]?.count || 0);
+
+      if (bookingCount > 0) {
+        // Cancel any pending bookings
+        await client.query(
+          `UPDATE dka_bookings
+           SET booking_status = 'Cancelled',
+               additional_details = COALESCE(additional_details, '') || ' [Account Deleted by User]'
+           WHERE user_id = $1 AND booking_status = 'Pending'`,
+          [userId],
+        );
+
+        // Anonymize personal info to respect ON DELETE RESTRICT ledger integrity
+        await client.query(
+          `UPDATE dka_users
+           SET full_name = 'Deleted Account',
+               phone_number = 'del_' || user_id || '_' || FLOOR(EXTRACT(EPOCH FROM NOW())),
+               email = NULL,
+               avatar_url = NULL,
+               password_hash = 'DELETED',
+               is_active = FALSE,
+               updated_at = NOW()
+           WHERE user_id = $1`,
+          [userId],
+        );
+      } else {
+        // Safe to fully delete row
+        await client.query('DELETE FROM dka_users WHERE user_id = $1', [userId]);
+      }
+    });
+
+    return c.json({
+      success: true,
+      message: 'Your account and personal data have been permanently deleted.',
+    });
+  } catch (error: any) {
+    if (error instanceof HttpError) throw error;
+    console.error('[Users] Delete account error:', error?.message || error);
+    throw new HttpError(500, 'Could not delete user account. Please try again.');
+  }
+});
+
+

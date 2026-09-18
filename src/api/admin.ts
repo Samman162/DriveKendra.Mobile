@@ -30,7 +30,14 @@ export const adminApiClient = axios.create({
   },
 });
 
-// Interceptor to inject isolated hardware-stored Admin Token
+type AdminSessionExpiredHandler = () => void;
+let adminSessionExpiredHandler: AdminSessionExpiredHandler | null = null;
+
+export function setOnAdminSessionExpired(handler: AdminSessionExpiredHandler | null) {
+  adminSessionExpiredHandler = handler;
+}
+
+// 1. Interceptor to inject isolated hardware-stored Admin Token
 adminApiClient.interceptors.request.use(
   async (config) => {
     try {
@@ -45,6 +52,26 @@ adminApiClient.interceptors.request.use(
   },
   (error) => Promise.reject(error),
 );
+
+// 2. Interceptor to handle 401 Admin Token expiration
+adminApiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error?.response?.status === 401) {
+      console.warn('[AdminApi] 401 Unauthorized received. Clearing admin session.');
+      try {
+        await secureStorage.clearAdminCredentials();
+      } catch {
+        // continue
+      }
+      if (adminSessionExpiredHandler) {
+        adminSessionExpiredHandler();
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 
 /**
  * Step 1: Submit admin primary credentials (Phone + Password)
@@ -96,7 +123,8 @@ export async function getAdminStats(): Promise<AdminStats> {
   try {
     const res = await adminApiClient.get<AdminStats>('/admin/stats');
     return res.data;
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.response?.status === 401) throw err;
     return {
       pendingRequests: 0,
       activeFleet: 0,
@@ -116,7 +144,8 @@ export async function getAdminUsers(search?: string): Promise<AdminCustomer[]> {
       params: search ? { q: search } : undefined,
     });
     return res.data.users || [];
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.response?.status === 401) throw err;
     return [];
   }
 }
@@ -130,7 +159,8 @@ export async function getCustomerTrips(userId: number): Promise<CustomerTripHist
       `/admin/users/${userId}/trips`,
     );
     return res.data.trips || [];
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.response?.status === 401) throw err;
     return [];
   }
 }
@@ -147,10 +177,12 @@ export async function getAdminTrips(status?: string, search?: string): Promise<A
       params: Object.keys(params).length > 0 ? params : undefined,
     });
     return res.data.trips || [];
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.response?.status === 401) throw err;
     return [];
   }
 }
+
 
 /**
  * Approve trip request and assign specific vehicle, driver, and final pricing
@@ -187,10 +219,12 @@ export async function getAdminVehicles(
       params: { status, category },
     });
     return res.data.vehicles || [];
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.response?.status === 401) throw err;
     return [];
   }
 }
+
 
 /**
  * Manually register a new vehicle into the fleet
@@ -271,10 +305,12 @@ export async function getAdminDrivers(
       params: { status, q: search },
     });
     return res.data.drivers || [];
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.response?.status === 401) throw err;
     return [];
   }
 }
+
 
 /**
  * Register a new driver profile into dka_owners (and syncs to cr_owners)

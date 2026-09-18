@@ -66,7 +66,17 @@ export function AuthScreen({
   const route = propRoute || hookRoute;
   const { colors, isDark } = useTheme();
   const styles = useThemedStyles(createStyles);
-  const { signIn, signUp, sendPasswordResetCode, resetPassword } = useAuth();
+  const {
+    signIn,
+    signUp,
+    sendPasswordResetCode,
+    resetPassword,
+    isBiometricLocked,
+    biometricType,
+    unlockSessionWithBiometrics,
+    resetBiometricLock,
+    user,
+  } = useAuth();
   const adminAuth = useContext(AdminAuthContext);
 
   // Screen State
@@ -278,13 +288,9 @@ export function AuthScreen({
   };
 
   return (
-    <Screen padded={false}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        {/* Top-Left Ambient Organic Blobs */}
-        <TopAmbientBlobs />
+    <Screen scroll={false} padded={false}>
+      {/* Top-Left Ambient Organic Blobs */}
+      <TopAmbientBlobs />
 
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -365,22 +371,66 @@ export function AuthScreen({
 
           {/* Form Container */}
           <View style={styles.formContainer}>
-            {/* General Form Error Alert */}
-            {errors.form && (
-              <View style={styles.errorAlert} testID="auth-error-alert">
-                <Text style={styles.errorAlertText}>{errors.form}</Text>
-              </View>
-            )}
+            {/* Dedicated Biometric Unlock Flow when session is locked */}
+            {isBiometricLocked ? (
+              <View style={styles.biometricLockCard}>
+                <View style={styles.lockIconCircle}>
+                  <ShieldCheck size={42} color={colors.accent} />
+                </View>
+                <Text style={styles.biometricLockTitle}>Drive Kendra is Locked</Text>
+                <Text style={styles.biometricLockSub}>
+                  {user?.name ? `Welcome back, ${user.name.split(' ')[0]}!` : 'Welcome back!'}
+                  {`\nVerify with ${biometricType} to unlock your trips and profile.`}
+                </Text>
 
-            {infoMessage && (
-              <View style={styles.infoAlert}>
-                <CheckCircle2 size={16} color={colors.success} style={{ marginRight: 6 }} />
-                <Text style={styles.infoAlertText}>{infoMessage}</Text>
-              </View>
-            )}
+                <Button
+                  label={`Unlock with ${biometricType}`}
+                  onPress={async () => {
+                    hapticFeedback.medium();
+                    const success = await unlockSessionWithBiometrics();
+                    if (!success) {
+                      hapticFeedback.error();
+                    }
+                  }}
+                  variant="primary"
+                  style={styles.biometricUnlockBtn}
+                />
 
-            {/* ================= MODE: SIGN IN (LOGIN) ================= */}
-            {mode === 'signin' && (
+                <Pressable
+                  onPress={() => {
+                    hapticFeedback.light();
+                    resetBiometricLock();
+                  }}
+                  style={({ pressed }) => [
+                    styles.biometricFallbackBtn,
+                    pressed && styles.pressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign In with Password or Switch Account"
+                >
+                  <Text style={styles.biometricFallbackText}>
+                    Sign in with Password / Switch Account →
+                  </Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                {/* General Form Error Alert */}
+                {errors.form && (
+                  <View style={styles.errorAlert} testID="auth-error-alert">
+                    <Text style={styles.errorAlertText}>{errors.form}</Text>
+                  </View>
+                )}
+
+                {infoMessage && (
+                  <View style={styles.infoAlert}>
+                    <CheckCircle2 size={16} color={colors.success} style={{ marginRight: 6 }} />
+                    <Text style={styles.infoAlertText}>{infoMessage}</Text>
+                  </View>
+                )}
+
+                {/* ================= MODE: SIGN IN (LOGIN) ================= */}
+                {mode === 'signin' && (
               <View>
                 {/* Phone Field */}
                 <View style={styles.fieldGroup}>
@@ -504,14 +554,16 @@ export function AuthScreen({
                   </Pressable>
                 </View>
 
-                {/* Quick Demo Fill */}
-                <SocialAuthButtons
-                  onQuickDemoFill={handleQuickDemoFill}
-                  onAdminPress={() => {
-                    hapticFeedback.selection();
-                    navigation.navigate('AdminPinGate');
-                  }}
-                />
+                {/* Quick Demo Fill - Strictly hidden in production release builds */}
+                {__DEV__ && (
+                  <SocialAuthButtons
+                    onQuickDemoFill={handleQuickDemoFill}
+                    onAdminPress={() => {
+                      hapticFeedback.selection();
+                      navigation.navigate('AdminPinGate');
+                    }}
+                  />
+                )}
               </View>
             )}
 
@@ -856,9 +908,10 @@ export function AuthScreen({
                 </View>
               </View>
             )}
+              </>
+            )}
           </View>
         </ScrollView>
-      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -1160,5 +1213,56 @@ const createStyles = (theme: ThemeColors) =>
     },
     pressed: {
       opacity: 0.65,
+    },
+    biometricLockCard: {
+      backgroundColor: theme.surface,
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: theme.border,
+      padding: spacing.xl,
+      alignItems: 'center',
+      marginTop: spacing.sm,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+    lockIconCircle: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      backgroundColor: theme.accentSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    biometricLockTitle: {
+      fontSize: 20,
+      fontWeight: '800',
+      color: theme.text,
+      marginBottom: spacing.xs,
+      textAlign: 'center',
+    },
+    biometricLockSub: {
+      fontSize: 14,
+      color: theme.subtle,
+      textAlign: 'center',
+      lineHeight: 20,
+      marginBottom: spacing.xl,
+    },
+    biometricUnlockBtn: {
+      width: '100%',
+      marginBottom: spacing.md,
+    },
+    biometricFallbackBtn: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+    },
+    biometricFallbackText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.accent,
+      textAlign: 'center',
     },
   });

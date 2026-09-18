@@ -15,6 +15,8 @@ import {
   requestPasswordReset,
   resetPassword as apiResetPassword,
 } from '../api/auth';
+import { setOnSessionExpired } from '../api/client';
+import { deleteUserAccount } from '../api/users';
 import type { LoginDto, RegisterDto, ResetPasswordDto, User } from '../types/auth';
 import { secureStorage } from '../utils/secureStorage';
 import { clearOfflineVouchers } from '../utils/offlineVoucherStorage';
@@ -34,13 +36,16 @@ type AuthContextType = {
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
   authenticateWithBiometrics: (promptMessage?: string) => Promise<boolean>;
   unlockSessionWithBiometrics: () => Promise<boolean>;
+  resetBiometricLock: () => void;
   signIn: (dto: LoginDto) => Promise<User>;
   signUp: (dto: RegisterDto) => Promise<void>;
   sendPasswordResetCode: (identifier: string) => Promise<{ message: string; code?: string }>;
   resetPassword: (dto: ResetPasswordDto) => Promise<{ message: string }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   updateUser: (data: Partial<User>) => Promise<void>;
 };
+
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -238,6 +243,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetBiometricLock = useCallback(() => {
+    setIsBiometricLocked(false);
+  }, []);
+
+  const deleteAccount = async () => {
+    if (!user?.id) return;
+    setIsLoading(true);
+    try {
+      await deleteUserAccount(user.id);
+    } catch (e) {
+      console.warn('[Auth] Delete user account error:', e);
+    } finally {
+      await signOut();
+    }
+  };
+
+  // Listen for silent refresh session expiration from apiClient
+  useEffect(() => {
+    setOnSessionExpired(() => {
+      console.warn('[AuthContext] Session expired via API client. Signing out user.');
+      void signOut();
+    });
+    return () => {
+      setOnSessionExpired(null);
+    };
+  }, []);
+
   const updateUser = async (data: Partial<User>) => {
     if (!user) return;
     const updated = { ...user, ...data };
@@ -269,17 +301,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setBiometricEnabled,
         authenticateWithBiometrics,
         unlockSessionWithBiometrics,
+        resetBiometricLock,
         signIn,
         signUp,
         sendPasswordResetCode,
         resetPassword,
         signOut,
+        deleteAccount,
         updateUser,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
+
 }
 
 export function useAuth() {

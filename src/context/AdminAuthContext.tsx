@@ -6,7 +6,7 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
-import { loginAdmin, verifyAdminPin } from '../api/admin';
+import { loginAdmin, setOnAdminSessionExpired, verifyAdminPin } from '../api/admin';
 import type { AdminUser } from '../types/admin';
 import { secureStorage } from '../utils/secureStorage';
 import { AuthContext } from './AuthContext';
@@ -31,6 +31,19 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
   const [challengeToken, setChallengeToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
+  // Auto-logout when 401 response is intercepted
+  useEffect(() => {
+    setOnAdminSessionExpired(() => {
+      console.warn('[AdminAuthContext] Admin session expired via 401. Clearing state.');
+      setAdminToken(null);
+      setAdminUser(null);
+      setChallengeToken(null);
+    });
+    return () => {
+      setOnAdminSessionExpired(null);
+    };
+  }, []);
+
   // Restore hardware-encrypted admin session on startup
   useEffect(() => {
     async function restoreSession() {
@@ -53,6 +66,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
 
     restoreSession();
   }, []);
+
 
   const login = useCallback(async (phone: string, password: string) => {
     setIsLoading(true);

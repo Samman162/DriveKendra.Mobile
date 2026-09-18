@@ -46,6 +46,7 @@ jest.mock('react-native-safe-area-context', () => {
 
 // Mock admin API functions
 jest.mock('../src/api/admin', () => ({
+  setOnAdminSessionExpired: jest.fn(),
   loginAdmin: jest.fn().mockResolvedValue({
     success: true,
     pinRequired: true,

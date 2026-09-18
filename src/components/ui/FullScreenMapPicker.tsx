@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -175,6 +177,23 @@ export function FullScreenMapPicker({
         const lng = loc.coords.longitude;
         const script = `window.flyToLocation(${lat}, ${lng}, 15);`;
         executeMapScript(script);
+      } else {
+        hapticFeedback.error();
+        Alert.alert(
+          'Location Access Required',
+          'Drive Kendra needs GPS permission to automatically detect your current pickup spot on the map.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                if (Platform.OS !== 'web') {
+                  void Linking.openSettings();
+                }
+              },
+            },
+          ],
+        );
       }
     } catch (e) {
       console.warn('[MapPicker] GPS error:', e);

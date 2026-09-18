@@ -21,6 +21,13 @@ const refreshClient = axios.create({
   },
 });
 
+type SessionExpiredHandler = () => void;
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+
+export function setOnSessionExpired(handler: SessionExpiredHandler | null) {
+  sessionExpiredHandler = handler;
+}
+
 // Mutex & pending request queue for concurrent requests during token refresh
 let isRefreshing = false;
 let failedQueue: Array<{
@@ -133,10 +140,14 @@ apiClient.interceptors.response.use(
         console.warn('[ApiClient] Silent token refresh failed. Clearing session:', refreshError);
         processQueue(refreshError, null);
         await secureStorage.clearAuthCredentials();
+        if (sessionExpiredHandler) {
+          sessionExpiredHandler();
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
+
     }
 
     // Network timeout / 5xx retry mechanism

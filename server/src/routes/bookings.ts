@@ -7,6 +7,8 @@ import {
   HttpError,
   normalizePhone,
   parseBooking,
+  toCanonicalPhone,
+  toPhoneLookupVariants,
 } from '../validation.js';
 
 export const bookingsRoute = new Hono();
@@ -26,33 +28,22 @@ bookingsRoute.get('/', async (c) => {
     throw new HttpError(400, 'Either a valid numeric userId or phoneNumber query parameter is required.');
   }
 
-  const cleanPhone = phoneNumber ? normalizePhone(phoneNumber) : '';
-  const rawDigits = phoneNumber ? phoneNumber.replace(/\D/g, '') : '';
-  const last10 = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
+  const phoneVariants = phoneNumber ? toPhoneLookupVariants(phoneNumber) : [];
 
   try {
     const result = await withPublicClient(async (client) => {
       let whereClause: string;
       let params: any[];
 
-      if (numericUserId && phoneNumber) {
-        whereClause = `b.user_id = $1
-           OR u.phone_number = $2
-           OR u.phone_number = $3
-           OR REPLACE(u.phone_number, ' ', '') = $3
-           OR REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g') = $4
-           OR ($5::text != '' AND RIGHT(REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g'), 10) = $5)`;
-        params = [numericUserId, phoneNumber, cleanPhone, rawDigits, last10.length === 10 ? last10 : ''];
+      if (numericUserId && phoneVariants.length > 0) {
+        whereClause = `b.user_id = $1 OR u.phone_number = ANY($2::text[])`;
+        params = [numericUserId, phoneVariants];
       } else if (numericUserId) {
         whereClause = `b.user_id = $1`;
         params = [numericUserId];
       } else {
-        whereClause = `u.phone_number = $1
-           OR u.phone_number = $2
-           OR REPLACE(u.phone_number, ' ', '') = $2
-           OR REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g') = $3
-           OR ($4::text != '' AND RIGHT(REGEXP_REPLACE(u.phone_number, '[^0-9]', '', 'g'), 10) = $4)`;
-        params = [phoneNumber!, cleanPhone, rawDigits, last10.length === 10 ? last10 : ''];
+        whereClause = `u.phone_number = ANY($1::text[])`;
+        params = [phoneVariants];
       }
 
       return await client.query<{
@@ -138,21 +129,37 @@ bookingsRoute.post('/', async (c) => {
 
   try {
     const result = await withPublicClient(async (client) => {
-      // 1. Idempotency Check
+      // 0. Periodic lightweight cleanup of expired idempotency keys (1 in 20 requests)
+      if (Math.random() < 0.05) {
+        client.query('DELETE FROM dka_idempotency_keys WHERE expires_at < NOW()').catch(() => {});
+      }
+
+      // 1. Idempotency Check & Atomic Claim
       if (idempotencyKey) {
         const existingKeyRes = await client.query<{
           status: string;
+          request_hash: string;
           response_code: number;
           response_body: any;
+          updated_at: Date;
         }>(
-          `SELECT status, response_code, response_body
+          `SELECT status, request_hash, response_code, response_body, updated_at
            FROM dka_idempotency_keys
-           WHERE idempotency_key = $1`,
+           WHERE idempotency_key = $1 AND expires_at > NOW()`,
           [idempotencyKey],
         );
 
         if (existingKeyRes.rows.length > 0) {
           const row = existingKeyRes.rows[0];
+
+          // Guard against payload mismatch (DB-005)
+          if (row.request_hash && row.request_hash !== requestHash) {
+            throw new HttpError(
+              422,
+              'This idempotency key was previously used with a different booking request payload.',
+            );
+          }
+
           if (row.status === 'completed') {
             // Return cached response instantly for duplicate/retry submissions
             return {
@@ -162,14 +169,18 @@ bookingsRoute.post('/', async (c) => {
             };
           }
 
-          if (row.status === 'processing') {
+          const isStaleProcessing =
+            row.status === 'processing' &&
+            Date.now() - new Date(row.updated_at).getTime() > 2 * 60 * 1000;
+
+          if (row.status === 'processing' && !isStaleProcessing) {
             throw new HttpError(
               409,
               'This booking request is currently being processed. Please wait a moment before retrying.',
             );
           }
 
-          // If previously failed, mark as processing to retry
+          // If previously failed or stale processing lock, reclaim key atomically
           await client.query(
             `UPDATE dka_idempotency_keys
              SET status = 'processing',
@@ -179,10 +190,17 @@ bookingsRoute.post('/', async (c) => {
             [requestHash, idempotencyKey],
           );
         } else {
-          // Record new in-flight idempotency key
+          // Atomic insert with ON CONFLICT (DB-004)
           await client.query(
             `INSERT INTO dka_idempotency_keys (idempotency_key, user_id, request_hash, endpoint, status, created_at, updated_at)
-             VALUES ($1, $2, $3, '/api/bookings', 'processing', NOW(), NOW())`,
+             VALUES ($1, $2, $3, '/api/bookings', 'processing', NOW(), NOW())
+             ON CONFLICT (idempotency_key)
+             DO UPDATE SET
+                 status = 'processing',
+                 request_hash = EXCLUDED.request_hash,
+                 updated_at = NOW()
+             WHERE dka_idempotency_keys.status != 'completed'
+                OR dka_idempotency_keys.expires_at < NOW()`,
             [idempotencyKey, booking.user_id || null, requestHash],
           );
         }
@@ -191,14 +209,17 @@ bookingsRoute.post('/', async (c) => {
       // 2. Atomic Multi-Table Transaction
       await client.query('BEGIN');
       try {
-        // Step 1: Resolve or upsert user record
+        // Step 1: Resolve or upsert user record using canonical phone
         let userId = booking.user_id;
 
         if (!userId) {
+          const phoneVariants = toPhoneLookupVariants(booking.phone_number);
+          const canonicalPhone = toCanonicalPhone(booking.phone_number);
           const existingUser = await client.query<{ user_id: number }>(
             `SELECT user_id FROM dka_users 
-             WHERE phone_number = $1 OR (email IS NOT NULL AND email != '' AND email = $2)`,
-            [booking.phone_number, booking.email || ''],
+             WHERE phone_number = ANY($1::text[]) OR (email IS NOT NULL AND email != '' AND email = $2)
+             LIMIT 1`,
+            [phoneVariants, booking.email || ''],
           );
 
           if (existingUser.rows.length > 0) {
@@ -220,7 +241,7 @@ bookingsRoute.post('/', async (c) => {
                    email = COALESCE(NULLIF(EXCLUDED.email, ''), dka_users.email),
                    updated_at = NOW()
                RETURNING user_id`,
-              [booking.full_name, booking.phone_number, booking.email],
+              [booking.full_name, canonicalPhone, booking.email],
             );
             userId = userRes.rows[0]?.user_id;
           }
@@ -230,28 +251,62 @@ bookingsRoute.post('/', async (c) => {
           throw new HttpError(500, 'Failed to save traveler details.');
         }
 
-        // Step 2: Insert booking tagged with user_id
-        const bookingRecord = await client.query<{ booking_id: number; created_at: Date }>(
-          `INSERT INTO dka_bookings (
-              user_id, vehicle_type_id, pickup_location, dropoff_location,
-              pickup_date, pickup_time, return_date, passenger_count, trip_type,
-              estimated_fare, additional_details, booking_status
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Pending')
-           RETURNING booking_id, created_at`,
-          [
-            userId,
-            booking.vehicle_type_id,
-            booking.pickup_location,
-            booking.dropoff_location,
-            booking.pickup_date,
-            booking.pickup_time || null,
-            booking.return_date,
-            booking.passenger_count,
-            booking.trip_type,
-            booking.estimated_fare || null,
-            booking.additional_details,
-          ],
+        // Step 2: Insert booking tagged with user_id, fare, and final_fare_npr (backward-compatible)
+        const colCheck = await client.query<{ exists: boolean }>(
+          `SELECT EXISTS (
+             SELECT 1 FROM information_schema.columns 
+             WHERE table_name = 'dka_bookings' AND column_name = 'final_fare_npr'
+           ) AS exists`,
         );
+        const hasFinalFareNpr = colCheck.rows[0]?.exists;
+
+        let bookingRecord;
+        if (hasFinalFareNpr) {
+          bookingRecord = await client.query<{ booking_id: number; created_at: Date }>(
+            `INSERT INTO dka_bookings (
+                user_id, vehicle_type_id, pickup_location, dropoff_location,
+                pickup_date, pickup_time, return_date, passenger_count, trip_type,
+                estimated_fare, final_fare_npr, additional_details, booking_status
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'Pending')
+             RETURNING booking_id, created_at`,
+            [
+              userId,
+              booking.vehicle_type_id,
+              booking.pickup_location,
+              booking.dropoff_location,
+              booking.pickup_date,
+              booking.pickup_time || null,
+              booking.return_date,
+              booking.passenger_count,
+              booking.trip_type,
+              booking.estimated_fare || null,
+              booking.final_fare_npr || null,
+              booking.additional_details,
+            ],
+          );
+        } else {
+          bookingRecord = await client.query<{ booking_id: number; created_at: Date }>(
+            `INSERT INTO dka_bookings (
+                user_id, vehicle_type_id, pickup_location, dropoff_location,
+                pickup_date, pickup_time, return_date, passenger_count, trip_type,
+                estimated_fare, additional_details, booking_status
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'Pending')
+             RETURNING booking_id, created_at`,
+            [
+              userId,
+              booking.vehicle_type_id,
+              booking.pickup_location,
+              booking.dropoff_location,
+              booking.pickup_date,
+              booking.pickup_time || null,
+              booking.return_date,
+              booking.passenger_count,
+              booking.trip_type,
+              booking.estimated_fare || null,
+              booking.additional_details,
+            ],
+          );
+        }
         const bookingId = bookingRecord.rows[0]?.booking_id;
         if (!bookingId) {
           throw new HttpError(500, 'Failed to create booking reservation.');
@@ -372,3 +427,78 @@ bookingsRoute.post('/', async (c) => {
     );
   }
 });
+
+/**
+ * PATCH /api/bookings/:id/cancel
+ * Customer self-service cancellation for pending bookings.
+ */
+bookingsRoute.patch('/:id/cancel', async (c) => {
+  const rawId = c.req.param('id');
+  const bookingId = Number(rawId);
+  if (!bookingId || isNaN(bookingId)) {
+    throw new HttpError(400, 'Valid numeric booking ID is required.');
+  }
+
+  const result = await withPublicClient(async (client) => {
+    // 1. Fetch current booking status
+    const currentRes = await client.query<{
+      booking_id: number;
+      user_id: number;
+      booking_status: string;
+      pickup_location: string;
+      dropoff_location: string;
+    }>(
+      `SELECT booking_id, user_id, booking_status, pickup_location, dropoff_location
+       FROM dka_bookings
+       WHERE booking_id = $1`,
+      [bookingId],
+    );
+
+    const booking = currentRes.rows[0];
+    if (!booking) {
+      throw new HttpError(404, 'Booking not found.');
+    }
+
+    if (booking.booking_status.toLowerCase() !== 'pending') {
+      throw new HttpError(
+        400,
+        `Cannot cancel booking with status "${booking.booking_status}". Please contact 24/7 dispatch hotline to request cancellation for dispatched or active trips.`,
+      );
+    }
+
+    // 2. Update status to Cancelled
+    await client.query(
+      `UPDATE dka_bookings
+       SET booking_status = 'Cancelled',
+           updated_at = NOW()
+       WHERE booking_id = $1`,
+      [bookingId],
+    );
+
+    const bookingRef = `DK-${new Date().getFullYear()}-${String(bookingId).padStart(4, '0')}`;
+
+    // 3. Notify Customer
+    try {
+      await recordAndPushTripNotification({
+        client,
+        userId: booking.user_id,
+        bookingId,
+        title: 'Trip Request Cancelled',
+        message: `Your trip request #${bookingRef} (${booking.pickup_location} ➔ ${booking.dropoff_location}) has been cancelled.`,
+        type: 'trip_cancelled',
+        data: { bookingRef, status: 'Cancelled' },
+      });
+    } catch (notifErr) {
+      console.warn('[Bookings] Failed to record cancellation notification:', notifErr);
+    }
+
+    return { bookingId, bookingRef, status: 'Cancelled' };
+  });
+
+  return c.json({
+    success: true,
+    message: 'Booking request cancelled successfully.',
+    booking: result,
+  });
+});
+

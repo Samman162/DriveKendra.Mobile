@@ -31,9 +31,10 @@ import {
   Star,
   User,
   WifiOff,
+  X,
 } from 'lucide-react-native';
 
-import { getUserBookings } from '../api/bookings';
+import { cancelBooking, getUserBookings } from '../api/bookings';
 import { CustomerNotificationsModal } from '../components/ui/CustomerNotificationsModal';
 import { EmergencySosModal } from '../components/ui/EmergencySosModal';
 import { EmergencyTripCard } from '../components/ui/EmergencyTripCard';
@@ -101,6 +102,8 @@ export function MyTripsScreen() {
   const [sosTrip, setSosTrip] = useState<TripRecord | null>(null);
   const [notificationsModalVisible, setNotificationsModalVisible] = useState<boolean>(false);
   const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [cancellingTripId, setCancellingTripId] = useState<string | null>(null);
 
   // Helper to map offline vouchers to TripRecord
   const mapOfflineVouchersToTrips = (cached: OfflineVoucher[]): TripRecord[] => {
@@ -142,10 +145,14 @@ export function MyTripsScreen() {
       return;
     }
 
-    if (isMounted) setIsLoadingTrips(true);
+    if (isMounted) {
+      setIsLoadingTrips(true);
+      setFetchError(null);
+    }
     try {
       const live = await getUserBookings({ userId: user?.id, phoneNumber: user?.phone });
       if (!isMounted) return;
+      setFetchError(null);
 
       if (live && live.length > 0) {
         const formatted: TripRecord[] = live.map((b: BookingRecordDto) => {
@@ -193,6 +200,7 @@ export function MyTripsScreen() {
     } catch (e) {
       console.warn('[MyTrips] Offline or failed to sync live bookings:', e);
       if (!isMounted) return;
+      setFetchError('Unable to connect to Drive Kendra dispatch service. Please check your network connection.');
       const cached = await getOfflineVouchers();
       if (cached && cached.length > 0) {
         setTrips(mapOfflineVouchersToTrips(cached));
@@ -286,8 +294,38 @@ export function MyTripsScreen() {
     });
   };
 
+  const handleCancelTrip = (trip: TripRecord) => {
+    hapticFeedback.medium();
+    Alert.alert(
+      'Cancel Reservation Request',
+      `Are you sure you want to cancel booking ${trip.bookingRef} (${trip.pickup} ➔ ${trip.dropoff})?\n\nThis will remove your pending dispatch request.`,
+      [
+        { text: 'Keep Reservation', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingTripId(trip.id);
+            try {
+              await cancelBooking(trip.bookingRef);
+              hapticFeedback.success();
+              Alert.alert('Reservation Cancelled', 'Your trip request has been successfully cancelled.');
+              await fetchLiveBookings(true);
+            } catch (err: any) {
+              hapticFeedback.error();
+              const msg = err?.response?.data?.message || err?.message || 'Could not cancel reservation. Please contact dispatch.';
+              Alert.alert('Cancellation Notice', msg);
+            } finally {
+              setCancellingTripId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
-    <Screen padded={false}>
+    <Screen padded={false} scroll={false}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
 
       {/* Top Bar matching Home & Book Ride Screens */}
@@ -302,6 +340,7 @@ export function MyTripsScreen() {
               hapticFeedback.light();
               setNotificationsModalVisible(true);
             }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             style={({ pressed }) => [styles.notifBtn, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
@@ -329,6 +368,25 @@ export function MyTripsScreen() {
         <Text style={styles.screenSubtitle}>
           Track vehicle assignments, access offline vouchers, and view past expedition receipts.
         </Text>
+
+        {/* Network / Connection Error Banner with Retry */}
+        {fetchError ? (
+          <View style={styles.errorBannerCard}>
+            <View style={styles.errorBannerLeft}>
+              <AlertTriangle size={18} color={colors.error} />
+              <Text style={styles.errorBannerText}>{fetchError}</Text>
+            </View>
+            <Pressable
+              onPress={() => fetchLiveBookings(true)}
+              style={({ pressed }) => [styles.retryBtn, pressed && styles.pressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Retry loading trips"
+            >
+              <RotateCcw size={14} color={colors.accent} />
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* Mountain Emergency Mode Bar */}
         <View style={[styles.mountainBar, shouldShowEmergencyVoucher && styles.mountainBarActive]}>
@@ -783,6 +841,25 @@ export function MyTripsScreen() {
                       <MessageCircle size={14} color={colors.white} />
                       <Text style={styles.actionBtnWhatsAppText}>WhatsApp</Text>
                     </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionBtnCancel,
+                        cancellingTripId === trip.id && { opacity: 0.5 },
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={() => handleCancelTrip(trip)}
+                      disabled={cancellingTripId === trip.id}
+                      accessibilityRole="button"
+                      accessibilityLabel="Cancel Reservation Request"
+                    >
+                      {cancellingTripId === trip.id ? (
+                        <ActivityIndicator size="small" color={colors.error} />
+                      ) : (
+                        <X size={14} color={colors.error} />
+                      )}
+                      <Text style={styles.actionBtnCancelText}>Cancel</Text>
+                    </Pressable>
                   </>
                 ) : (
                   <>
@@ -861,9 +938,9 @@ function createStyles(colors: ThemeColors) {
       paddingBottom: spacing.sm,
     },
     notifBtn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
@@ -1599,6 +1676,63 @@ function createStyles(colors: ThemeColors) {
     pressed: {
       opacity: 0.85,
       transform: [{ scale: 0.98 }],
+    },
+    errorBannerCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: colors.errorSoft,
+      borderColor: colors.error,
+      borderWidth: 1,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginBottom: spacing.md,
+    },
+    errorBannerLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    errorBannerText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.error,
+      flex: 1,
+    },
+    retryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.sm + 4,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    retryBtnText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.accent,
+    },
+    actionBtnCancel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      backgroundColor: colors.surface,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 10,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.error,
+    },
+    actionBtnCancelText: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.error,
     },
   });
 }

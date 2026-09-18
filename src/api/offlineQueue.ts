@@ -68,8 +68,9 @@ export const offlineQueue = {
         }
         synced += 1;
       } catch (err: any) {
-        // If 4xx client validation error, discard; if network error, retain for retry
-        if (err?.response?.status && err.response.status >= 400 && err.response.status < 500) {
+        // If 4xx client validation error (except 409 conflict/in-flight processing), discard; if network error or 409, retain for retry
+        const status = err?.response?.status;
+        if (status && status >= 400 && status < 500 && status !== 409) {
           failed += 1;
         } else {
           item.retryCount += 1;

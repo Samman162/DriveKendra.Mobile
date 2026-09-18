@@ -214,6 +214,7 @@ export function HomeScreen() {
               hapticFeedback.heavy();
               setSosModalVisible(true);
             }}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
             style={({ pressed }) => [styles.sosPill, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel="Emergency SOS"
@@ -228,6 +229,7 @@ export function HomeScreen() {
               hapticFeedback.light();
               setNotificationsModalVisible(true);
             }}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
             style={({ pressed }) => [styles.profileBtn, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel="Notifications"
@@ -251,6 +253,7 @@ export function HomeScreen() {
                 navigation.navigate('Auth', { initialMode: 'signin' });
               }
             }}
+            hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
             style={({ pressed }) => [styles.profileBtn, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={isAuthenticated ? 'User Profile' : 'Sign In'}
@@ -654,9 +657,10 @@ function createStyles(colors: ThemeColors) {
     sosPill: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 3,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 5,
+      gap: 4,
+      paddingHorizontal: spacing.sm + 2,
+      paddingVertical: 7,
+      minHeight: 34,
       borderRadius: radius.pill,
       backgroundColor: colors.errorSoft,
       borderWidth: 1,
@@ -668,7 +672,11 @@ function createStyles(colors: ThemeColors) {
       color: colors.error,
     },
     profileBtn: {
-      padding: 2,
+      minWidth: 36,
+      minHeight: 36,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 1,
     },
     avatarCircle: {
       width: 34,

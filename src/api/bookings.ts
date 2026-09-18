@@ -74,6 +74,20 @@ export async function getUserBookings(params: {
     return data.bookings || [];
   } catch (error) {
     console.warn('[BookingsApi] Failed to fetch user bookings:', error);
-    return [];
+    throw error;
   }
 }
+
+/**
+ * Cancel a pending booking request by bookingId
+ */
+export async function cancelBooking(
+  bookingId: number | string,
+): Promise<{ success: boolean; message: string }> {
+  const cleanId = typeof bookingId === 'string' ? bookingId.replace(/\D/g, '') : bookingId;
+  const { data } = await apiClient.patch<{ success: boolean; message: string }>(
+    `/bookings/${cleanId}/cancel`,
+  );
+  return data;
+}
+

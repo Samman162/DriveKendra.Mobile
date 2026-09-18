@@ -102,5 +102,15 @@ export async function markNotificationAsRead(
   }
 }
 
-
-
+/**
+ * Permanently delete customer account and data (Apple App Store 5.1.1(v) compliance)
+ */
+export async function deleteUserAccount(
+  userId: number | string,
+): Promise<{ success: boolean; message: string }> {
+  const cleanId = typeof userId === 'string' ? Number(userId) : userId;
+  const { data } = await apiClient.delete<{ success: boolean; message: string }>('/users/account', {
+    data: { userId: cleanId },
+  });
+  return data;
+}
