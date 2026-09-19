@@ -1492,7 +1492,7 @@ function createStyles(colors: ThemeColors) {
     actionBtnSosText: {
       fontSize: 12,
       fontWeight: '800',
-      color: colors.onAccent,
+      color: colors.white,
     },
     pendingBanner: {
       flexDirection: 'row',

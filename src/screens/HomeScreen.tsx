@@ -421,7 +421,7 @@ export function HomeScreen() {
               }
             >
               <View style={styles.locationDotDropoff}>
-                <NavigationIcon size={14} color={colors.onAccent} />
+                <NavigationIcon size={14} color={colors.error} />
               </View>
               <View style={styles.locationTextWrap}>
                 <Text style={styles.locationFieldLabel}>DESTINATION</Text>
@@ -870,7 +870,7 @@ function createStyles(colors: ThemeColors) {
       width: 28,
       height: 28,
       borderRadius: 14,
-      backgroundColor: colors.navy,
+      backgroundColor: colors.errorSoft,
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: spacing.sm,

@@ -355,7 +355,7 @@ export function ProfileScreen() {
 
             {/* Camera Overlay Badge */}
             <View style={styles.cameraBadge}>
-              <Camera size={16} color={colors.navy} strokeWidth={2.5} />
+              <Camera size={16} color={colors.accent} strokeWidth={2.5} />
             </View>
           </Pressable>
         </View>
