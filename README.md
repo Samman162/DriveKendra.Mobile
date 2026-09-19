@@ -46,12 +46,14 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - 📍 **Free Reverse Geocoding & Nepal Dataset**: Instant coordinate-to-address resolution via OSM Nominatim with robust fallback to a bundled 77-district offline dataset (`nepalLocations.ts`, `geocoding.ts`).
 - 🚙 **Fleet Options**: Mahindra Scorpios (4x4 SUV), 14-seater Toyota HiAce vans, comfortable sedans, and tourist buses.
 - 🔔 **Real-Time Push Notifications & Notification Center**: Expo Push Notification Service with high-priority Android dispatch channel (`trip_updates`) and in-app notification centers for travelers (`CustomerNotificationsModal`) and dispatch operators (`AdminNotificationsModal`).
-- 🔒 **End-to-End Authentication & Biometrics**: Sign In, Sign Up, and OTP-based password reset with persistent session storage via `SecureStore` and TouchID / FaceID biometric verification.
-- 📱 **Interactive Trip Management & Offline Vouchers**: View upcoming and completed reservations, vehicle plate numbers, assigned models, offline QR vouchers, and 24/7 dispatch hotline access.
+- 🔒 **End-to-End Authentication & Biometrics**: Sign In, Sign Up, and OTP-based password reset with persistent session storage via `SecureStore`, in-screen biometric unlock cards, and graceful PIN/OTP fallbacks.
+- 📱 **Interactive Trip Management & Offline Vouchers**: View upcoming and completed reservations, vehicle plate numbers, assigned models, offline QR vouchers, customer self-service cancellation, and 24/7 dispatch hotline access.
+- 🛡️ **App Store Compliance & Account Deletion**: Full Apple Guideline 5.1.1(v) compliance (`DELETE /api/users/account`) with in-app confirmation and ledger data anonymization.
+- 🚫 **Customer Self-Service Cancellation**: Travelers can cancel pending reservations directly in-app (`PATCH /api/bookings/:id/cancel`) with instant state synchronization.
 - 🆘 **Himalayan Emergency SOS**: Offline GPS coordinate capture with pre-filled SMS emergency dispatch to rescue hotlines (`+977 985-1363783`) and tourist police (`1144`).
 - 📄 **Instant PDF Voucher Generator**: Export official booking receipts and itinerary vouchers as PDFs with direct sharing to WhatsApp, Email, or AirDrop.
 - 🌗 **Dual-Theme Engine**: Built-in Light and Dark modes with tactile haptic feedback on all interactions.
-- 🛡️ **Anti-Spam & Validation**: Bot honeypots (`website_hp`), strict Nepal phone validation (`+977 98/97` or `01XXXXXXX`), and transactional SQL database writes with idempotency keys.
+- 🛡️ **Anti-Spam & Validation**: Bot honeypots (`website_hp`), rapid-tap duplicate booking guards, strict Nepal phone validation (`+977 98/97` or `01XXXXXXX`), and transactional SQL database writes with idempotency keys.
 
 ---
 
@@ -148,12 +150,15 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
   - **Vehicle Type**: Selection drawer for Sedan, Scorpio (4WD), HiAce (14-Seater), Coaster Bus.
   - **Passenger Stepper**: 1 to 50 passenger count adjuster.
   - **Spam Protection**: Invisible honeypot field (`website_hp`).
-  - **Idempotency Header**: Unique `X-Idempotency-Key` prevents double-bookings on flaky networks.
+  - **Anti-Duplication Guard**: Prevents rapid-tap double-reservations with stateful submission locking.
+  - **Idempotency Header**: Unique `X-Idempotency-Key` prevents duplicate bookings on flaky networks.
   - **Success Modal**: Animated confirmation dialog with reference details.
 
 #### 4. 🎫 My Reservations & Vouchers (`src/screens/MyTripsScreen.tsx`)
 - Active and past trip cards with status badges (`Confirmed`, `Completed`, `Cancelled`).
 - Full trip details: Booking reference ID, route, date & time, assigned vehicle model, and registration plate.
+- **Customer Self-Service Cancellation**: Cancel pending trip requests directly from the app with instant state update.
+- **Network Error Recovery Banner**: In-screen retry banner with one-tap action on failed network requests.
 - **Offline QR Voucher**: Display QR code for ticket verification without internet.
 - **PDF Export**: Generate official receipt voucher via `expo-print` and share via `expo-sharing`.
 - **24/7 Dispatch Hotline**: Instant one-tap phone call button to Drive Kendra operations (`+977 985-1363783`).
@@ -164,12 +169,15 @@ The mobile app includes its own lightweight, high-performance **Hono/Node.js API
 - **Authenticated Mode**:
   - User avatar and account details.
   - Quick action links: My Reservations, 24/7 Support Desk, Emergency Assistance.
-  - Settings: Dark/Light theme toggle, Biometrics toggle, Privacy Policy.
+  - Settings: Dark/Light theme toggle, Biometrics toggle with authentication challenge, Privacy Policy.
+  - **Apple Guideline 5.1.1(v) Account Deletion**: Self-service account deletion flow with double confirmation dialog, token revocation, and personal data anonymization.
   - Secure sign-out with confirmation modal.
 
 #### 6. 🔐 Authentication Flow (`src/screens/AuthScreen.tsx`)
 - **Sign In**: Login with email or Nepal phone number + password.
-- **Biometric Quick Login**: Touch ID / Face ID hardware unlock for stored credentials.
+- **In-Screen Biometric Unlock Card**: Prompts returning authenticated users with FaceID / TouchID biometric hardware unlock.
+- **Biometric Recovery Fallback**: Smooth transition to PIN/OTP or password entry if biometric authentication fails or is canceled.
+- **Production Credential Gating**: Demo credential chips and admin direct links strictly isolated behind `__DEV__`.
 - **Sign Up**: New account registration with full name, email, phone, and password verification.
 - **Forgot Password**: 3-step OTP recovery flow:
   1. Enter registered email/phone
@@ -244,6 +252,7 @@ DriveKendra.Mobile/
 ├── assets/                       # App icons, splash screens, and adaptive icons
 ├── database/                     # PostgreSQL Database Management
 │   ├── patches/                  # Sequential SQL migration patches
+│   ├── cr_database.sql           # External partner fleet & vehicle owner base schema
 │   ├── database.sql              # Master canonical PostgreSQL schema & procedures
 │   └── README.md                 # Dedicated Database Management Guide
 ├── docs/                         # Specialized Technical Documentation
@@ -255,8 +264,8 @@ DriveKendra.Mobile/
 │   │   ├── routes/
 │   │   │   ├── admin.ts          # 2FA login, PIN verification, dispatch approval, drivers directory, fleet inventory, broadcast
 │   │   │   ├── auth.ts           # Customer login, register, OTP reset endpoints
-│   │   │   ├── bookings.ts       # GET & POST /api/bookings with Idempotency, DB transaction, & notification triggers
-│   │   │   └── users.ts          # Profile, notifications, and push token registration
+│   │   │   ├── bookings.ts       # GET, POST (idempotent), & PATCH /:id/cancel (self-service cancellation)
+│   │   │   └── users.ts          # Profile, notifications, push tokens, & DELETE /account (Apple Guideline 5.1.1(v))
 │   │   ├── db.ts                 # PostgreSQL connection pool & RLS client
 │   │   ├── index.ts              # Hono app entry point & CORS configuration
 │   │   ├── push.ts               # Native Expo push notification engine & trip event recorder
@@ -410,10 +419,12 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 | `GET` | `/health` | Server and PostgreSQL health check | — | `{ "status": "online", "database": "connected" }` |
 | `GET` | `/api/bookings` | Fetch active trip reservations with vehicle assignment | `?userId=` or `?phoneNumber=` | `{ "bookings": [...] }` |
 | `POST` | `/api/bookings` | Submit new booking with Idempotency | `X-Idempotency-Key`, `BookingEntryDto` | `{ "message": "Booking submitted successfully", "bookingRef": "..." }` |
+| `PATCH`| `/api/bookings/:id/cancel` | Cancel pending trip reservation | — | `{ "success": true, "booking": { "status": "Cancelled" } }` |
 | `PUT` | `/api/users/profile` | Update user profile details | `{ userId, fullName, phone, avatarUrl }` | `{ "success": true }` |
 | `POST` | `/api/users/push-token` | Register Expo push token | `{ pushToken, customerId, phoneNumber }` | `{ "success": true }` |
 | `GET` | `/api/users/notifications` | Customer trip lifecycle notifications list | `?userId=` or `?phoneNumber=` | `{ "notifications": [...] }` |
 | `PATCH`| `/api/users/notifications/:id/read` | Mark notification as read | — | `{ "success": true }` |
+| `DELETE`| `/api/users/account` | Apple App Store 5.1.1(v) account deletion | `{ userId }` | `{ "success": true, "message": "..." }` |
 | `POST` | `/api/auth/login` | User login (email or phone) | `{ identifier, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/register`| User registration | `{ name, email, phone, password }` | `{ user, token, message }` |
 | `POST` | `/api/auth/refresh` | Refresh expired access token | `{ refreshToken }` | `{ token, refreshToken, message }` |
@@ -449,9 +460,10 @@ Base URL (Development): `http://localhost:8787` (or LAN IP for physical mobile d
 > [!IMPORTANT]
 > **Strict Database Management Rules**:
 > 1. **Base Schema**: Always maintain and update the master schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
-> 2. **Patches Folder**: For any pending database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g. `001_drivers_and_dka_owners_sync.sql`).
-> 3. **Bidirectional Synchronization**: Real-time reciprocal triggers (`sync_cr_owners_to_dka` and `sync_dka_owners_to_cr`) keep `cr_owners` and `dka_owners` completely synchronized with `pg_trigger_depth() > 1` recursion guard and `cr_drivers` view.
-> 4. **Execution Constraint**: **NEVER** run SQL queries directly on live production/staging databases. Migrations are executed manually by database administrators.
+> 2. **Partner Fleet Schema**: Maintain the external partner fleet schema in [`database/cr_database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/cr_database.sql) (`cr_owners`, `cr_vehicles`, and `cr_drivers` view).
+> 3. **Patches Folder**: For any pending database alterations, create a new numbered patch inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (patches `001`-`009` are consolidated into `database.sql`; new patches start at `010_your_feature.sql`).
+> 4. **Bidirectional Synchronization**: Real-time reciprocal triggers (`sync_cr_owners_to_dka` and `sync_dka_owners_to_cr`) keep `cr_owners` and `dka_owners` completely synchronized with `pg_trigger_depth() > 1` recursion guard and `cr_drivers` view.
+> 5. **Execution Constraint**: **NEVER** run SQL queries directly on live production/staging databases. Migrations are executed manually by database administrators.
 
 👉 *Read the full database documentation in [`database/README.md`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/README.md).*
 
@@ -608,6 +620,12 @@ Drive Kendra Mobile uses a custom theme architecture in `src/theme/`:
 
 ### Q: Database connection error on `npm run server`
 > **A**: Verify that PostgreSQL is running and credentials in `server/.env` are valid. Test with `SELECT 1;`.
+
+### Q: How does Apple App Store Guideline 5.1.1(v) account deletion work?
+> **A**: Users can tap "Delete Account" in `ProfileScreen.tsx`. After two confirmation prompts, the app invokes `DELETE /api/users/account`, deleting all push tokens and notifications, cancelling pending bookings, and anonymizing personal info in the database while preserving accounting integrity.
+
+### Q: Why don't I see demo credentials or admin links on production builds?
+> **A**: Demo account quick-login chips and direct admin links in `AuthScreen.tsx` are strictly wrapped in `__DEV__` to protect production releases from unauthorized access while maintaining rapid developer testing.
 
 ---
 

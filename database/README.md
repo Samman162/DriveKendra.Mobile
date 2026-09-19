@@ -13,15 +13,17 @@ This directory contains the canonical PostgreSQL database schema, migration patc
 > All engineers, administrators, and AI assistants working with this database **MUST STRICTLY ADHERE** to the following rules:
 >
 > 1. **Base Schema**: Always maintain and update the complete base database schema, tables, indexes, and functions in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) as the single canonical source of truth.
-> 2. **Patches Folder**: For any pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (e.g., `001_initial_schema.sql`, `002_add_field.sql`).
-> 3. **Patch Consolidation & Cleanup**: Once patches have been applied to the target database and verified in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql), delete the applied patch files from `database/patches/`.
-> 4. **Execution Constraint**: **NEVER** run SQL queries directly on any live production or staging database yourself. Only produce the SQL files in `database/database.sql` and `database/patches/` for manual or administrator application.
+> 2. **Partner Fleet Schema**: Maintain the external partner fleet and vehicle owner schema in [`database/cr_database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/cr_database.sql) (`cr_owners`, `cr_vehicles`, and `cr_drivers` view).
+> 3. **Patches Folder**: For any pending database updates, alterations, or incremental changes, create a new numbered patch file inside [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (patches `001`-`009` are consolidated into `database.sql`; new patches start at `010_your_feature.sql`).
+> 4. **Patch Consolidation & Cleanup**: Once patches have been applied to the target database and verified in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql), delete the applied patch files from `database/patches/`.
+> 5. **Execution Constraint**: **NEVER** run SQL queries directly on any live production or staging database yourself. Only produce the SQL files in `database/database.sql` and `database/patches/` for manual or administrator application.
 
 ---
 
 ## 📑 Table of Contents
 
 - [Database Architecture & Data Synchronization](#-database-architecture--data-synchronization)
+- [Partner Fleet Schema (`database/cr_database.sql`)](#-partner-fleet-schema-databasecr_databasesql)
 - [Schema Table Definitions](#-schema-table-definitions)
   - [1. `dka_users`](#1-dka_users)
   - [2. `dka_vehicle_types`](#2-dka_vehicle_types)
@@ -84,21 +86,60 @@ This directory contains the canonical PostgreSQL database schema, migration patc
 
 ---
 
+## 🚙 Partner Fleet Schema (`database/cr_database.sql`)
+
+For integration with partner fleet operators and external car rental ecosystems, [`database/cr_database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/cr_database.sql) defines the base schema for partner owners, drivers, and vehicles:
+
+### 1. `cr_owners` (Partner Owners & Drivers)
+Base table storing legal owner and commercial driver credentials:
+- `owner_id` (`SERIAL PRIMARY KEY`): Unique partner identifier.
+- `full_name` (`VARCHAR(120) NOT NULL`): Driver/owner legal name.
+- `phone_number` (`VARCHAR(30) UNIQUE NOT NULL`): Nepal contact mobile.
+- `whatsapp_number` (`VARCHAR(30)`): WhatsApp communication channel.
+- `email` (`VARCHAR(120)`): Optional email address.
+- `citizenship_or_id_no` (`VARCHAR(50)`): National citizenship or government ID.
+- `status` (`VARCHAR(30) NOT NULL DEFAULT 'active'`): `active`, `inactive`, `pending`.
+- `citizenship_doc_id` (`VARCHAR(100)`): Document storage reference for citizenship card.
+- `license_doc_id` (`VARCHAR(100)`): Commercial driving license document reference.
+- `created_at` (`TIMESTAMPTZ DEFAULT NOW()`): Registration timestamp.
+
+### 2. `cr_vehicles` (Partner Fleet Vehicles)
+Vehicle registry maintaining 1:1 parity with `dka_vehicles`:
+- `vehicle_id` (`SERIAL PRIMARY KEY`): Unique vehicle identifier.
+- `owner_id` (`INTEGER REFERENCES cr_owners(owner_id) ON DELETE SET NULL`): Linked owner.
+- `vehicle_type_id` (`INTEGER`): Associated vehicle category lookup.
+- `make_model` (`VARCHAR(120) NOT NULL`): Vehicle make and model (e.g. `Mahindra Scorpio S11 4x4`).
+- `license_plate` (`VARCHAR(50) UNIQUE NOT NULL`): Vehicle registration plate.
+- `manufacture_year` (`INTEGER`): Manufacturing year.
+- `seating_capacity` (`INTEGER NOT NULL DEFAULT 4`): Passenger capacity.
+- `color` (`VARCHAR(50)`): Exterior vehicle color.
+- `is_active` (`BOOLEAN NOT NULL DEFAULT TRUE`): Operational status.
+- `bluebook_doc_id` (`VARCHAR(100)`): Government vehicle bluebook registration document reference.
+- `created_at` (`TIMESTAMPTZ DEFAULT NOW()`): Creation timestamp.
+
+### 3. `cr_drivers` View
+A backward-compatible SQL view mirroring `cr_owners` to support legacy queries:
+```sql
+CREATE OR REPLACE VIEW cr_drivers AS SELECT * FROM cr_owners;
+```
+
+---
+
 ## 📋 Schema Table Definitions
 
 ### 1. `dka_users`
-User accounts, traveler profiles, and authentication credentials.
+User accounts, traveler profiles, and authentication credentials. Supports Apple Guideline 5.1.1(v) account deletion: when an account is deleted via `DELETE /api/users/account`, users with historical bookings have their personal data anonymized (`full_name = 'Deleted Account'`, randomized phone mask, `email = NULL`, `is_active = FALSE`) to safeguard ledger integrity without breaking foreign keys.
 
 | Column | Type | Constraints | Description |
 |---|---|---|---|
 | `user_id` | `SERIAL` | `PRIMARY KEY` | Unique user ID |
-| `full_name` | `VARCHAR(120)` | `NOT NULL` | Full name |
+| `full_name` | `VARCHAR(120)` | `NOT NULL` | Full name (or `'Deleted Account'` if deleted) |
 | `phone_number` | `VARCHAR(30)` | `UNIQUE NOT NULL` | Nepal phone number (`+977 98/97` or `01XXXXXXX`) |
 | `email` | `VARCHAR(120)` | `UNIQUE` | User email address |
 | `password_hash` | `VARCHAR(255)` | | Bcrypt password hash |
 | `avatar_url` | `TEXT` | | Custom profile photo URL |
 | `role` | `VARCHAR(30)` | `NOT NULL DEFAULT 'customer'` | `customer`, `operator`, `admin` |
-| `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Account status |
+| `is_active` | `BOOLEAN` | `NOT NULL DEFAULT TRUE` | Account status (`FALSE` when deactivated/deleted) |
 | `is_verified` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` | Phone/Email verification |
 | `last_login_at` | `TIMESTAMPTZ` | | Timestamp of last login |
 | `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record creation timestamp |
@@ -455,7 +496,16 @@ All database modifications follow the strict incremental patch workflow document
 
 ## 🚀 Initializing Database from Scratch
 
-```bash
-psql -U postgres -d car_rental_db -f database/database.sql
-```
+1. **Provision Partner Fleet Schema (Optional / External Fleet System)**:
+   If configuring a fresh environment that includes partner car rental tables:
+   ```bash
+   psql -U postgres -d car_rental_db -f database/cr_database.sql
+   ```
+
+2. **Provision Mobile App Canonical Base Schema**:
+   Executes master tables, triggers, functions, views, RLS policies, and seed catalogs:
+   ```bash
+   psql -U postgres -d car_rental_db -f database/database.sql
+   ```
+
 Or in **DBeaver** / **pgAdmin**: Open [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql) and execute script (`Alt + X` / `F5`).

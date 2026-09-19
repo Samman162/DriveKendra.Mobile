@@ -105,6 +105,7 @@ RootStackNavigator
 ### Interactive Mapping & Geocoding Subsystem
 Drive Kendra Mobile integrates zero-cost OpenStreetMap (OSM) and Leaflet mapping:
 - **`FullScreenMapPicker.tsx`**: Full-screen modal with an interactive Leaflet map rendered via `react-native-webview` (mobile) or responsive `iframe` (web). Users can drag the map to position the custom amber brand marker over any point in Nepal.
+- **GPS Permission Resilience**: When location services or GPS permissions are denied, users receive an actionable alert with a direct deep link to system settings via `Linking.openSettings()`, falling back smoothly to default Kathmandu coordinates or bundled landmark lookup.
 - **`MapPinBrandBadge.tsx`**: Branded map pin marker overlay indicating the active selection coordinate.
 - **`src/utils/geocoding.ts`**: Queries OSM Nominatim API for reverse geocoding (coordinates ➔ readable landmark/street address) with fallback to nearest landmark in `nepalLocations.ts`.
 - **`src/constants/nepalLocations.ts`**: Curated database of all 77 districts, major tourist hubs (Pokhara, Chitwan, Lumbini, Jomsom, Nagarkot), airport terminals, and highway checkpoints.
@@ -113,9 +114,11 @@ Drive Kendra Mobile integrates zero-cost OpenStreetMap (OSM) and Leaflet mapping
 ### Mountain Safety & Emergency Subsystem
 - **`EmergencySosModal.tsx` & `EmergencyTripCard.tsx`**: GPS sensor interrogation (`expo-location`) to extract high-accuracy coordinates and dispatch pre-formatted SOS SMS messages to Nepal Tourist Police (`1144`) and Drive Kendra 24/7 hotline (`+977 985-1363783`).
 - **`offlineVoucherStorage.ts`**: Persists trip vouchers with vehicle assignment details, route information, and dispatch hotline contacts so that travelers can present valid travel permits at checkpoints without cellular connectivity.
+- **In-Screen Network Error Recovery (`MyTripsScreen.tsx`)**: Renders contextual network error recovery banners with one-tap retry actions, preventing silent data failures during mountain network drops.
+- **Customer Self-Service Cancellation (`MyTripsScreen.tsx`)**: Allows travelers to cancel pending booking requests directly from their trip card with instant UI state refresh.
 
 ### State & Context Architecture
-- **AuthContext** (`src/context/AuthContext.tsx`): Manages authentication tokens, current user object, biometrics state, and automatic persistent session restore via `secureStorage.ts`.
+- **AuthContext** (`src/context/AuthContext.tsx`): Manages authentication tokens, current user object, biometrics state, and automatic persistent session restore via `secureStorage.ts`. Provides Apple Guideline 5.1.1(v) account deletion with local session teardown.
 - **ThemeContext** (`src/theme/ThemeProvider.tsx`): Supplies the active theme (`light` or `dark`), toggling state, and color palette tokens across the component tree.
 
 ### Theme Engine
@@ -134,7 +137,7 @@ This pattern ensures instantaneous theme switching, avoids memory leaks, and ena
 
 ### Hardware & Native API Bridges
 - **Haptics**: `expo-haptics` triggers light/medium/notification tactile feedback.
-- **Biometrics**: `expo-local-authentication` checks for fingerprint/FaceID hardware.
+- **Biometrics**: `expo-local-authentication` checks for fingerprint/FaceID hardware, powering the in-screen biometric unlock card with automatic fallback to PIN/OTP or password entry.
 - **Secure Storage**: `expo-secure-store` encrypts sensitive auth credentials on device keychain/keystore.
 - **Location**: `expo-location` queries real-time GPS coordinates for emergency SOS dispatch in high-altitude terrain.
 - **Document Generation**: `expo-print` renders HTML booking vouchers into printable PDFs, which `expo-sharing` shares across WhatsApp, Email, or AirDrop.
@@ -147,8 +150,8 @@ This pattern ensures instantaneous theme switching, avoids memory leaks, and ena
 The server entry point (`server/src/index.ts`) mounts distinct feature routes onto a unified Hono application:
 - `/health` ➔ Database connectivity & health check (returns `{ status, database, timestamp }`)
 - `/api/auth` ➔ Authentication, token refresh, and OTP recovery flow (`login`, `register`, `refresh`, `forgot-password`, `reset-password`)
-- `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params; returns `{ bookings: [...] }`) and POST idempotent booking transactions (with `X-Idempotency-Key` and push notification triggers)
-- `/api/users` ➔ User profile updates (`PUT /profile`), notification retrieval (`GET /notifications`), mark read (`PATCH /notifications/:id/read`), and push token registration (`POST /push-token`)
+- `/api/bookings` ➔ GET active bookings (requires `userId` or `phoneNumber` query params), POST idempotent booking transactions (with `X-Idempotency-Key` and push notification triggers), and PATCH `/:id/cancel` for customer self-service cancellation
+- `/api/users` ➔ User profile updates (`PUT /profile`), notification retrieval (`GET /notifications`), mark read (`PATCH /notifications/:id/read`), push token registration (`POST /push-token`), and Apple Guideline 5.1.1(v) account deletion (`DELETE /account`)
 - `/api/admin` ➔ 2FA operator authentication (`POST /login`, `POST /verify-pin`), control room KPI metrics (`GET /stats`), trip dispatch review & atomic vehicle/driver assignment (`GET /trips`, `PATCH /trips/:id/approve` with driver auto-pairing and confirmed fare, `PATCH /trips/:id/reject`, `PATCH /trips/:id/complete`), drivers directory & partner driver registration (`GET /drivers`, `POST /drivers`, `PATCH /drivers/:id`), fleet inventory tracking (`GET /vehicles`, `POST /vehicles`, `PATCH /vehicles/:id`), customer directory & trip history (`GET /users`, `GET /users/:id/trips`), road advisories management (`GET /advisories`, `POST /advisories`, `DELETE /advisories/:id`), and notification dispatch (`GET /notifications`, `POST /notifications/broadcast`)
 
 ### Idempotency & Concurrency Handling
@@ -170,7 +173,7 @@ All queries run inside scoped client helpers in `server/src/db.ts`:
 - **Admin Client & Middleware (`requireAdminAuth`)**: Verifies the signed admin JWT (`role: 'admin'`) and sets `SET LOCAL app.is_admin = 'true'`, enforcing Row-Level Security (RLS) safety.
 - **Connection Pooling**: Built on node-postgres pool with configurable limits.
 - **Atomic Transactions**: Multi-table operations wrap in `BEGIN` ... `COMMIT` and guarantee a clean `ROLLBACK` on unhandled errors (e.g. trip approval atomically updating `dka_bookings` with `assigned_vehicle_id`, `assigned_driver_id`, and `final_fare`, marking vehicle status as `assigned` in `dka_vehicles`, and dispatching customer notification into `dka_notifications`).
-- **Bidirectional Partner & Vehicle Synchronization**: PostgreSQL triggers `sync_cr_to_dka_owners()` / `sync_dka_to_cr_owners()` synchronize driver records between `cr_owners` and `dka_owners`, exposing the unified `cr_drivers` view. Similarly, `sync_cr_vehicles_to_dka_vehicles()` and `sync_dka_vehicles_to_cr_vehicles()` synchronize vehicle records between `cr_vehicles` and `dka_vehicles` with `pg_trigger_depth() > 1` recursion protection.
+- **Bidirectional Partner & Vehicle Synchronization**: PostgreSQL triggers `sync_cr_to_dka_owners()` / `sync_dka_to_cr_owners()` synchronize driver records between `cr_owners` and `dka_owners` (`database/cr_database.sql`), exposing the unified `cr_drivers` view. Similarly, `sync_cr_vehicles_to_dka_vehicles()` and `sync_dka_vehicles_to_cr_vehicles()` synchronize vehicle records between `cr_vehicles` and `dka_vehicles` with `pg_trigger_depth() > 1` recursion protection.
 
 ---
 
@@ -205,8 +208,10 @@ Remote journeys in Nepal (e.g. Muktinath, Manang, Upper Mustang, Kalinchowk) fre
 ## 🔒 Security & Authentication Model
 
 - **Session Security**: JWT tokens stored in device keychain/keystore via `expo-secure-store`.
-- **Biometric Gatekeeper**: Hardware biometrics (Touch ID / Face ID) protect access to stored credentials.
-- **Bot Honeypots**: Invisible form inputs filter automated bots.
+- **Biometric Gatekeeper & Recovery**: Hardware biometrics (Touch ID / Face ID) protect access to stored credentials, with graceful in-screen fallback to PIN/OTP or password entry.
+- **Production Credential Gating**: Demo credentials and admin quick-links are strictly gated behind `__DEV__` to protect production builds.
+- **Apple App Store Guideline 5.1.1(v) Compliance**: Full in-app account deletion flow (`DELETE /api/users/account`) with double confirmation, deleting push tokens and notifications, and anonymizing personal ledger data.
+- **Bot Honeypots & Anti-Duplication**: Invisible form inputs filter automated bots and rapid-tap debounce guards prevent duplicate booking submissions.
 - **SQL Injection Immunization**: 100% of SQL queries use positional parameterization (`$1, $2`).
 - **Zero Live SQL Execution Rule**: Database modifications must follow the strict patch protocol ([`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/)).
 

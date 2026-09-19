@@ -26,6 +26,7 @@ This document describes how to deploy, build, release, and maintain the **Drive 
   - [Applying Sequential Patches](#applying-sequential-patches)
 - [4. CI/CD Automation with GitHub Actions](#4-cicd-automation-with-github-actions)
 - [5. Environment Secrets & Variables Checklist](#5-environment-secrets--variables-checklist)
+- [6. App Store & Google Play Release Readiness](#6-app-store--google-play-release-readiness)
 
 ---
 
@@ -263,3 +264,27 @@ The repository includes a fully configured workflow in [`.github/workflows/ci-cd
 | `JWT_SECRET` | Server (`server/.env`)| Cryptographic secret key for signing operator 2FA session tokens |
 | `EXPO_ACCESS_TOKEN` | Server (`server/.env`)| Optional token for high-volume push notifications |
 | `EXPO_TOKEN` | GitHub Secrets | Token for automated EAS CLI build verification |
+
+---
+
+## 6. App Store & Google Play Release Readiness
+
+Before submitting release bundles to the Apple App Store or Google Play Store, ensure that the following compliance and hardening standards are verified:
+
+1. **Apple App Store Guideline 5.1.1(v) — Account Deletion**:
+   - Apps supporting account creation must allow users to initiate deletion of their account within the app.
+   - Fully implemented via `DELETE /api/users/account` and in-app Profile screen deletion trigger (`ProfileScreen.tsx`) with two-step confirmation.
+   - Deletes device push tokens (`dka_push_tokens`) and notifications (`dka_notifications`), cancels pending bookings, and anonymizes personal data when historical bookings exist to safeguard ledger records.
+
+2. **Customer Self-Service Cancellation**:
+   - Travelers can cancel pending booking requests directly from `MyTripsScreen.tsx` (`PATCH /api/bookings/:id/cancel`), preventing unnecessary dispatch desk friction.
+
+3. **Production Credential & Admin Gating**:
+   - In `AuthScreen.tsx`, demo credential chips and direct admin links are wrapped with `__DEV__` to ensure they never appear in production release builds.
+
+4. **In-Screen Biometric Unlock & PIN/OTP Fallback**:
+   - Users with enabled biometrics enjoy seamless FaceID / TouchID login with automatic graceful fallback to PIN/OTP or password entry.
+
+5. **Location Permission System Deep-Link**:
+   - When GPS access is denied, `FullScreenMapPicker.tsx` provides an actionable alert with a direct deep link via `Linking.openSettings()`.
+

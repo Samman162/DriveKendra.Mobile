@@ -23,6 +23,10 @@ Traveling through Nepal often involves mountainous routes with zero cellular cov
   - [8. Network Status Listener (`useNetworkStatus.ts`)](#8-network-status-listener-usenetworkstatusts)
   - [9. Admin Dispatch, Fleet & Driver Directory Resilience (`src/api/admin.ts`)](#9-admin-dispatch-fleet--driver-directory-resilience-srcapiadmints)
   - [10. Offline Notification & Push Token Resilience (`src/services/notificationService.ts`)](#10-offline-notification--push-token-resilience-srcservicesnotificationservicets)
+  - [11. In-Screen Network Error Recovery & Retry Banner (`MyTripsScreen.tsx`)](#11-in-screen-network-error-recovery--retry-banner-mytripsscreentsx)
+  - [12. Biometric Lockout Recovery & PIN/OTP Fallback (`AuthScreen.tsx`)](#12-biometric-lockout-recovery--pinotp-fallback-authscreentsx)
+  - [13. GPS Permission Denial System Settings Deep Link (`FullScreenMapPicker.tsx`)](#13-gps-permission-denial-system-settings-deep-link-fullscreenmappickertsx)
+  - [14. Customer Self-Service Cancellation & State Sync (`bookings.ts`)](#14-customer-self-service-cancellation--state-sync-bookingsts)
 - [Data Flow During Offline Operations](#-data-flow-during-offline-operations)
 - [Testing Offline Scenarios](#-testing-offline-scenarios)
 
@@ -60,6 +64,9 @@ Drive Kendra Mobile eliminates these points of failure through localized caching
 │  useNetworkStatus.ts   │ Real-time connectivity state banner           │
 │  notificationService   │ Resilient push token registration & fallback  │
 │  src/api/admin.ts      │ Resilient driver & fleet cache with fallbacks │
+│  MyTripsScreen.tsx     │ In-screen network retry banner & cancellation │
+│  AuthScreen.tsx        │ Biometric unlock card with PIN/OTP fallback   │
+│  FullScreenMapPicker   │ GPS permission denial settings deep-link      │
 └────────────────────────┴───────────────────────────────────────────────┘
 ```
 
@@ -172,6 +179,41 @@ Mountain expeditions frequently operate through low-connectivity valley corridor
 - **Graceful Token Registration Fallback**: If network connectivity drops while registering device push tokens (`POST /api/users/push-token`), `initNotificationService()` catches the network error, prevents UI unhandled rejections, and logs a warning so the traveler can continue using the application offline.
 - **In-App Notification Center Fallback**: `CustomerNotificationsModal` safely displays cached or empty state without locking the interface if the server is unreachable.
 - **Reconnection Synchronization**: As soon as the device regains internet connection, network listeners trigger state refresh for unread notifications and pending dispatch updates.
+
+---
+
+### 11. In-Screen Network Error Recovery & Retry Banner (`MyTripsScreen.tsx`)
+
+Unstable 3G/Edge connections across Nepal's highway gorges often trigger transient network timeouts:
+- **Non-Intrusive Error Banner**: If an API request to fetch reservations fails, the app does not lock the screen or crash; instead, an amber error banner alerts the user of the connectivity failure.
+- **Actionable Retry Action**: A prominent "Retry" action button triggers immediate re-polling without forcing the traveler to restart or reload the app.
+- **Offline Cache Presentation**: Simultaneously, existing cached trip vouchers remain fully readable below the banner.
+
+---
+
+### 12. Biometric Lockout Recovery & PIN/OTP Fallback (`AuthScreen.tsx`)
+
+In freezing Himalayan temperatures or during device handling gloves, biometric sensors (Touch ID / Face ID) frequently fail or get locked out:
+- **In-Screen Biometric Unlock Card**: Greets authenticated returning users with a dedicated biometric trigger card.
+- **Graceful Cancel/Error Fallback**: If the biometric prompt is canceled, fails, or locks out, the UI smoothly shifts focus to the password or OTP PIN entry fields, ensuring users never get stranded without account access.
+
+---
+
+### 13. GPS Permission Denial System Settings Deep Link (`FullScreenMapPicker.tsx`)
+
+Mountain terrain navigation requires location services, but travelers may have disabled GPS or denied initial OS permission requests:
+- **Actionable Permission Alerts**: Rather than leaving the user on a blank map, the app detects permission denial.
+- **Direct System Settings Deep-Link**: Invokes `Linking.openSettings()` to guide travelers directly into iOS / Android application settings to re-enable location permissions with one tap.
+- **Safe Fallback Coordinates**: If GPS remains unavailable, default coordinates (Kathmandu Valley center) and offline landmark search keep the map fully interactive.
+
+---
+
+### 14. Customer Self-Service Cancellation & State Sync (`bookings.ts`)
+
+When travel plans change unexpectedly due to weather, road closures, or mountain flight delays:
+- **Instant Client Action**: Travelers can cancel pending booking requests directly from `MyTripsScreen.tsx`.
+- **Atomic Server Transition**: `PATCH /api/bookings/:id/cancel` verifies status is `Pending`, updates the database row, and pushes a cancellation confirmation.
+- **Optimistic Refresh**: The client refreshes the local trip list immediately, avoiding redundant dispatch calls.
 
 ---
 

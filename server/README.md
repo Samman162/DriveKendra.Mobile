@@ -36,6 +36,8 @@ The **Drive Kendra Mobile API** is a high-performance, lightweight REST API buil
 - **🗄️ Multi-Table Atomic Transactions**: PostgreSQL transactions ensuring data integrity across `dka_users`, `dka_bookings`, `dka_notifications`, and `dka_idempotency_keys`.
 - **🚙 Vehicle Assignment Tracking**: Seamless assignment of vehicle models and registration plates for confirmed expeditions.
 - **👨‍✈️ Synchronized Drivers Directory**: Management of expedition drivers via `dka_owners` <-> `cr_owners` bidirectional triggers and `cr_drivers` view.
+- **🚫 Customer Self-Service Cancellation**: Allows customers to immediately cancel pending reservations (`PATCH /api/bookings/:id/cancel`) with instant state refresh and notification dispatch.
+- **🛡️ Apple App Store 5.1.1(v) Account Deletion**: Secure account deletion (`DELETE /api/users/account`) with automatic push token cleanup, pending trip cancellation, and ledger anonymization.
 
 ---
 
@@ -297,6 +299,26 @@ Submits a car or tour reservation. Executes an atomic PostgreSQL transaction acr
 > **Idempotency Behavior**:
 > If a request with an existing `X-Idempotency-Key` is re-sent after successful processing, the API returns the cached `201` response with the header `X-Cache-Lookup: HIT` without duplicate record insertions.
 
+#### `PATCH /api/bookings/:id/cancel`
+Customer self-service cancellation for pending trip requests. Atomically transitions `booking_status` to `'Cancelled'` and records/pushes a cancellation notification to the traveler.
+
+- **Parameters**:
+  - `id` *(path parameter, required)*: Numeric booking ID
+- **Validation**:
+  - Rejects cancellation requests if status is not `Pending` (e.g. `Confirmed`, `In-Transit`, or `Completed`), directing the traveler to the 24/7 hotline.
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "Booking request cancelled successfully.",
+  "booking": {
+    "bookingId": 42,
+    "bookingRef": "DK-2026-0042",
+    "status": "Cancelled"
+  }
+}
+```
+
 ---
 
 ### 4. Users & Profile
@@ -372,6 +394,26 @@ Marks a specific notification as read.
 {
   "success": true,
   "message": "Notification marked as read."
+}
+```
+
+#### `DELETE /api/users/account`
+Apple App Store Guideline 5.1.1(v) compliant user account deletion.
+- **Actions**:
+  1. Deletes all associated device push tokens (`dka_push_tokens`) and user notifications (`dka_notifications`).
+  2. Cancels any `Pending` bookings with audit note `[Account Deleted by User]`.
+  3. If user has past bookings, anonymizes personal information (`full_name = 'Deleted Account'`, randomized masked phone, `is_active = FALSE`) to preserve ledger and financial accounting consistency. If no bookings exist, deletes the user row completely.
+- **Request Body**:
+```json
+{
+  "userId": 1
+}
+```
+- **Response `200 OK`**:
+```json
+{
+  "success": true,
+  "message": "Your account and personal data have been permanently deleted."
 }
 ```
 

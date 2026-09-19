@@ -66,33 +66,42 @@ npx eas-cli build --profile production --platform android
 
 ---
 
+
 ## 🏛 Core Guidelines & Architecture Rules
 
 1. **Expo SDK 57**: Read the versioned docs at [https://docs.expo.dev/versions/v57.0.0/](https://docs.expo.dev/versions/v57.0.0/) before adding or configuring native modules.
 2. **Database Management**:
    - Maintain the complete base schema in [`database/database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/database.sql).
+   - Maintain the external partner fleet schema in [`database/cr_database.sql`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/cr_database.sql).
    - Add incremental changes as numbered patches in [`database/patches/`](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/database/patches/) (patches `001`-`009` are consolidated; new patches start at `010_your_feature.sql`).
    - **NEVER** run SQL queries directly on live databases.
 3. **Interactive OpenStreetMap (OSM) Map Picking**:
    - Use `FullScreenMapPicker.tsx` (Leaflet OSM via `react-native-webview` on mobile and `iframe` on web).
    - Zero third-party API key costs. Use `geocoding.ts` for Nominatim reverse geocoding with fallback to `nepalLocations.ts`.
+   - Direct users to OS location settings via `Linking.openSettings()` if permissions are denied.
 4. **Theming**:
    - Always wrap styles with `useThemedStyles((theme) => StyleSheet.create({ ... }))`.
    - Use color tokens (`theme.colors.*`), spacing tokens (`theme.spacing.*`), and typography constants (`src/theme/typography.ts`) for dynamic Light and Dark modes.
 5. **Himalayan Offline Resilience**:
-   - Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `EmergencySosModal`, `VoucherQrCode`, and bundled location database (`nepalLocations.ts`) for off-grid resilience.
+   - Use `offlineVoucherStorage`, `offlineQueue`, `EmergencyTripCard` (GPS offline SOS), `EmergencySosModal`, `VoucherQrCode`, bundled location database (`nepalLocations.ts`), and in-screen network retry banners (`MyTripsScreen.tsx`) for off-grid resilience.
 6. **Form Validation & Anti-Spam**:
-   - All booking forms must pass honeypots (`website_hp`) and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
-7. **Strict Admin Stack Isolation & 2FA**:
+   - All booking forms must pass honeypots (`website_hp`), debounce rapid duplicate submissions, and validate Nepal phone numbers (`+977 98/97` or `01XXXXXXX`).
+7. **Production UX Hardening & App Store Compliance**:
+   - Apple Guideline 5.1.1(v) account deletion supported via `DELETE /api/users/account` and in-app double confirmation dialog.
+   - Customer self-service cancellation for pending bookings supported via `PATCH /api/bookings/:id/cancel` with instant UI refresh.
+   - Demo credentials and administrative quick-links gated behind `__DEV__`.
+   - Biometric unlock card on login with smooth PIN/OTP fallback on cancellation or failure.
+8. **Strict Admin Stack Isolation & 2FA**:
    - Admin sessions (`role === 'admin'`) render exclusively in `AdminNavigator` (`AdminPinGate`, `AdminDashboardScreen` featuring Dispatch Desk, Drivers Directory, Vehicle Fleet, Users Directory, Profile). Admins never see customer tabs or screens.
    - In Dispatch Desk, selecting a driver automatically attaches and verifies their linked vehicle, renders vehicle specifications, and prompts for final agreed fare (`final_fare` in NPR).
    - Admin operations in `server/src/routes/admin.ts` require 2FA authentication and enforce RLS `SET LOCAL app.is_admin = 'true'`.
-8. **Bidirectional Driver/Owner Database Sync**:
+   - Admin dashboard queries use `Promise.allSettled` to recover gracefully from network glitches.
+9. **Bidirectional Driver/Owner Database Sync**:
    - PostgreSQL triggers maintain seamless bidirectional synchronization between `cr_owners` and `dka_owners` with recursion protection (`pg_trigger_depth() > 1`). Drivers are managed via `cr_drivers` view and `/api/admin/drivers` endpoints. Adding a driver also assigns and registers their vehicle (`dka_vehicles`).
-9. **Real-Time Push Notifications & Notification Center**:
-   - Manage device push tokens via `src/services/notificationService.ts` and `POST /api/users/push-token`.
-   - Dispatch real-time lifecycle alerts for booking submissions, driver/vehicle assignments, trip rejections, and completions via `server/src/push.ts`.
-   - In-app notification centers for travelers (`CustomerNotificationsModal.tsx`) and admins (`AdminNotificationsModal.tsx`).
+10. **Real-Time Push Notifications & Notification Center**:
+    - Manage device push tokens via `src/services/notificationService.ts` and `POST /api/users/push-token`.
+    - Dispatch real-time lifecycle alerts for booking submissions, driver/vehicle assignments, trip cancellations, rejections, and completions via `server/src/push.ts`.
+    - In-app notification centers for travelers (`CustomerNotificationsModal.tsx`) and admins (`AdminNotificationsModal.tsx`).
 
 ---
 
@@ -104,3 +113,4 @@ npx eas-cli build --profile production --platform android
 - [Offline Resilience Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/OFFLINE_AND_RESILIENCE.md)
 - [Deployment Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/docs/DEPLOYMENT.md)
 - [Contributing Guide](file:///c:/Users/Lenovo/Desktop/DriveKendra/DriveKendra.Mobile/CONTRIBUTING.md)
+
